@@ -88,8 +88,12 @@ function chordExercise(tempo: number): Exercise {
   };
 }
 
+// Highest scale degree any shape reaches is start + 7. Starts above 0 put the top
+// note past B♭5 concert, which is above a trumpet's written C6 (see INSTRUMENTS).
+const SCALE_STARTS = [0, 0, -1, -2, -3];
+
 function scaleExercise(tempo: number): Exercise {
-  const start = rand([0, 0, 2, 4, -3]);
+  const start = rand(SCALE_STARTS);
   const up = Array.from({ length: 8 }, (_, i) => start + i);
   const shapes = [
     [...up, ...up.slice(0, 4).reverse().map((d) => d + 4)],
@@ -129,6 +133,9 @@ function rhythmExercise(tempo: number): Exercise {
     notes: sequence(Array(durs.length).fill(deg(-3)), durs),
   };
 }
+
+/** Identity of an exercise's music (ids are always new, so compare the notes). */
+export const exerciseKey = (ex: Exercise) => `${ex.type}:${ex.notes.map((n) => `${n.midi}/${n.durBeats}`).join(',')}`;
 
 export function makeExercise(type: CardType, tempo: number): Exercise {
   if (type === 'chord') return chordExercise(tempo);

@@ -30,7 +30,8 @@ export function SignIn() {
     if (busy) return;
     const u = username.trim();
     if (!/^[a-zA-Z0-9_]{3,16}$/.test(u)) return fail('Usernames are 3–16 letters, numbers or _.');
-    if (password.length < 6) return fail('Passwords need at least 6 characters.');
+    if (tab === 'signup' && password.length < 8) return fail('Passwords need at least 8 characters.');
+    if (new TextEncoder().encode(password).length > 72) return fail('Passwords can be at most 72 bytes.');
     setBusy(true);
     try {
       const res = await fetch(`/api/auth/${tab}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password }) });
@@ -39,10 +40,11 @@ export function SignIn() {
       sfx('upgrade');
       const s = useGame.getState();
       s.setUser(body.user);
-      // Pull the cloud checkpoint if this device has none (PRD §7b).
-      if (body.save && !s.saved) {
-        try { localStorage.setItem('stc.save.v1', JSON.stringify(body.save)); } catch { /* ignore */ }
-        useGame.setState({ saved: body.save as Run });
+      // Checkpoints (PRD §7b): keep whichever run is further along. The cloud copy is
+      // only replaced when this device's checkpoint is ahead of it.
+      const cloud = body.save as Run | null;
+      if (cloud && (!s.saved || cloud.floor >= s.saved.floor)) {
+        s.adoptSave(cloud);
       } else if (s.saved) {
         void fetch('/api/save', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ run: s.saved }) }).catch(() => {});
       }

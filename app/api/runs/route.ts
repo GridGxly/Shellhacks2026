@@ -1,46 +1,45 @@
-import { currentUser, db, dbConfigured, offline, unauthorized, type RunDoc, type UserDoc } from '@/lib/db';
-
-interface RunIn {
-  run: {
-    instrument: string;
-    floor: number;
-    score: number;
-    hp: number;
-    xp: number;
-    stats: { notesHit: number; notesTotal: number; cardsLanded: number; encoresLanded: number };
-  };
-  endedBy: 'loss' | 'victory';
-}
-
-/** Upper bound on a legit score for this run (PRD §7b: the server doesn't trust the client total). */
-function maxScore(r: RunIn['run']) {
-  let s = 0;
-  for (let f = 1; f <= r.floor; f++) s += 1000 * f + 25 * 32 + (f % 3 === 0 ? 2500 : 0);
-  return s + 300 * r.stats.cardsLanded + 1500 * r.stats.encoresLanded;
-}
+import { currentUser, db, dbConfigured, offline, transaction, unauthorized, type RunDoc, type UserDoc } from '@/lib/db';
+import { RUN_SUBMIT_COOLDOWN_MS } from '@/lib/config';
+import { verifyRun } from '@/lib/score';
+import { bad, duplicate, handled, mutation, readJson } from '@/lib/server/http';
+import { instrument, runId } from '@/lib/server/validation';
+import { weekKey } from '@/lib/server/ranking';
 
 export async function POST(request: Request) {
-  if (!dbConfigured()) return offline();
-  const u = await currentUser();
-  if (!u) return unauthorized();
-  const { run, endedBy } = (await request.json()) as RunIn;
-  if (!run || typeof run.score !== 'number' || run.floor < 0 || run.floor > 18) return Response.json({ error: 'Bad run.' }, { status: 400 });
-  const score = Math.max(0, Math.min(Math.round(run.score), maxScore(run)));
-  const d = await db();
-  const doc: RunDoc = {
-    userId: u._id,
-    username: u.username,
-    score,
-    floor: run.floor,
-    instrument: String(run.instrument).slice(0, 20),
-    accuracy: run.stats.notesTotal ? Math.round((run.stats.notesHit / run.stats.notesTotal) * 100) : 0,
-    notesHit: run.stats.notesHit,
-    notesTotal: run.stats.notesTotal,
-    encores: run.stats.encoresLanded,
-    endedBy: endedBy === 'victory' ? 'victory' : 'loss',
-    at: new Date(),
-  };
-  await d.collection<RunDoc>('runs').insertOne(doc);
-  await d.collection<UserDoc>('users').updateOne({ _id: u._id }, { $inc: { xp: Math.max(0, Math.min(2000, run.xp | 0)) } });
-  return Response.json({ ok: true, score });
+  return handled(async () => {
+    const guard = mutation(request); if (guard) return guard;
+    const b = await readJson(request); if (b instanceof Response) return b;
+    if (b.demo === true) return bad("Practice runs aren't ranked.");
+    if (!runId(b.runId) || !instrument(b.instrument) || (b.demo !== undefined && typeof b.demo !== 'boolean') || (b.durationMs !== undefined && (typeof b.durationMs !== 'number' || !Number.isFinite(b.durationMs)))) return bad('Bad run.');
+    const verified = verifyRun(b.events, b.endedBy);
+    if (typeof verified === 'string') return bad(verified);
+    if (!dbConfigured()) return offline();
+    const u = await currentUser(); if (!u) return unauthorized();
+    const filter = { userId: u._id, runId: b.runId };
+    const runs = (await db()).collection<RunDoc>('runs');
+    const existing = await runs.findOne(filter);
+    if (existing) return Response.json({ ok: true, score: existing.score });
+    try {
+      return await transaction(async (d, session) => {
+        const c = d.collection<RunDoc>('runs');
+        const existing = await c.findOne(filter, { session });
+        if (existing) return Response.json({ ok: true, score: existing.score });
+        const previous = await c.findOne({ userId: u._id }, { session, sort: { at: -1 } });
+        const at = new Date();
+        if (previous && at.getTime() - previous.at.getTime() < RUN_SUBMIT_COOLDOWN_MS) return bad('Please wait before submitting another run.', 429);
+        const { xp, ...result } = verified;
+        await c.insertOne({ ...filter, username: u.username, instrument: b.instrument as RunDoc['instrument'], ...result, endedBy: b.endedBy as RunDoc['endedBy'], ...(b.durationMs === undefined ? {} : { durationMs: Math.round(Math.max(0, Math.min(86400_000, b.durationMs as number))) }), weekKey: weekKey(at), at }, { session });
+        // All submissions write this user, serializing cooldown checks across instances.
+        await d.collection<UserDoc>('users').updateOne({ _id: u._id }, { $inc: { xp }, $set: { lastRunAt: at } }, { session });
+        await d.collection<{ _id: string }>('saves').deleteOne({ _id: u._id, 'run.id': b.runId }, { session });
+        return Response.json({ ok: true, score: verified.score });
+      });
+    } catch (e) {
+      if (duplicate(e)) {
+        const stored = await runs.findOne(filter);
+        if (stored) return Response.json({ ok: true, score: stored.score });
+      }
+      throw e;
+    }
+  });
 }

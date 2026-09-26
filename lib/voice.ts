@@ -59,7 +59,7 @@ export async function fetchTaunt(
     const res = await fetch('/api/taunt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enemy: enemy.voice, heat: h, moment, facts, used }),
+      body: JSON.stringify({ enemy: enemy.voice, heat: h, moment, facts, used: used.slice(-50) }),
       signal: ctrl.signal,
     });
     if (res.status === 204) return null;

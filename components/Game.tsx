@@ -36,7 +36,15 @@ export default function Game() {
     }
     fetch('/api/me')
       .then((r) => (r.ok ? r.json() : null))
-      .then((u) => u && useGame.getState().setUser(u))
+      .then(async (u) => {
+        if (!u) return;
+        useGame.getState().setUser(u);
+        // Restored session on a device with no local checkpoint: pull the cloud one (PRD §7b).
+        if (useGame.getState().saved) return;
+        const r = await fetch('/api/save');
+        const body = r.ok ? await r.json() : null;
+        if (body?.run) useGame.getState().adoptSave(body.run);
+      })
       .catch(() => {});
     return () => window.removeEventListener('resize', fit);
   }, []);
@@ -45,6 +53,8 @@ export default function Game() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const s = useGame.getState();
+      // Mid-performance/attack nothing can be paused, so these overlays wait for the player's turn.
+      if (s.combatLocked && !s.overlay) return;
       if (e.key === 'Escape') {
         if (s.overlay) {
           sfx('back');

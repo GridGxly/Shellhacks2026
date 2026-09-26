@@ -1,4 +1,7 @@
-import { BOSS_DAMAGE, BOSS_HP, ENEMY_DAMAGE, ENEMY_HP } from './config';
+import {
+  BOSS_DAMAGE, BOSS_HP, BOSS_HP_CAP, BOSS_HP_PER_ACT, DAMAGE_PER_ACT, ENEMY_DAMAGE, ENEMY_HP, ENEMY_HP_CAP,
+  ENEMY_HP_PER_ACT, TEMPO_BASE, TEMPO_PER_ACT, TEMPO_PER_FIGHT,
+} from './config';
 
 export type InstrumentId = 'trumpet' | 'clarinet' | 'tenorSax' | 'altoSax' | 'flute' | 'frenchHorn';
 
@@ -90,9 +93,9 @@ export const ENEMIES: Enemy[] = ROSTER.flatMap((row, a) =>
       floor: a * 3 + i + 1,
       boss,
       place: act === 1 ? ACT1_PLACE[i] : ACTS[a].name,
-      hp: boss ? BOSS_HP + 40 * a : ENEMY_HP + 30 * a,
-      damage: (boss ? BOSS_DAMAGE : ENEMY_DAMAGE) + a,
-      tempo: 80 + i * 8 + a * 8,
+      hp: boss ? Math.min(BOSS_HP + BOSS_HP_PER_ACT * a, BOSS_HP_CAP) : Math.min(ENEMY_HP + ENEMY_HP_PER_ACT * a, ENEMY_HP_CAP),
+      damage: (boss ? BOSS_DAMAGE : ENEMY_DAMAGE) + DAMAGE_PER_ACT * a,
+      tempo: TEMPO_BASE + TEMPO_PER_FIGHT * i + TEMPO_PER_ACT * a,
       sprite: `/assets/sprites/${id}.png`,
       attackSprite: id === 'goblin' ? '/assets/sprites/goblin-attack.png' : undefined,
       bg: act === 1 ? ACT1_BG[i] : ACTS[a].bg,
