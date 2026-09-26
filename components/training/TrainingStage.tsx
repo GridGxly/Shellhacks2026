@@ -17,6 +17,7 @@ export interface TrainingStageProps {
   previewNotes?: readonly TrainingPreviewNote[];
   /** Milliseconds since a claim was accepted; never start this on the button click. */
   rewardElapsed?: number;
+  rewardTarget?: { x: number; y: number };
   activity?: number;
   children?: ReactNode;
 }
@@ -45,7 +46,7 @@ export function trainingPluck(elapsed: number, notes: readonly TrainingPreviewNo
   return { angle: Math.round(angle / 2) * 2, glow, note: age >= 40 ? 1 - noteProgress : 0, noteProgress };
 }
 
-export default function TrainingStage({ phase, activeMentor = null, introElapsed = -1, playbackElapsed = -1, previewNotes = [], rewardElapsed = -1, activity = 0, children }: TrainingStageProps) {
+export default function TrainingStage({ phase, activeMentor = null, introElapsed = -1, playbackElapsed = -1, previewNotes = [], rewardElapsed = -1, rewardTarget = { x: 1060, y: 740 }, activity = 0, children }: TrainingStageProps) {
   const entering = phase === 'welcome' && finite(introElapsed) >= 0 && introElapsed < 1200;
   const playing = phase === 'preview' && finite(playbackElapsed) >= 0;
   const notes = entering ? entrance : previewNotes;
@@ -101,12 +102,15 @@ export default function TrainingStage({ phase, activeMentor = null, introElapsed
         {[0, 1, 2, 3, 4, 5, 6, 7].map(i => <path key={i} d={`M${8 + i * 14} 8h10v16h-10Z`} fill={input > i / 8 ? '#6EC6FF' : '#30334E'} />)}
         <text x="64" y="40" textAnchor="middle" fill="#6EC6FF">YOUR INPUT</text>
       </g>}
-      {claiming && <g className="training-reward-star training-motion" transform={`translate(${720 + rewardProgress * 340} ${520 + rewardProgress * 220 - Math.sin(rewardProgress * Math.PI) * 32})`} opacity={rewardElapsed < 900 ? 1 : 1 - (rewardElapsed - 900) / 200}>
+
+    </svg>
+    <div className="training-stage-overlay">{children}</div>
+    <svg className="training-reward-foreground" viewBox="0 0 1440 900" aria-hidden="true" shapeRendering="crispEdges">
+      {claiming && <g className="training-reward-star training-motion" transform={`translate(${720 + rewardProgress * (rewardTarget.x - 720)} ${520 + rewardProgress * (rewardTarget.y - 520) - Math.sin(rewardProgress * Math.PI) * 32})`} opacity={rewardElapsed < 900 ? 1 : 1 - (rewardElapsed - 900) / 200}>
         <path d="M-8 -24H8V-8H24V8H8V24H-8V8H-24V-8H-8Z" fill="#7B572F" stroke="#11162D" strokeWidth="8" />
         <path d="M-8 -24H8V-8H24V8H8V24H-8V8H-24V-8H-8Z" fill="#FFD23F" />
         <path d="M-4 -16h8v12h12v8H4v12h-8V4h-12V-4h12Z" fill="#FFF6E0" />
       </g>}
     </svg>
-    <div className="training-stage-overlay">{children}</div>
   </div>;
 }

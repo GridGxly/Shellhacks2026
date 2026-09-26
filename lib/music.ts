@@ -241,9 +241,10 @@ const KEYS_BY_PC: Record<number, KeySig> = {
   1: { name: 'D♭', accidentals: -5 },
 };
 
-export function writtenKey(offset: number): KeySig {
+export function writtenKey(offset: number, concertKey = CONCERT_KEY_PC, spelling?: 'sharps' | 'flats'): KeySig {
   // The concert key transposed by the instrument's written offset.
-  const pc = (((CONCERT_KEY_PC + offset) % 12) + 12) % 12;
+  const pc = (((concertKey + offset) % 12) + 12) % 12;
+  if (pc === 6 && spelling === 'flats') return { name: 'G♭', accidentals: -6 };
   return KEYS_BY_PC[pc] ?? { name: 'C', accidentals: 0 };
 }
 

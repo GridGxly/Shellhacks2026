@@ -7,11 +7,13 @@ import IntroMontage from './IntroMontage';
 
 let introSeen = false;
 
-type Item = { label: string; act: () => void; primary?: boolean };
+type Item = { label: string; act: () => void; primary?: boolean; mode?: boolean };
 
 export default function Title() {
   const [shot, setShot] = useState(introSeen ? 5 : 0);
   const saved = useGame((s) => s.saved);
+  const startingRun = useGame(s => s.startingRun);
+  const transition = useGame(s => s.transition);
   const user = useGame((s) => s.user);
   const go = useGame((s) => s.go);
   const setOverlay = useGame((s) => s.setOverlay);
@@ -54,23 +56,25 @@ export default function Title() {
       list.push({ label: `CONTINUE · FLOOR ${saved.floor + 1}`, primary: true, act: () => { useGame.getState().continueRun(); go('map'); } });
       list.push({ label: 'NEW CLIMB', act: () => setOverlay('overwrite') });
     } else {
-      list.push({ label: 'BEGIN THE CLIMB', primary: true, act: () => { useGame.getState().newRun(); go('instrument'); } });
+      list.push({ label: startingRun ? 'PREPARING CLIMB…' : 'CAMPAIGN', primary: true, act: () => { void useGame.getState().newRun().then(started => { if (started) go('instrument'); }); } });
     }
-    list.splice(1, 0, { label: 'TAVERN MODE', act: () => go('tavern', 'iris') });
+    list.splice(1, 0, { label: 'TAVERN MODE', mode: true, act: () => go('tavern', 'iris') }, { label: 'GEMS AND I', mode: true, act: () => go('training', 'iris') });
     list.push({ label: 'HOW TO PLAY', act: nav('howto') }, { label: 'MIC CHECK', act: nav('mic') }, { label: 'PITCH LAB', act: nav('lab') }, { label: 'BOSS DEMO', act: nav('bossdemo') }, { label: 'LEADERBOARD', act: nav('leaderboard') });
     if (user) list.push({ label: 'PROFILE', act: nav('profile') });
     list.push({ label: 'CREDITS', act: nav('credits') });
     return list;
-  }, [saved, user, go, setOverlay]);
+  }, [saved, user, go, setOverlay, startingRun]);
 
   const [sel, setSel] = useState(0);
   useEffect(() => {
     if (shot < 5) return;
     const onKey = (e: KeyboardEvent) => {
-      if (useGame.getState().overlay) return;
+      if (useGame.getState().overlay || useGame.getState().transition || useGame.getState().startingRun || e.repeat) return;
+      if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Enter', ' '].includes(e.key)) return;
+      e.preventDefault();
       if (['ArrowRight', 'ArrowDown'].includes(e.key)) { setSel((i) => (i + 1) % items.length); sfx('hover'); }
       if (['ArrowLeft', 'ArrowUp'].includes(e.key)) { setSel((i) => (i - 1 + items.length) % items.length); sfx('hover'); }
-      if (e.key === 'Enter' || e.key === ' ') { sfx('click'); items[sel].act(); }
+      if (e.key === 'Enter' || e.key === ' ') { sfx('click'); items[sel % items.length].act(); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -78,9 +82,9 @@ export default function Title() {
 
   if (shot < 4) return <IntroMontage onLand={land} />;
 
-  const primary = items.filter((i) => i.primary);
-  const secondary = items.filter((i) => !i.primary);
-  const rowSize = secondary.length > 6 ? Math.ceil(secondary.length / 2) : secondary.length;
+  const primary = items.filter((i) => i.primary || i.mode);
+  const secondary = items.filter((i) => !i.primary && !i.mode);
+  const rowSize = secondary.length > 4 ? Math.ceil(secondary.length / 2) : secondary.length;
   const secondaryRows = [secondary.slice(0, rowSize), secondary.slice(rowSize)].filter((row) => row.length);
 
   return (
@@ -92,27 +96,28 @@ export default function Title() {
       <Sprite src="/assets/sprites/serpent.png" x={1130} y={60} size={420} style={{ opacity: 0.45, filter: 'brightness(0)', animation: 'bob 5s 1s steps(4) infinite' }} />
       <div className="fill" style={{ backgroundImage: 'linear-gradient(180deg, rgba(16,17,38,0) 55%, rgba(16,17,38,0.9) 100%)' }} />
       <div style={{ position: 'absolute', left: 575, top: 366, width: 280, height: 320, backgroundImage: 'radial-gradient(ellipse 50% 50% at 50% 50%, rgba(255,240,190,0.45) 0%, rgba(255,230,140,0.12) 55%, rgba(255,230,140,0) 75%)', animation: 'glow 3s steps(4) infinite' }} />
-      <Sprite src={instrumentOf(useGame.getState().run).sprite} x={545} y={356} size={340} style={{ animation: shot === 4 ? 'slam 500ms steps(6) both' : 'breathe 1.2s steps(2) infinite' }} />
+      <Sprite src={instrumentOf(useGame.getState().run).sprite} x={545} y={314} size={310} style={{ animation: shot === 4 ? 'slam 500ms steps(6) both' : 'breathe 1.2s steps(2) infinite' }} />
       <img
         src="/assets/logo.png"
         alt="Slay the Choir"
-        style={{ position: 'absolute', left: 410, top: -24, width: 620, animation: shot === 4 ? 'slam 600ms 200ms steps(8) both' : undefined }}
+        style={{ position: 'absolute', left: 430, top: -38, width: 580, animation: shot === 4 ? 'slam 600ms 200ms steps(8) both' : undefined }}
       />
       <FloatingNotes count={8} />
       {shot === 4 && <div style={{ position: 'absolute', left: 570, top: 665, width: 300, height: 22, background: '#FFF6E0', animation: 'burst 400ms steps(5) forwards', pointerEvents: 'none' }} />}
 
       {shot >= 5 && (
-        <div style={{ position: 'absolute', left: 0, top: 700, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+        <div style={{ position: 'absolute', left: 0, top: 606, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 17 }}>
+          <div style={{ position: 'absolute', top: -16, bottom: -18, left: 150, right: 150, background: 'rgba(16,17,38,.93)', border: '3px solid #3A3F70', pointerEvents: 'none' }} />
           {primary.map((it) => {
             const i = items.indexOf(it);
             return (
-              <MenuButton key={it.label} big active={sel === i} onHover={() => setSel(i)} onClick={it.act} delay={0}>
-                {it.label}
+              <MenuButton key={it.label} big disabled={startingRun || Boolean(transition)} active={sel === i} onHover={() => setSel(i)} onClick={it.act} delay={0}>
+                {it.label}{it.label === 'GEMS AND I' && <span className="f-label" style={{ fontSize: 15, color: '#9FD8FF', marginLeft: 20 }}>TRAINING</span>}
               </MenuButton>
             );
           })}
           {saved && (
-            <div className="f-label" style={{ fontSize: 13, color: 'var(--sun)', animation: 'fadeIn 400ms 120ms both' }}>
+            <div className="f-label" style={{ position: 'relative', fontSize: 13, color: 'var(--sun)', animation: 'fadeIn 400ms 120ms both' }}>
               {saved.score.toLocaleString()} PTS · {saved.tips} TIPS · HP {saved.hp}
             </div>
           )}
@@ -123,7 +128,7 @@ export default function Title() {
               return (
                 <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 44 }}>
                   {n > 0 && <div style={{ width: 6, height: 6, background: 'var(--magenta)' }} />}
-                  <MenuButton active={sel === i} onHover={() => setSel(i)} onClick={it.act} delay={80 + n * 60}>
+                  <MenuButton disabled={startingRun || Boolean(transition)} active={sel === i} onHover={() => setSel(i)} onClick={it.act} delay={80 + n * 60}>
                     {it.label === 'TAVERN MODE' && <MugIcon />} {it.label}
                   </MenuButton>
                 </div>
@@ -139,10 +144,11 @@ export default function Title() {
   );
 }
 
-function MenuButton({ children, active, big, onClick, onHover, delay }: { children: React.ReactNode; active: boolean; big?: boolean; onClick: () => void; onHover: () => void; delay: number }) {
+function MenuButton({ children, active, big, disabled, onClick, onHover, delay }: { children: React.ReactNode; active: boolean; big?: boolean; disabled?: boolean; onClick: () => void; onHover: () => void; delay: number }) {
   return (
     <button
       className="f-press"
+      disabled={disabled}
       onMouseEnter={() => { onHover(); sfx('hover'); }}
       onClick={() => { sfx('click'); onClick(); }}
       style={{

@@ -131,7 +131,7 @@ export function guestStartPlan(state: TrainingState, plan: TrainingPlan, now = D
 }
 export function guestBegin(state: TrainingState, now = Date.now()): TrainingState {
   if (state.day !== utcDay(now) || !state.plan || state.nextIndex >= 4) throw new Error('Refresh today’s practice before starting.');
-  return { ...state, status: 'active', activeAttempt: { id: id(), exerciseId: state.plan.exercises[state.nextIndex].id, startAt: now + TRAINING_START_DELAY_MS }, revision: state.revision + 1 };
+  return { ...state, serverNow: now, status: 'active', activeAttempt: { id: id(), exerciseId: state.plan.exercises[state.nextIndex].id, startAt: now + TRAINING_START_DELAY_MS }, revision: state.revision + 1 };
 }
 export function guestSubmit(state: TrainingState, result: TrainingResult, now = Date.now()): TrainingState {
   const ex = state.plan?.exercises[state.nextIndex];

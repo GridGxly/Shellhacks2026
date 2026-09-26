@@ -314,9 +314,10 @@ export function sfx(name: Sfx, when = 0) {
 }
 
 /** Metronome click at an exact AudioContext time. */
-export function clickAt(time: number, accent: boolean) {
+export function clickAt(time: number, accent: boolean): OscillatorNode | undefined {
   if (settings.metronome !== 'click') return;
-  tone(accent ? 103 : 96, time, accent ? 0.05 : 0.03, 'square', accent ? 0.35 : 0.25, sfxGain);
+  ac();
+  return makeTone(accent ? 103 : 96, time, accent ? 0.05 : 0.03, 'square', accent ? 0.35 : 0.25, sfxGain);
 }
 
 const buffers = new Map<string, Promise<AudioBuffer>>();

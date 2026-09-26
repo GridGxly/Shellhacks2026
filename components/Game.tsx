@@ -6,6 +6,7 @@ import { ENEMIES } from '@/lib/content';
 import { mic } from '@/lib/mic';
 import Title from './screens/Title';
 import Tavern from './screens/Tavern';
+import Training from './screens/Training';
 import { Credits, HowToPlay, MicCheck } from './screens/Menus';
 import { PitchLab } from './screens/PitchLab';
 import { BossDemo } from './screens/BossDemo';
@@ -119,6 +120,7 @@ export default function Game() {
           <>
             {screen === 'title' && <Title />}
             {screen === 'tavern' && <Tavern />}
+            {screen === 'training' && <Training />}
             {screen === 'howto' && <HowToPlay />}
             {screen === 'mic' && <MicCheck />}
             {screen === 'lab' && <PitchLab />}
