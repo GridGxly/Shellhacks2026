@@ -1,19 +1,19 @@
 // All tunable numbers (PRD §9). Change them here only.
 
 export const PLAYER_HP = 20;
-export const ENEMY_HP = 90;
+export const ENEMY_HP = 60; // one hand: 3 cards x 20
 export const ENEMY_DAMAGE = 4;
-export const BOSS_HP = 150; // cards (3 x 30) + Encore (120) = 210, so Encore alone no longer one-shots
+export const BOSS_HP = 120; // Encore deals 120 and ends the boss; three cards (60) do not
 export const BOSS_DAMAGE = 4;
-export const CARD_DAMAGE = 30;
+export const CARD_DAMAGE = 20;
 export const ULTIMATE_DAMAGE = 120;
 export const HAND_SIZE = 3; // one chord, one rhythm, one scale; each card can land once per fight
 
-// Per-act scaling (act 1 = +0). Enemy HP is capped at what one hand can deal at
-// base damage (3 cards, plus one Encore for bosses), so no fight can run out of
-// actions. Later acts get harder through tempo and enemy damage instead.
+// Per-act scaling (act 1 = +0). HP stays inside what one hand can deal at base
+// damage (3 cards, plus one Encore for bosses), so no fight can run out of
+// actions. Bosses stay at BOSS_HP. Later acts get harder through tempo and damage.
 export const ENEMY_HP_PER_ACT = 0;
-export const BOSS_HP_PER_ACT = 40;
+export const BOSS_HP_PER_ACT = 0;
 export const ENEMY_HP_CAP = HAND_SIZE * CARD_DAMAGE;
 export const BOSS_HP_CAP = HAND_SIZE * CARD_DAMAGE + ULTIMATE_DAMAGE;
 export const DAMAGE_PER_ACT = 1;
@@ -76,7 +76,7 @@ export interface StatDef {
 export const STATS: StatDef[] = [
   { id: 'maxHp', label: 'Max HP', color: '#E8434F', base: PLAYER_HP, step: 4, max: 32, cost: 60, format: (v) => `${v}`, blurb: 'More room for mistakes. Heals to the new max.' },
   { id: 'cardDamage', label: 'Card Damage', color: '#FFD23F', base: CARD_DAMAGE, step: 5, max: 45, cost: 80, format: (v) => `${v}`, blurb: 'Every card that lands hits 5 harder.' },
-  { id: 'encoreDamage', label: 'Encore Damage', color: '#FF4FA3', base: ULTIMATE_DAMAGE, step: 30, max: 150, cost: 100, format: (v) => `${v}`, blurb: 'At 150 the Encore ends the boss in one shot.' },
+  { id: 'encoreDamage', label: 'Encore Damage', color: '#FF4FA3', base: ULTIMATE_DAMAGE, step: 30, max: 150, cost: 100, format: (v) => `${v}`, blurb: 'A landed Encore ends the boss by itself.' },
   { id: 'timingWindow', label: 'Timing Window', color: '#6EC6FF', base: TIMING_WINDOW_MS, step: 25, max: 225, cost: 60, format: (v) => `±${v}MS`, blurb: 'Notes can land a little earlier or later and still count.' },
   { id: 'passLine', label: 'Pass Line', color: '#4CC26B', base: Math.round(PASS_THRESHOLD * 100), step: -5, max: 70, cost: 120, format: (v) => `${v}%`, blurb: 'You need fewer right notes for a card to land.' },
 ];
