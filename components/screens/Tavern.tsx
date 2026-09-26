@@ -16,7 +16,13 @@ import Staff from '../Staff';
 import { HOOK_START, tomatoThrows, verdictTargets, pvpVerdictTargets } from '../tavern/Gags';
 import TavernRoom, { type TavernPhase } from '../tavern/TavernRoom';
 import { Ornament } from '../ui';
+import { MobileSurface } from '../MobileSurface';
 import './tavern-screen.css';
+
+const MIC_BLOCKED_HELP = 'Microphone blocked. Allow it in your browser\u2019s site settings (the aA or lock icon by the address), then tap Enable microphone again. No instrument? Choose Demo performance.';
+
+/** Every verdict gag and the continue button have played by then. */
+const VERDICT_SETTLED_MS = 6000;
 
 export default function Tavern() {
   const user = useGame((s) => s.user);
@@ -30,6 +36,8 @@ export default function Tavern() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [micReady, setMicReady] = useState(false);
+  const [micAsking, setMicAsking] = useState(false);
+  const [micBlocked, setMicBlocked] = useState(false);
   const [demo, setDemo] = useState(false);
   const [copied, setCopied] = useState(false);
   const [now, setNow] = useState(0);
@@ -37,6 +45,7 @@ export default function Tavern() {
   const [results, setResults] = useState<(NoteResult | undefined)[]>([]);
   const [activity, setActivity] = useState<[number, number]>([0, 0]);
   const [hadBuff] = useState(() => useGame.getState().tavernBuff);
+  const micState = micReady ? 'ready' : micAsking ? 'asking' : demo ? 'demo' : micBlocked ? 'blocked' : 'off';
   const lifetime = useRef<AbortController | null>(null);
   const recording = useRef<TavernRecorder | null>(null);
   const performanceStarted = useRef(false);
@@ -70,12 +79,29 @@ export default function Tavern() {
   useEffect(() => {
     const controller = lifetime.current = new AbortController();
     playMusic('tavern'); stopVoices(); muteMusic(false); preloadTavernCrowd();
-    const clock = window.setInterval(() => setNow(Date.now()), 50);
+    // Already allowed: be ready without a prompt. Already blocked: say so up front.
+    void navigator.permissions?.query({ name: 'microphone' as PermissionName }).then(async (permission) => {
+      if (controller.signal.aborted) return;
+      if (permission.state === 'denied') setMicBlocked(true);
+      if (permission.state === 'granted' && await mic.start() && !controller.signal.aborted) setMicReady(true);
+    }).catch(() => {});
     return () => {
-      stopCrowd.current?.(); controller.abort(); window.clearInterval(clock); recording.current?.cancel();
+      stopCrowd.current?.(); controller.abort(); recording.current?.cancel();
       mic.endRecording(); mic.stop(); muteMusic(false);
     };
   }, []);
+
+  // The show clock only runs while something on stage is timed. The lobby,
+  // performer select and waiting room are static, so they no longer re-render
+  // the whole tavern twenty times a second.
+  const ticking = ['countdown', 'performing', 'uploading', 'waiting', 'duet'].includes(phase) || (phase === 'verdict' && verdictElapsed < VERDICT_SETTLED_MS);
+  useEffect(() => {
+    if (!ticking) return;
+    const tick = () => setNow(Date.now());
+    const first = window.setTimeout(tick, 0);
+    const clock = window.setInterval(tick, 50);
+    return () => { window.clearTimeout(first); window.clearInterval(clock); };
+  }, [ticking]);
 
   useEffect(() => {
     if (phase !== 'verdict' || !verdictAt || pass === null) return;
@@ -187,15 +213,20 @@ export default function Tavern() {
   }, [room, seat, offset, phase, disconnect]);
 
   const enableMic = async () => {
-    if (busy) return;
-    ac(); setBusy(true); setError('');
+    if (busy) return false;
+    ac(); setBusy(true); setError(''); setMicAsking(true);
     const ready = await mic.start();
-    if (lifetime.current?.signal.aborted) { mic.stop(); return; }
-    setMicReady(ready); setDemo(false); setBusy(false);
-    if (!ready) setError('Microphone unavailable. Allow access in your browser, or try the demo performance.');
+    setMicAsking(false);
+    if (lifetime.current?.signal.aborted) { mic.stop(); return false; }
+    setMicReady(ready); setMicBlocked(!ready); setDemo(false); setBusy(false);
+    if (!ready) { sfx('denied'); setError(MIC_BLOCKED_HELP); }
+    return ready;
   };
+  // Hosting or joining asks for the microphone in the same tap, so the show
+  // never sits behind a greyed-out button with no explanation.
   const enter = async (join: boolean) => {
-    if (busy || (!micReady && !demo)) { if (!busy) setError('Enable your microphone or choose demo performance first.'); return; }
+    if (busy) return;
+    if (!micReady && !demo && !(await enableMic())) return;
     setBusy(true); setError(''); ac();
     try {
       const entry = await tavernRequest<TavernEntry>(join ? `/api/tavern/${code}/join` : '/api/tavern', { instrument, characterId, mode, name: tavernGuestName() }, undefined, lifetime.current!.signal);
@@ -220,16 +251,18 @@ export default function Tavern() {
 
   return <TavernRoom phase={stagePhase} mode={gameMode} winnerSide={winnerSide} mine={{ name: mine?.name ?? user?.username ?? 'YOU', characterId: mine?.characterId ?? characterId, instrument: inst.id, accuracy: myAccuracy }} partner={partner ? { name: partner.name, characterId: partner.characterId, instrument: partner.instrument, accuracy: partnerAccuracy } : null} joined={!!partner} lightElapsed={elapsed === -1 && localStart === null ? -1 : elapsed + 4000} verdictElapsed={verdictElapsed} pass={pass} activity={activity}>
     {phase === 'lobby' && selecting && <TavernCharacterSelect characterId={characterId} instrument={instrument} onCharacterChange={setCharacterId} onInstrumentChange={setInstrument} onContinue={() => setSelecting(false)} onBack={returnHome} continueLabel="TO THE TAVERN →" />}
-    {phase === 'lobby' && !selecting && <>
+    {phase === 'lobby' && !selecting && <MobileSurface className="tavern-mobile-lobby">
       <header className="tavern-heading"><h1>TAVERN MODE</h1><Ornament /><p>{isPvp ? 'Same phrase. Best accuracy wins. A draw stays a draw.' : 'Two musicians. Complementary parts. One shared performance.'}</p></header>
-      <div className="tavern-mode-choice" role="group" aria-label="Tavern game mode"><button aria-pressed={!isPvp} className={`tavern-outline${!isPvp ? ' selected' : ''}`} onClick={() => setMode('duet')}>DUET · TOGETHER</button><button aria-pressed={isPvp} className={`tavern-outline${isPvp ? ' selected' : ''}`} onClick={() => setMode('pvp')}>1V1 · FACE OFF</button></div>
+      <div className="tavern-mode-choice" role="group" aria-label="Tavern game mode"><button aria-pressed={!isPvp} className={`tavern-outline${!isPvp ? ' selected' : ''}`} onClick={() => setMode('duet')}>DUET<span className="desk-only"> · TOGETHER</span></button><button aria-pressed={isPvp} className={`tavern-outline${isPvp ? ' selected' : ''}`} onClick={() => setMode('pvp')}>1V1<span className="desk-only"> · FACE OFF</span></button></div>
       <div className="tavern-lobby-cards">
-        <section className="tavern-board"><span className="tavern-board-number">01</span><h2>HOST A SHOW</h2><p>Take the stage and invite one friend with a four-character code.</p><button className="tavern-action" disabled={busy || (!micReady && !demo)} onClick={() => void enter(false)}>HOST SHOW →</button></section>
-        <section className="tavern-board"><span className="tavern-board-number">02</span><h2>JOIN A SHOW</h2><label htmlFor="tavern-code">YOUR FRIEND’S CODE</label><input id="tavern-code" aria-label="Tavern code" autoComplete="off" maxLength={4} value={code} placeholder="ABCD" onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter' && code.length === 4) void enter(true); }} /><button className="tavern-action" disabled={busy || code.length !== 4 || (!micReady && !demo)} onClick={() => void enter(true)}>JOIN SHOW →</button></section>
+        <section className="tavern-board"><span className="tavern-board-number">01</span><h2>HOST A SHOW</h2><p>Take the stage and invite one friend with a four-character code.</p><button className="tavern-action" disabled={busy} onClick={() => void enter(false)}>HOST SHOW →</button></section>
+        <section className="tavern-board"><span className="tavern-board-number">02</span><h2>JOIN A SHOW</h2><label htmlFor="tavern-code">YOUR FRIEND’S CODE</label><input id="tavern-code" aria-label="Tavern code" autoComplete="off" autoCapitalize="characters" autoCorrect="off" spellCheck={false} maxLength={4} value={code} placeholder="ABCD" onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter' && code.length === 4) void enter(true); }} /><button className="tavern-action" disabled={busy || code.length !== 4} onClick={() => void enter(true)}>JOIN SHOW →</button></section>
       </div>
-      <div className="tavern-setup"><button className="tavern-outline" disabled={busy} onClick={() => setSelecting(true)}>{getTavernCharacter(characterId).name.toUpperCase()} · {inst.name.toUpperCase()}<br />CHANGE PERFORMER</button><button className="tavern-outline" disabled={busy} onClick={() => void enableMic()}>{micReady ? '✓ MICROPHONE READY' : 'ENABLE MICROPHONE'}</button><button className={`tavern-outline${demo ? ' selected' : ''}`} disabled={busy} onClick={() => { mic.stop(); setMicReady(false); setDemo(true); setError(''); ac(); }}>DEMO PERFORMANCE</button></div>
-      <p className="tavern-note">HEADPHONES RECOMMENDED · You hear your partner only during the final replay.<br />{demo ? 'DEMO: notes are simulated; the replay uses instruments.' : 'Guests welcome. Recordings disappear after the show.'}</p>
-    </>}
+      <div className="tavern-setup"><button className="tavern-outline" disabled={busy} onClick={() => setSelecting(true)}>{getTavernCharacter(characterId).name.toUpperCase()} · {inst.name.toUpperCase()}<br />CHANGE PERFORMER</button><button className="tavern-outline tavern-mic" data-state={micState} disabled={busy || micReady} onClick={() => void enableMic()}>{micState === 'ready' ? '✓ MICROPHONE READY' : micState === 'asking' ? 'ALLOW THE MIC…' : micState === 'blocked' ? 'MIC BLOCKED · RETRY' : micState === 'demo' ? 'USE MY MICROPHONE' : '● ENABLE MICROPHONE'}<small>{micState === 'ready' ? 'YOU CAN HOST OR JOIN' : micState === 'demo' ? 'DEMO IS ON INSTEAD' : 'NEEDED TO PERFORM'}</small></button><button className={`tavern-outline${demo ? ' selected' : ''}`} disabled={busy} onClick={() => { mic.stop(); setMicReady(false); setDemo(true); setError(''); ac(); }}>DEMO PERFORMANCE</button></div>
+      <p className="tavern-note">HEADPHONES RECOMMENDED · You hear your partner only during the final replay.<br />{demo ? 'DEMO: notes are simulated; the replay uses instruments.' : micReady ? 'Guests welcome. Recordings disappear after the show.' : 'Hosting or joining asks for your microphone once. No instrument? Choose Demo performance.'}</p>
+      <button className="mobile-lobby-back" onClick={returnHome}>← BACK HOME</button>
+      {error && <p className="mobile-lobby-error" role="alert">{error}</p>}
+    </MobileSurface>}
     {(stagePhase === 'hosting' || stagePhase === 'ready') && <>
       <section className="tavern-room-code"><span className="f-label">{seat?.part === 'A' ? isPvp ? 'INVITE YOUR 1V1 CHALLENGER' : 'INVITE YOUR DUET PARTNER' : `${room?.host.name ?? 'YOUR HOST'}’S SHOW`}</span><strong>{seat?.code}</strong><button className="tavern-outline" onClick={() => { void navigator.clipboard.writeText(seat!.code).then(() => setCopied(true)).catch(() => setError('Copy the four-character code shown above.')); }}>{copied ? 'COPIED ✓' : 'COPY CODE'}</button></section>
       <section className="tavern-bottom-status"><h2>{!partner ? 'WAITING FOR YOUR PARTNER…' : seat?.part === 'A' ? 'THE STAGE IS YOURS' : 'WAITING FOR THE HOST…'}</h2><p>{!partner ? 'Share the code. Your friend can join as a guest.' : isPvp ? '1V1 · Both play the same phrase. Higher accuracy wins; ties draw.' : `You play Part ${seat?.part} · ${seat?.part === 'A' ? 'Melody' : 'Harmony'} · four bars together.`}</p>{partner && seat?.part === 'A' && <button className="tavern-action" disabled={busy} onClick={() => void startShow()}>START SHOW →</button>}</section>

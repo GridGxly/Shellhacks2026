@@ -282,7 +282,7 @@ export type Sfx =
   | 'hover' | 'click' | 'back' | 'deal' | 'drag' | 'drop' | 'flip'
   | 'tick' | 'tickAccent' | 'noteHit' | 'noteMiss' | 'stampHit' | 'stampMiss'
   | 'zap' | 'impact' | 'damage' | 'hurt' | 'coin' | 'upgrade' | 'lockShatter'
-  | 'wipe' | 'pop' | 'denied';
+  | 'wipe' | 'pop' | 'denied' | 'equip';
 
 export function sfx(name: Sfx, when = 0) {
   const c = ac();
@@ -312,6 +312,7 @@ export function sfx(name: Sfx, when = 0) {
     case 'wipe': return noise(t, 0.35, 0.2, o, 1200, 6000);
     case 'pop': return tone(79, t, 0.06, 'square', 0.18, o, 91);
     case 'denied': tone(55, t, 0.08, 'square', 0.18, o); return tone(50, t + 0.09, 0.12, 'square', 0.18, o);
+    case 'equip': return [67, 74, 79].forEach((m, i) => tone(m, t + i * 0.055, 0.1, 'triangle', 0.2, o));
   }
 }
 

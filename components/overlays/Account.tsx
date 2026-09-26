@@ -3,14 +3,15 @@ import { useEffect, useRef, useState } from 'react';
 import { sfx } from '@/lib/audio';
 import { useGame, type Run } from '@/lib/store';
 import { YellowButton } from '../ui';
+import { MobileSurface } from '../MobileSurface';
 
 function Modal({ children, width = 560 }: { children: React.ReactNode; width?: number }) {
   const close = () => { sfx('back'); useGame.getState().setOverlay(null); };
   return (
-    <div className="fill" style={{ zIndex: 60 }}>
+    <MobileSurface className="account-mobile"><div className="fill account-modal" role="dialog" aria-modal="true" aria-label="Account" style={{ zIndex: 60 }}>
       <div className="fill" onClick={close} style={{ background: 'rgba(8,9,20,0.78)', animation: 'fadeIn 180ms steps(3) both' }} />
-      <div style={{ position: 'absolute', left: (1440 - width) / 2, top: 150, width, animation: 'panelIn 300ms steps(6) both' }}>{children}</div>
-    </div>
+      <div className="account-modal-panel" style={{ position: 'absolute', left: (1440 - width) / 2, top: 150, width, animation: 'panelIn 300ms steps(6) both' }}>{children}</div>
+    </div></MobileSurface>
   );
 }
 
@@ -24,7 +25,7 @@ export function SignIn() {
   const [errKey, setErrKey] = useState(0);
   const [busy, setBusy] = useState(false);
   const first = useRef<HTMLInputElement>(null);
-  useEffect(() => first.current?.focus(), [tab]);
+  useEffect(() => { if (!window.matchMedia('(pointer: coarse)').matches) first.current?.focus(); }, [tab]);
 
   const submit = async () => {
     if (busy) return;
@@ -94,11 +95,11 @@ export function SignIn() {
             </button>
           ))}
         </div>
-        <div key={errKey} style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '26px 32px', animation: errKey ? 'errShake 300ms steps(5)' : undefined }}>
+        <div className="account-form-body" key={errKey} style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '26px 32px', animation: errKey ? 'errShake 300ms steps(5)' : undefined }}>
           <div className="f-body" style={{ fontSize: 17, color: 'var(--soft)' }}>
             {tab === 'login' ? 'Pick up your checkpoint on any device.' : 'Save checkpoints and post your scores to the leaderboard.'}
           </div>
-          {input({ label: 'USERNAME', value: username, onChange: (e) => setUsername(e.target.value), maxLength: 16, autoComplete: 'username', innerRef: first })}
+          {input({ label: 'USERNAME', value: username, onChange: (e) => setUsername(e.target.value), maxLength: 16, autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false, autoComplete: 'username', innerRef: first })}
           {input({ label: 'PASSWORD', type: 'password', value: password, onChange: (e) => setPassword(e.target.value), autoComplete: tab === 'login' ? 'current-password' : 'new-password' })}
           {error && <div className="f-body" style={{ padding: '8px 12px', background: 'rgba(232,67,79,0.15)', border: '2px solid var(--hp)', fontSize: 16, color: '#FF8A93' }}>{error}</div>}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
