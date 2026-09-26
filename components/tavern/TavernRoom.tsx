@@ -3,20 +3,26 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { sfx } from '@/lib/audio';
 import { TAVERN_PASS } from '@/lib/config';
 import { INSTRUMENTS, type InstrumentId } from '@/lib/content';
-import { Sprite } from '../ui';
+import type { TavernCharacterId } from '@/lib/tavern-characters';
+import type { TavernMode } from '@/lib/tavern-types';
 import Crowd from './Crowd';
-import Gags, { musicianReaction, tomatoThrows, verdictTargets, type StageSide } from './Gags';
+import TavernAvatar from './TavernAvatar';
+import Gags, { musicianReaction, pvpVerdictTargets, tomatoThrows, verdictTargets, type StageSide } from './Gags';
 import './tavern.css';
 
 export type TavernPhase = 'lobby' | 'hosting' | 'ready' | 'countdown' | 'performing' | 'uploading' | 'waiting' | 'duet' | 'verdict' | 'disconnected';
 export interface TavernStagePlayer {
   name: string;
   instrument: InstrumentId;
+  characterId?: TavernCharacterId;
   /** Correct notes / total notes, from zero to one. */
   accuracy?: number;
 }
 export interface TavernRoomProps {
   phase: TavernPhase;
+  mode?: TavernMode;
+  /** Relative stage side: undefined before a result, null for a battle draw. */
+  winnerSide?: StageSide | null;
   mine: TavernStagePlayer;
   partner: TavernStagePlayer | null;
   joined: boolean;
@@ -30,14 +36,14 @@ export interface TavernRoomProps {
 
 const emptyTargets = { hooked: null, tomatoes: [0, 0] as const };
 
-export default function TavernRoom({ phase, mine, partner, joined, lightElapsed, verdictElapsed, pass, activity, children }: TavernRoomProps) {
+export default function TavernRoom({ phase, mode = 'duet', winnerSide, mine, partner, joined, lightElapsed, verdictElapsed, pass, activity, children }: TavernRoomProps) {
   const verdict = phase === 'verdict';
-  const targets = verdict && pass === false ? verdictTargets(mine.accuracy ?? 0, partner?.accuracy ?? 0) : emptyTargets;
+  const targets = !verdict ? emptyTargets : mode === 'pvp' ? pvpVerdictTargets(winnerSide) : pass === false ? verdictTargets(mine.accuracy ?? 0, partner?.accuracy ?? 0) : emptyTargets;
   const throws = tomatoThrows(targets);
   const quiet = ['countdown', 'performing', 'uploading', 'waiting', 'duet'].includes(phase);
   const lit = lightElapsed >= 0 && (quiet || verdict);
   const shade = quiet ? Math.max(0, Math.min(0.72, Math.floor((lightElapsed - 150) / 75) * 0.18)) : 0;
-  const crowdMode = verdict ? pass ? 'clap' : 'boo' : phase === 'duet' ? 'sway' : quiet && lightElapsed >= 1300 ? 'hush' : 'idle';
+  const crowdMode = verdict ? mode === 'pvp' ? winnerSide === undefined ? 'idle' : 'clap' : pass ? 'clap' : 'boo' : phase === 'duet' ? 'sway' : quiet && lightElapsed >= 1300 ? 'hush' : 'idle';
   const previousLight = useRef(-1);
   const [cheer, setCheer] = useState(false);
   useEffect(() => {
@@ -54,8 +60,8 @@ export default function TavernRoom({ phase, mine, partner, joined, lightElapsed,
     previousLight.current = lightElapsed;
   }, [lightElapsed]);
 
-  return <div className={`tavern-room${joined ? ' tavern-join-shake' : ''}`} data-phase={phase}>
-    <RoomBackdrop />
+  return <div className={`tavern-room${joined ? ' tavern-join-shake' : ''}`} data-phase={phase} data-mode={mode}>
+    <RoomBackdrop mode={mode} />
     {[156, 488, 952, 1280].map((x, i) => <div key={x} className="tavern-lamp-glow" aria-hidden="true" style={{ left: x - 130, opacity: quiet ? 0.3 : 1, animationDelay: `${i * -650}ms` }} />)}
     <div className="tavern-house-shade" aria-hidden="true" style={{ opacity: shade }} />
     <div className="tavern-chain" aria-hidden="true" style={{ transform: `translateY(${lightElapsed >= 0 && lightElapsed < 300 ? lightElapsed < 150 ? 28 : 12 : 0}px)` }}>
@@ -70,19 +76,18 @@ export default function TavernRoom({ phase, mine, partner, joined, lightElapsed,
     {phase !== 'lobby' && phase !== 'disconnected' && <>
       {([mine, partner] as const).map((player, index) => {
         const side = index as StageSide;
-        if (!player) return <div key="empty" className="tavern-empty" aria-label="Waiting for the second musician"><span>?</span><div className="f-label">YOUR DUET PARTNER</div></div>;
+        if (!player) return <div key="empty" className="tavern-empty" aria-label="Waiting for the second musician"><span>?</span><div className="f-label">{mode === 'pvp' ? 'YOUR OPPONENT' : 'YOUR DUET PARTNER'}</div></div>;
         const reaction = musicianReaction(side, verdictElapsed, targets, throws);
         const instrument = INSTRUMENTS.find((i) => i.id === player.instrument) ?? INSTRUMENTS[0];
         const playing = phase === 'performing' || phase === 'duet' || ((phase === 'waiting' || phase === 'uploading') && side === 1 && player.accuracy === undefined);
         const spotlightOn = lit && lightElapsed >= (side === 0 ? 700 : 1000);
         const brightness = quiet && !spotlightOn ? 1 - shade : 1;
-        const palette = side === 1 && mine.instrument === partner?.instrument ? 'hue-rotate(160deg) saturate(1.2)' : '';
+        const palette = side === 1 && mine.instrument === partner?.instrument && (mine.characterId ?? 'riff') === 'riff' && (player.characterId ?? 'riff') === 'riff' ? 'hue-rotate(160deg) saturate(1.2)' : '';
+        const accuracyColor = mode === 'pvp' ? winnerSide === undefined ? '#FFF6E0' : winnerSide === null ? '#FFD23F' : winnerSide === side ? '#4CC26B' : '#FF8A93' : (player.accuracy ?? 0) >= TAVERN_PASS ? '#4CC26B' : '#FF8A93';
         return <div key={side}>
           <div className={`tavern-musician${joined && side === 1 ? ' tavern-guest-drop' : ''}`} style={{ left: side === 0 ? 390 : 710 }}>
             <div style={{ transform: `translateX(${reaction.x}px) skewX(${reaction.skew}deg)`, opacity: reaction.gone ? 0 : 1 }}>
-              <div style={{ transform: side === 1 ? 'scaleX(-1)' : undefined }}>
-                <Sprite src={instrument.sprite} x={0} y={0} size={340} className={playing ? 'tavern-playing' : 'tavern-breathing'} style={{ filter: `${palette} ${reaction.flash ? 'brightness(3) sepia(1) saturate(7) hue-rotate(315deg)' : `brightness(${brightness})`}` }} />
-              </div>
+              <TavernAvatar characterId={player.characterId} instrument={player.instrument} facing={side === 1 ? 'left' : 'right'} size={340} className={playing ? 'tavern-playing' : 'tavern-breathing'} style={{ filter: `${palette} ${reaction.flash ? 'brightness(3) sepia(1) saturate(7) hue-rotate(315deg)' : `brightness(${brightness})`}` }} />
             </div>
             {side === 1 && joined && <div className="tavern-landing-dust" aria-hidden="true">{Array.from({ length: 7 }, (_, n) => <i key={n} style={{ left: n * 32, animationDelay: `${300 + (n % 2) * 30}ms` }} />)}</div>}
           </div>
@@ -90,14 +95,14 @@ export default function TavernRoom({ phase, mine, partner, joined, lightElapsed,
           <div className="tavern-nameplate" style={{ left: side === 0 ? 402 : 722 }}>
             <div className="tavern-name-line"><span className="f-press">{player.name}</span>{side === 0 && <b className="f-label">YOU</b>}</div>
             <span className="f-label tavern-instrument-name">{instrument.name}</span>
-            {verdict && player.accuracy !== undefined && <strong className="f-press tavern-accuracy" style={{ color: player.accuracy >= TAVERN_PASS ? '#4CC26B' : '#FF8A93' }}>{Math.round(player.accuracy * 100 * Math.min(1, Math.max(0, verdictElapsed) / 1100))}%</strong>}
+            {verdict && player.accuracy !== undefined && <strong className="f-press tavern-accuracy" style={{ color: accuracyColor }}>{Math.round(player.accuracy * 100 * Math.min(1, Math.max(0, verdictElapsed) / 1100))}%</strong>}
           </div>
         </div>;
       })}
     </>}
-    <Crowd mode={crowdMode} cheer={joined && cheer} elapsed={verdictElapsed} throws={throws} />
-    {verdict && pass === false && <Gags elapsed={verdictElapsed} targets={targets} />}
-    {verdict && pass === true && <Ovation />}
+    <Crowd mode={crowdMode} cheer={joined && cheer} elapsed={verdictElapsed} throws={throws} restrained={mode === 'pvp' && winnerSide === null} />
+    {verdict && (targets.hooked !== null || targets.tomatoes.some(Boolean)) && <Gags elapsed={verdictElapsed} targets={targets} />}
+    {verdict && (mode === 'pvp' ? winnerSide !== undefined : pass === true) && <Ovation winnerSide={mode === 'pvp' ? winnerSide : undefined} />}
     <div className="tavern-content">{children}</div>
   </div>;
 }
@@ -108,14 +113,17 @@ function ActivityNotes({ side, level }: { side: StageSide; level: number }) {
   </div>;
 }
 
-function Ovation() {
+function Ovation({ winnerSide }: { winnerSide?: StageSide | null }) {
+  const draw = winnerSide === null;
+  const left = winnerSide === 0 ? 340 : winnerSide === 1 ? 660 : 0;
+  const width = winnerSide === undefined || draw ? 1440 : 440;
   return <div className="tavern-ovation" aria-hidden="true">
-    {Array.from({ length: 18 }, (_, n) => <span key={n} className="tavern-cheer-note" style={{ left: 90 + (n * 173) % 1290, top: 736 + (n % 3) * 30, animationDelay: `${(n * 127) % 1300}ms`, color: ['#FFD23F', '#FF4FA3', '#6EC6FF'][n % 3] }}>{n % 4 === 0 ? '♥' : '♪'}</span>)}
-    {Array.from({ length: 44 }, (_, n) => <i key={`c${n}`} className="tavern-confetti" style={{ left: (n * 173) % 1440, width: n % 2 ? 8 : 12, height: n % 2 ? 14 : 8, background: ['#FFD23F', '#FF4FA3', '#6EC6FF', '#FFF6E0'][n % 4], animationDelay: `${(n * 53) % 950}ms`, animationDuration: `${1900 + (n % 5) * 160}ms` }} />)}
+    {Array.from({ length: draw ? 5 : winnerSide === undefined ? 18 : 10 }, (_, n) => <span key={n} className="tavern-cheer-note" style={{ left: left + 90 + (n * 173) % (width - 150), top: 736 + (n % 3) * 30, animationDelay: `${(n * 127) % 1300}ms`, color: ['#FFD23F', '#FF4FA3', '#6EC6FF'][n % 3] }}>{n % 4 === 0 ? '♥' : '♪'}</span>)}
+    {!draw && Array.from({ length: winnerSide === undefined ? 44 : 24 }, (_, n) => <i key={`c${n}`} className="tavern-confetti" style={{ left: left + (n * 173) % width, width: n % 2 ? 8 : 12, height: n % 2 ? 14 : 8, background: ['#FFD23F', '#FF4FA3', '#6EC6FF', '#FFF6E0'][n % 4], animationDelay: `${(n * 53) % 950}ms`, animationDuration: `${1900 + (n % 5) * 160}ms` }} />)}
   </div>;
 }
 
-function RoomBackdrop() {
+function RoomBackdrop({ mode }: { mode: TavernMode }) {
   return <svg className="tavern-backdrop" viewBox="0 0 1440 900" shapeRendering="crispEdges" aria-hidden="true">
     <rect width="1440" height="900" fill="#3B2414" />
     <g transform="scale(8)">
@@ -154,7 +162,7 @@ function RoomBackdrop() {
     <rect x="554" y="154" width="332" height="74" fill="#261C1C" stroke="#8A5A33" strokeWidth="8" />
     <rect x="564" y="164" width="312" height="54" fill="#362724" stroke="#BB8747" strokeWidth="2" />
     <text x="720" y="186" textAnchor="middle" fill="#F3D7A5" className="f-label" fontSize="14">THE RUSTY LUTE</text>
-    <text x="720" y="208" textAnchor="middle" fill="#E7AB4F" className="f-press" fontSize="12">DUET NIGHT</text>
+    <text x="720" y="208" textAnchor="middle" fill="#E7AB4F" className="f-press" fontSize="12">{mode === 'pvp' ? '1V1 BATTLE' : 'DUET NIGHT'}</text>
     <path d="M0 0H1440V900H0Z" fill="url(#tavern-vignette)" />
     <defs><radialGradient id="tavern-vignette"><stop offset="0.55" stopColor="#101126" stopOpacity="0" /><stop offset="1" stopColor="#101126" stopOpacity="0.58" /></radialGradient></defs>
   </svg>;

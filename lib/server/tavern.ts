@@ -8,13 +8,15 @@ import {
 import { currentUser, db, dbConfigured, offline, transaction, type UserDoc } from '@/lib/db';
 import { validateTrainingResults } from '@/lib/training-core';
 import { recordPerformance } from './performance';
-import { DUET_A, DUET_B } from '@/lib/music';
-import type { PublicTavernPlayer, PublicTavernRoom, TavernPhase, TavernResultInput } from '@/lib/tavern-types';
+import { tavernExercise } from '@/lib/tavern-exercise';
+import { getTavernCharacter, isTavernCharacterId, type TavernCharacterId } from '@/lib/tavern-characters';
+import type { PublicTavernPlayer, PublicTavernRoom, TavernMode, TavernPart, TavernPhase, TavernResultInput } from '@/lib/tavern-types';
 import { duplicate, handled, int, mutation, readJson } from './http';
 import { clientIp, limit } from './ratelimit';
 import { instrument } from './validation';
 
-interface Player extends Omit<PublicTavernPlayer, 'result'> {
+interface Player extends Omit<PublicTavernPlayer, 'result' | 'characterId'> {
+  characterId?: TavernCharacterId;
   tokenHash: string;
   userId: string | null;
   seenAt: Date;
@@ -25,12 +27,14 @@ interface Player extends Omit<PublicTavernPlayer, 'result'> {
 interface TavernRoomDoc {
   _id: string;
   nonce?: string;
+  mode?: TavernMode;
   phase: TavernPhase;
   host: Player;
   guest: Player | null;
   startAt?: Date;
   playbackAt?: Date;
   pass?: boolean;
+  winnerPart?: TavernPart | null;
   createdAt: Date;
   expiresAt: Date;
 }
@@ -48,7 +52,7 @@ const partner = (room: TavernRoomDoc, side: Side) => side === 'host' ? room.gues
 
 function publicPlayer(player: Player): PublicTavernPlayer {
   const { name, instrument, part, result } = player;
-  return { name, instrument, part, ...(result ? { result: {
+  return { name, instrument, part, characterId: getTavernCharacter(player.characterId).id, ...(result ? { result: {
     hits: result.hits, total: result.total, offsetMs: result.offsetMs,
     hasAudio: !!result.audio, ...(result.mime ? { mime: result.mime } : {}),
     ...(result.hitIndices ? { hitIndices: result.hitIndices } : {}),
@@ -57,10 +61,11 @@ function publicPlayer(player: Player): PublicTavernPlayer {
 function snapshot(room: TavernRoomDoc, side: Side, now = Date.now()): PublicTavernRoom {
   const other = partner(room, side);
   return {
-    code: room._id, phase: room.phase, host: publicPlayer(room.host), guest: room.guest ? publicPlayer(room.guest) : null,
+    code: room._id, mode: room.mode ?? 'duet', phase: room.phase, host: publicPlayer(room.host), guest: room.guest ? publicPlayer(room.guest) : null,
     ...(room.startAt ? { startAt: room.startAt.getTime() } : {}),
     ...(room.playbackAt ? { playbackAt: room.playbackAt.getTime() } : {}),
-    ...(room.pass === undefined ? {} : { pass: room.pass }), serverNow: now,
+    ...(room.pass === undefined ? {} : { pass: room.pass }),
+    ...(room.winnerPart === undefined ? {} : { winnerPart: room.winnerPart }), serverNow: now,
     // A normal continue after results must not disconnect the partner's verdict.
     partnerStale: !finished(room) && !!other && (Boolean(other.leftAt) || now - other.seenAt.getTime() > TAVERN_STALE_MS),
   };
@@ -73,8 +78,8 @@ function memberToken(request: Request, body: Record<string, unknown>) {
 async function load(d: Db, code: string, session?: ClientSession) {
   return rooms(d).findOne({ _id: code, expiresAt: { $gt: new Date() } }, { session });
 }
-function resultInput(body: Record<string, unknown>, player: Player): TavernResultInput | null {
-  const ex = player.part === 'A' ? DUET_A : DUET_B;
+function resultInput(body: Record<string, unknown>, player: Player, mode: TavernMode): TavernResultInput | null {
+  const ex = tavernExercise(mode, player.part);
   if (typeof body.simulated !== 'boolean') return null;
   const notes = validateTrainingResults(ex, player.instrument, body.notes);
   if (!notes || notes.filter(note => note.status === 'hit').length !== body.hits) return null;
@@ -107,20 +112,23 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
     if (!dbConfigured()) return offline();
     if (action === 'host' || action === 'join') {
       if (!instrument(body.instrument)) return error('Choose an instrument.');
+      if (body.characterId !== undefined && !isTavernCharacterId(body.characterId)) return error('Choose a tavern character.');
+      if (action === 'host' && body.mode !== undefined && body.mode !== 'duet' && body.mode !== 'pvp') return error('Choose duet or battle mode.');
       const blocked = await limit(`tavern-${action}:${clientIp(request)}`, action === 'host' ? 12 : 30, 600_000);
       if (blocked) return blocked;
       const user = await currentUser();
       const token = randomBytes(24).toString('base64url');
       const now = Date.now();
       const name = user?.username ?? (typeof body.name === 'string' && /^GUEST \d{2}$/.test(body.name) ? body.name : `GUEST ${String(randomInt(100)).padStart(2, '0')}`);
-      const player: Player = { name, instrument: body.instrument, part: action === 'host' ? 'A' : 'B', tokenHash: hash(token), userId: user?._id ?? null, seenAt: new Date(now) };
+      const player: Player = { name, instrument: body.instrument, characterId: getTavernCharacter(body.characterId).id, part: action === 'host' ? 'A' : 'B', tokenHash: hash(token), userId: user?._id ?? null, seenAt: new Date(now) };
       if (action === 'host') {
+        const mode = body.mode === 'pvp' ? 'pvp' : 'duet';
         const d = await db();
         for (let attempt = 0; attempt < 12; attempt++) {
           const code = Array.from({ length: 4 }, () => ALPHABET[randomInt(ALPHABET.length)]).join('');
           try {
-            await rooms(d).insertOne({ _id: code, nonce: randomBytes(16).toString('hex'), phase: 'waiting', host: player, guest: null, createdAt: new Date(now), expiresAt: expiry(now) });
-            return json({ code, token, part: 'A', serverNow: now });
+            await rooms(d).insertOne({ _id: code, nonce: randomBytes(16).toString('hex'), mode, phase: 'waiting', host: player, guest: null, createdAt: new Date(now), expiresAt: expiry(now) });
+            return json({ code, token, part: 'A', mode, serverNow: now });
           } catch (e) { if (!duplicate(e)) throw e; }
         }
         return error('The tavern is busy. Try hosting again.', 503);
@@ -132,10 +140,10 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
         if (!room || room.phase === 'gone') return error('No show with that code.', 404);
         if (room.guest || room.phase !== 'waiting') return error('That show is full or has started.', 409);
         if (now - room.host.seenAt.getTime() > TAVERN_STALE_MS) return error('That host has left the tavern.', 410);
-        if (player.userId && player.userId === room.host.userId) return error('A duet needs two different players.', 409);
+        if (player.userId && player.userId === room.host.userId) return error('A show needs two different players.', 409);
         room.guest = player; room.phase = 'ready'; room.expiresAt = expiry(now);
         await rooms(d).replaceOne({ _id: code }, room, { session });
-        return json({ code, token, part: 'B', serverNow: Date.now() });
+        return json({ code, token, part: 'B', mode: room.mode ?? 'duet', serverNow: Date.now() });
       });
     }
 
@@ -151,7 +159,7 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
       const side = own(room, tokenHash); if (!side) return error('You are not in this show.', 403);
       const who = new URL(request.url).searchParams.get('who') ?? 'partner';
       if (who !== 'self' && who !== 'partner') return error('Choose self or partner audio.');
-      if (!finished(room)) return error('The duet is not ready yet.', 409);
+      if (!finished(room)) return error('The show is not ready yet.', 409);
       const take = (who === 'self' ? room[side] : partner(room, side))?.result;
       if (!take?.audio || !take.mime) return new Response(null, { status: 204, headers: { 'Cache-Control': 'private, no-store' } });
       return new Response(new Uint8Array(Buffer.from(take.audio, 'base64')), { headers: { 'Content-Type': take.mime, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
@@ -174,14 +182,14 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
         if (now - other.seenAt.getTime() > TAVERN_STALE_MS) return error('The other musician disconnected.', 410);
         room.startAt = new Date(now + TAVERN_START_DELAY_MS); room.phase = 'countdown';
       } else if (action === 'result') {
-        const take = resultInput(body, player);
+        const take = resultInput(body, player, room.mode ?? 'duet');
         if (!take) return error('That take has invalid notes, timing or audio.');
         if (player.result) {
           if (JSON.stringify(player.result) !== JSON.stringify(take)) return error('Your take was already submitted.', 409);
           return json(snapshot(room, side, now));
         }
         if (room.phase !== 'countdown' || !room.startAt || !room.guest) return error('The show has not started.', 409);
-        const ex = player.part === 'A' ? DUET_A : DUET_B;
+        const ex = tavernExercise(room.mode ?? 'duet', player.part);
         const end = Math.max(...ex.notes.map(note => note.startBeat + note.durBeats)) * 60000 / ex.tempo;
         if (now < room.startAt.getTime() + end + RECORD_TAIL_MS - 300) return error('Finish playing before sending your take.', 409);
         if (other && now - other.seenAt.getTime() > TAVERN_STALE_MS) return error('The other musician disconnected.', 410);
@@ -192,17 +200,23 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
         player.result = take;
         if (room.host.result && room.guest.result) {
           const a = room.host.result, b = room.guest.result;
-          room.pass = (a.hits + b.hits) / (a.total + b.total) >= TAVERN_PASS;
+          const pvp = room.mode === 'pvp';
+          if (pvp) {
+            // Compare exact fractions, never rounded display percentages.
+            const difference = a.hits * b.total - b.hits * a.total;
+            room.winnerPart = difference > 0 ? 'A' : difference < 0 ? 'B' : null;
+          } else room.pass = (a.hits + b.hits) / (a.total + b.total) >= TAVERN_PASS;
           room.phase = 'results'; room.playbackAt = new Date(now + TAVERN_PLAYBACK_DELAY_MS);
           // The room transition and grants commit together. Immutable result retries
           // return above, so claiming a buff then retrying cannot grant it again.
-          if (room.pass) {
-            const ids = [room.host.userId, room.guest.userId].filter((id): id is string => id !== null);
-            if (ids.length) await d.collection<UserDoc>('users').updateMany({ _id: { $in: ids } }, { $set: { tavernBuff: true } }, { session });
-          }
+          const recipients = pvp
+            ? room.winnerPart === 'A' ? [room.host] : room.winnerPart === 'B' ? [room.guest] : []
+            : room.pass ? [room.host, room.guest] : [];
+          const ids = recipients.map(recipient => recipient.userId).filter((id): id is string => id !== null);
+          if (ids.length) await d.collection<UserDoc>('users').updateMany({ _id: { $in: ids } }, { $set: { tavernBuff: true } }, { session });
         }
       } else if (action === 'done') {
-        if (!finished(room)) return error('The duet is not ready yet.', 409);
+        if (!finished(room)) return error('The show is not ready yet.', 409);
         if (room.phase === 'done') return json(snapshot(room, side, now));
         player.doneAt ??= new Date(now);
         if (room.host.doneAt && room.guest?.doneAt) { room.phase = 'done'; room.expiresAt = new Date(now + TAVERN_DONE_TTL_MS); }

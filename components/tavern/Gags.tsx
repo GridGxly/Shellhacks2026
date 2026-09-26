@@ -25,6 +25,11 @@ export function verdictTargets(mine: number, partner: number): VerdictTargets {
   return { hooked, tomatoes: worse === 0 ? [5, hooked === null ? 3 : 0] : [hooked === null ? 3 : 0, 5] };
 }
 
+/** Battle applause belongs to the winner; only the losing musician is targeted. */
+export function pvpVerdictTargets(winnerSide: StageSide | null | undefined): VerdictTargets {
+  return { hooked: null, tomatoes: winnerSide === 0 ? [0, 5] : winnerSide === 1 ? [5, 0] : [0, 0] };
+}
+
 export function tomatoThrows(targets: VerdictTargets): TomatoThrow[] {
   const throwers = [[1, 3, 0, 2, 4], [6, 5, 7, 4, 3]];
   return ([0, 1] as const).flatMap((side) => Array.from({ length: targets.tomatoes[side] }, (_, n) => ({

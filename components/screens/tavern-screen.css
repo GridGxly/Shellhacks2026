@@ -55,3 +55,5 @@
 @keyframes tavern-tip-flight { 0%{opacity:1;transform:translate(0,90px)} 50%{opacity:1;transform:translate(100px,-70px)} 100%{opacity:0;left:350px;transform:translate(0,10px)} }
 
 .tavern-heading p { background:#101126D9; padding:8px 18px; width:fit-content; max-width:1160px; margin:12px auto 0; border:2px solid #8A5A33; }
+
+.tavern-mode-choice{position:absolute;top:207px;left:240px;width:960px;display:flex;justify-content:center;gap:26px}.tavern-mode-choice button{min-width:330px;font-size:16px}.tavern-mode-choice+.tavern-lobby-cards{top:294px}.tavern-setup{top:646px}.tavern-note{top:731px}.tavern-character-select~.tavern-error{z-index:60}

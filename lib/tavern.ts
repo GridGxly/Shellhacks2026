@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import { ac, duetTone, effectsOutput } from './audio';
 import { INSTRUMENTS } from './content';
-import { DUET_A, DUET_B, type Exercise } from './music';
+import type { Exercise } from './music';
+import { tavernDurationMs, tavernExercise } from './tavern-exercise';
 import { TAVERN_POLL_MS, TAVERN_WAITING_POLL_MS } from './config';
 import type { PublicTavernPlayer, PublicTavernRoom, TavernEntry, TavernPart } from './tavern-types';
 
@@ -12,8 +13,8 @@ export function tavernGuestName() {
 }
 
 export type TavernSeat = Pick<TavernEntry, 'code' | 'token' | 'part'>;
-export const duetPart = (part: TavernPart): Exercise => part === 'A' ? DUET_A : DUET_B;
-export const duetDurationMs = () => DUET_A.bars * DUET_A.beatsPerBar * 60_000 / DUET_A.tempo;
+export const duetPart = (part: TavernPart): Exercise => tavernExercise('duet', part);
+export const duetDurationMs = () => tavernDurationMs('duet');
 export class TavernError extends Error {
   constructor(message: string, public status: number) { super(message); }
 }
@@ -164,7 +165,7 @@ export async function playDuet(room: PublicTavernRoom, seat: TavernSeat, offset:
   const nodes: (AudioBufferSourceNode | OscillatorNode)[] = [];
   const analysers = players.map(() => { const a = ctx.createAnalyser(); a.fftSize = 256; a.connect(effectsOutput()); return a; });
   const fallback = (player: PublicTavernPlayer, out: AudioNode) => {
-    const ex = duetPart(player.part);
+    const ex = tavernExercise(room.mode, player.part);
     const shift = INSTRUMENTS.find((instrument) => instrument.id === player.instrument)!.shift;
     const hitIndices = new Set(player.result?.hitIndices ?? ex.notes.slice(0, player.result?.hits ?? 0).map((_, index) => index));
     ex.notes.forEach((note, index) => {
@@ -208,7 +209,7 @@ export async function playDuet(room: PublicTavernRoom, seat: TavernSeat, offset:
       analysers.forEach((analyser) => analyser.disconnect());
       activity([0, 0]); resolve();
     };
-    const timer = setTimeout(clean, Math.max(0, localStart + duetDurationMs() + 600 - Date.now()));
+    const timer = setTimeout(clean, Math.max(0, localStart + tavernDurationMs(room.mode) + 600 - Date.now()));
     signal.addEventListener('abort', clean, { once: true });
     if (signal.aborted) clean();
   });

@@ -6,17 +6,19 @@ interface CrowdProps {
   cheer: boolean;
   elapsed: number;
   throws: TomatoThrow[];
+  restrained?: boolean;
 }
 
 /** Eight separate, deliberately staggered poses keep the audience from moving as one shape. */
-export default function Crowd({ mode, cheer, elapsed, throws }: CrowdProps) {
+export default function Crowd({ mode, cheer, elapsed, throws, restrained = false }: CrowdProps) {
   return <svg className={`tavern-crowd tavern-crowd-${mode}`} viewBox="0 0 1440 900" shapeRendering="crispEdges" aria-hidden="true">
     {CROWD_POSITIONS.map((p, i) => {
       const throwing = throws.find((t) => t.npc === i && elapsed >= t.release - 250 && elapsed < t.release + 180);
       const windup = throwing && elapsed < throwing.release;
       const release = throwing && elapsed >= throwing.release;
-      const clapping = mode === 'clap';
-      const armsUp = cheer || (clapping && (i === 1 || i === 6));
+      // A thrower's preparation stays visible even while everyone else applauds.
+      const clapping = !throwing && mode === 'clap' && (!restrained || i % 2 === 0);
+      const armsUp = !throwing && (cheer || (!restrained && clapping && (i === 1 || i === 6)));
       const colors = ['#2A2637', '#252A34', '#332833', '#263237'];
       return <g key={i} transform={`translate(${p.x} ${p.y})`}>
         <g className={mode === 'sway' ? 'tavern-crowd-sway' : undefined} style={{ animationDelay: `${i * -83}ms` }}>
