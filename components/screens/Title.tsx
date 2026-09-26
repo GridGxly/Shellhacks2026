@@ -277,7 +277,10 @@ function IntroFilm() {
       {/* letterbox bars close in slightly during the cuts, open for the leap */}
       <div style={{ position: 'absolute', left: 0, top: 0, width: 1440, height: beat === 'D' ? 110 : 80, background: '#07070f', zIndex: 20 }} />
       <div style={{ position: 'absolute', left: 0, bottom: 0, width: 1440, height: beat === 'D' ? 110 : 80, background: '#07070f', zIndex: 20 }} />
-      <div className="f-label" style={{ position: 'absolute', right: 40, bottom: 30, zIndex: 21, fontSize: 12, color: '#6B6F8E' }}>ANY KEY TO SKIP</div>
+      <div className="f-label" style={{ position: 'absolute', right: 40, bottom: 30, zIndex: 21, fontSize: 12, color: '#6B6F8E' }}>
+        <span className="kbd-only">ANY KEY TO SKIP</span>
+        <span className="touch-only">TAP TO SKIP</span>
+      </div>
       {/* film progress ticks */}
       <div style={{ position: 'absolute', left: 40, bottom: 34, zIndex: 21, display: 'flex', gap: 6 }}>
         {['A', 'B', 'C', 'D', 'E'].map((b) => <div key={b} style={{ width: 18, height: 6, background: b <= beat ? 'var(--magenta)' : '#2A2F55' }} />)}
