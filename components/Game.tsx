@@ -223,19 +223,20 @@ function Wipe() {
   useEffect(() => sfx('wipe'), []);
   const steps = 10;
   return (
-    <div className="fill" style={{ zIndex: 100, pointerEvents: 'none', overflow: 'hidden' }}>
+    // Strips are sized in percent so the wipe covers the whole glass on handhelds.
+    <div className="fill bleed" style={{ zIndex: 100, pointerEvents: 'none', overflow: 'hidden' }}>
       {Array.from({ length: steps }, (_, i) => (
         <div
           key={i}
           style={{
             position: 'absolute',
             left: -40,
-            top: i * 90,
-            width: 1560,
-            height: 90,
+            top: `${i * 10}%`,
+            width: 'calc(100% + 80px)',
+            height: 'calc(10% + 1px)',
             background: '#101126',
             boxShadow: '16px 0 0 #FF4FA3',
-            animation: `wipeIn 360ms ${i * 22}ms steps(8) both, wipeOut 360ms ${420 + i * 22}ms steps(8) forwards`,
+            animation: `wipeIn 340ms ${i * 20}ms var(--ease-out) both, wipeOut 340ms ${420 + i * 20}ms var(--ease-in) forwards`,
           }}
         />
       ))}
@@ -245,7 +246,7 @@ function Wipe() {
 
 function Iris() {
   return (
-    <div className="fill" style={{ zIndex: 100, pointerEvents: 'none' }}>
+    <div className="fill bleed" style={{ zIndex: 100, pointerEvents: 'none' }}>
       <div className="fill" style={{ background: '#07070f', animation: 'irisOpenClose 1100ms steps(14) both' }} />
       <style>{`@keyframes irisOpenClose { 0% { clip-path: circle(0% at 50% 50%); } 45%, 55% { clip-path: circle(80% at 50% 50%); } 100% { clip-path: circle(0% at 50% 50%); } }`}</style>
     </div>
@@ -255,10 +256,11 @@ function Iris() {
 function Toast({ text }: { text: string }) {
   return (
     <div
+      className="ui-tl"
       style={{
         position: 'absolute',
-        left: 40,
-        top: 170,
+        left: 'calc(40px - var(--rail-l))',
+        top: 'calc(var(--hud-bottom) + 107px)',
         zIndex: 90,
         display: 'flex',
         alignItems: 'center',
@@ -267,7 +269,7 @@ function Toast({ text }: { text: string }) {
         background: 'rgba(16,17,38,0.95)',
         border: '3px solid var(--meadow)',
         boxShadow: '#101126 5px 5px 0',
-        animation: 'slideInLeft 300ms steps(6) both, fadeOut 400ms 2800ms forwards',
+        animation: 'slideInLeft 300ms var(--ease-out) both, fadeOut 400ms 2800ms forwards',
       }}
     >
       <svg width="32" height="32" viewBox="0 0 8 8" shapeRendering="crispEdges" style={{ animation: 'blink 300ms steps(1) 2' }}>

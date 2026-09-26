@@ -23,8 +23,8 @@ function Shell({ children, origin, onClose }: { children: ReactNode; origin: str
   };
   return (
     <div className="fill" style={{ zIndex: 60 }}>
-      <div className="fill" onClick={close} style={{ background: 'rgba(8,9,20,0.72)', animation: closing ? 'fadeOut 160ms steps(3) forwards' : 'fadeIn 180ms steps(3) both' }} />
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', transformOrigin: origin, animation: closing ? 'fadeOut 160ms steps(3) forwards' : 'popIn 240ms steps(5) both' }}>
+      <div className="fill" onClick={close} style={{ background: 'rgba(8,9,20,0.72)', animation: closing ? 'fadeOut 160ms var(--ease-out) forwards' : 'fadeIn 180ms var(--ease-out) both' }} />
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', transformOrigin: origin, animation: closing ? 'fadeOut 160ms var(--ease-out) forwards' : 'popIn 240ms var(--ease-out) both' }}>
         <div style={{ pointerEvents: 'auto' }}>{children}</div>
       </div>
       <CloseCtx close={close} />
@@ -98,7 +98,7 @@ export function StatsOverlay() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="f-press" style={{ fontSize: 20 }}>UPGRADES</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div key={run.tips} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: '#1E2140', border: '3px solid var(--sun)', animation: 'popIn 260ms steps(4)' }}>
+              <div key={run.tips} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: '#1E2140', border: '3px solid var(--sun)', animation: 'popIn 260ms var(--ease-out)' }}>
                 <span className="f-label" style={{ fontSize: 11, color: 'var(--muted)' }}>TIPS</span>
                 <span className="f-press" style={{ fontSize: 16, color: 'var(--sun)' }}>{run.tips}</span>
               </div>
@@ -117,7 +117,7 @@ export function StatsOverlay() {
                 style={{
                   display: 'grid', gridTemplateColumns: '1fr 96px 110px 140px', alignItems: 'center', gap: 16, padding: '12px 18px',
                   background: hot ? 'rgba(76,194,107,0.18)' : '#1B1E3B', border: `3px solid ${hot ? 'var(--meadow)' : '#2A2F55'}`,
-                  animation: deny === d.id ? 'errShake 300ms steps(5)' : `countUp 200ms ${i * 50}ms steps(3) both`,
+                  animation: deny === d.id ? 'errShake 300ms steps(5)' : `countUp 200ms ${i * 50}ms var(--ease-out) both`,
                 }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -126,10 +126,10 @@ export function StatsOverlay() {
                 </div>
                 <div style={{ display: 'flex', gap: 5 }}>
                   {Array.from({ length: pips }, (_, p) => (
-                    <div key={p} style={{ width: 18, height: 18, background: p < run.levels[d.id] ? d.color : '#2A2F55', border: '2px solid #101126', animation: hot && p === run.levels[d.id] - 1 ? 'popIn 300ms steps(4)' : undefined }} />
+                    <div key={p} style={{ width: 18, height: 18, background: p < run.levels[d.id] ? d.color : '#2A2F55', border: '2px solid #101126', animation: hot && p === run.levels[d.id] - 1 ? 'popIn 300ms var(--ease-out)' : undefined }} />
                   ))}
                 </div>
-                <span key={v} className="f-press" style={{ fontSize: 18, color: '#fff', animation: hot ? 'slam 300ms steps(4)' : undefined }}>{d.format(v)}</span>
+                <span key={v} className="f-press" style={{ fontSize: 18, color: '#fff', animation: hot ? 'slam 300ms var(--ease-out)' : undefined }}>{d.format(v)}</span>
                 <button
                   disabled={maxed}
                   onMouseEnter={() => sfx('hover')}
@@ -194,7 +194,7 @@ export function Pause() {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 28px 24px', borderTop: '3px solid #2A2F55' }}>
           {confirmQuit ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, animation: 'popIn 200ms steps(3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, animation: 'popIn 200ms var(--ease-out)' }}>
               <span className="f-body" style={{ fontSize: 16, color: 'var(--soft)' }}>{screen === 'combat' ? 'This fight restarts. Your checkpoint is safe.' : 'Your checkpoint is saved.'}</span>
               <button className="f-press" onClick={quit} style={{ padding: '10px 14px', fontSize: 12, background: 'var(--hp)', border: '3px solid #101126' }}>QUIT</button>
               <button className="f-press" onClick={() => { sfx('back'); setConfirmQuit(false); }} style={{ padding: '10px 14px', fontSize: 12, background: '#2A2F55', border: '3px solid #101126' }}>STAY</button>
@@ -257,7 +257,7 @@ export function MapPeek() {
     <Shell origin="1340px 30px">
       <div style={{ position: 'absolute', left: 250, top: 96, width: 940, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{ width: 980, height: 26, background: '#8A6A45', border: '4px solid #101126' }} />
-        <div style={{ width: 920, padding: '22px 34px 30px', background: 'linear-gradient(180deg, #F7E7C2, #E9D3A2)', border: '4px solid #101126', borderTop: 0, animation: 'unrollDown 420ms steps(8) both' }}>
+        <div style={{ width: 920, padding: '22px 34px 30px', background: 'linear-gradient(180deg, #F7E7C2, #E9D3A2)', border: '4px solid #101126', borderTop: 0, animation: 'unrollDown 420ms var(--ease-out) both' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <span className="f-press" style={{ fontSize: 18, color: '#101126' }}>THE SPIRE</span>
             <span className="f-label" style={{ fontSize: 12, color: '#6A5420' }}>FLOOR {Math.min(18, run.floor + 1)} OF 18 · {run.score.toLocaleString()} PTS</span>
@@ -273,7 +273,7 @@ export function MapPeek() {
                     const here = f === run.floor;
                     return (
                       <div key={e.id} style={{ display: 'flex', alignItems: 'center', flex: i < 2 ? 1 : undefined }}>
-                        <div style={{ position: 'relative', width: e.boss ? 58 : 46, height: e.boss ? 58 : 46, background: here ? 'var(--sun)' : cleared ? '#C9B48A' : '#D8C49A', border: `3px solid ${e.boss ? '#C23A7E' : '#101126'}`, overflow: 'hidden', animation: `popIn 200ms ${300 + f * 30}ms steps(3) both` }}>
+                        <div style={{ position: 'relative', width: e.boss ? 58 : 46, height: e.boss ? 58 : 46, background: here ? 'var(--sun)' : cleared ? '#C9B48A' : '#D8C49A', border: `3px solid ${e.boss ? '#C23A7E' : '#101126'}`, overflow: 'hidden', animation: `popIn 200ms ${300 + f * 30}ms var(--ease-out) both` }}>
                           <div className="sprite" style={{ inset: 2, backgroundImage: `url(${art(e.sprite, 'thumb')})`, filter: `${e.spriteFilter ?? ''} ${cleared ? 'grayscale(1) opacity(0.5)' : f > run.floor ? 'brightness(0) opacity(0.35)' : ''}`.trim() || undefined }} />
                           {cleared && <span className="f-press" style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 20, color: '#E8434F' }}>✕</span>}
                         </div>
@@ -288,7 +288,7 @@ export function MapPeek() {
           </div>
           <div className="f-label" style={{ marginTop: 16, textAlign: 'center', fontSize: 11, color: '#6A5420' }}><span className="kbd-only">PRESS M OR ESC TO CLOSE</span><span className="touch-only">TAP OUTSIDE TO CLOSE</span></div>
         </div>
-        <div style={{ width: 980, height: 26, background: '#8A6A45', border: '4px solid #101126', animation: 'dropIn 420ms steps(8) both' }} />
+        <div style={{ width: 980, height: 26, background: '#8A6A45', border: '4px solid #101126', animation: 'dropIn 420ms var(--ease-out) both' }} />
       </div>
     </Shell>
   );

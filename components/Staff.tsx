@@ -190,7 +190,7 @@ export default function Staff({ ex, shift, writtenOffset, width, beat, results, 
                     <text x={x - 34} y={y + 10} fontFamily="var(--music)" fontSize={34} fill={color}>{accidental}</text>
                   )}
                   {ghost !== null && <ellipse cx={x + 4} cy={ghost} rx={10} ry={7.5} transform={`rotate(-20 ${x + 4} ${ghost})`} fill="none" stroke="#E8434F" strokeWidth={2} strokeDasharray="3 3" />}
-                  <g style={{ animation: r?.status === 'wrong' ? 'shakeSmall 180ms steps(2) 3' : r?.status === 'hit' ? 'popIn 220ms steps(3)' : undefined, transformOrigin: `${x}px ${y}px` }}>
+                  <g style={{ animation: r?.status === 'wrong' ? 'shakeSmall 180ms steps(2) 3' : r?.status === 'hit' ? 'popIn 220ms var(--ease-out)' : undefined, transformOrigin: `${x}px ${y}px` }}>
                     <ellipse cx={x} cy={y} rx={10} ry={7.5} transform={`rotate(-20 ${x} ${y})`} fill={hollow ? 'none' : color} stroke={color} strokeWidth={hollow ? 3 : 0} />
                     {n.durBeats < 4 && (
                       <rect

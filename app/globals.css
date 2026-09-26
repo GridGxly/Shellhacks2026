@@ -11,6 +11,12 @@
   --ui-soft: 1; /* half-strength --ui for things that live inside the composition */
   --hud-bottom: 63px; /* bottom edge of the scaled HUD, in stage px */
 
+  /* Motion: interface pieces move smoothly and settle crisply; pixel sprites keep
+     their stepped loops (breathe, bob, blink) so they still read as sprite frames. */
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-snap: cubic-bezier(.3, 0, .2, 1);
+  --ease-in: cubic-bezier(.7, 0, .84, 0);
+
   --ink: #1b1f3b;
   --night: #101126;
   --panel: #14162e;
@@ -64,6 +70,7 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 @keyframes riseIn { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes slideInLeft { from { transform: translateX(-80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes slideInRight { from { transform: translateX(80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideInTop { from { transform: translateY(-40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes popIn { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
 @keyframes slam { 0% { transform: scale(3); opacity: 0; } 40% { transform: scale(0.92); opacity: 1; } 60% { transform: scale(1.05); } 100% { transform: scale(1); } }
 @keyframes shake { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(-6px, 3px); } 40% { transform: translate(5px, -4px); } 60% { transform: translate(-4px, -2px); } 80% { transform: translate(4px, 3px); } }

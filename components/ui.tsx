@@ -64,7 +64,7 @@ export function HpBar({ hp, max, width = 210, style }: { hp: number; max: number
   const pct = Math.max(0, hp) / max;
   return (
     <div style={{ position: 'relative', width, height: 22, backgroundColor: '#2A1520', border: '3px solid #101126', ...style }}>
-      <div style={{ position: 'absolute', left: 0, top: 0, height: 16, width: (width - 6) * pct, backgroundColor: 'var(--hp)', boxShadow: '#FF8A93 0 3px 0 inset', transition: 'width 500ms steps(8)' }} />
+      <div style={{ position: 'absolute', left: 0, top: 0, height: 16, width: (width - 6) * pct, backgroundColor: 'var(--hp)', boxShadow: '#FF8A93 0 3px 0 inset', transition: 'width 500ms var(--ease-out)' }} />
       <div className="f-press" style={{ position: 'absolute', inset: 0, height: 16, display: 'grid', placeItems: 'center', fontSize: 11, lineHeight: '12px', textShadow: '#101126 2px 2px 0', color: '#fff' }}>
         {Math.max(0, hp)}/{max}
       </div>

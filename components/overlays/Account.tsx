@@ -9,8 +9,8 @@ function Modal({ children, width = 560 }: { children: React.ReactNode; width?: n
   const close = () => { sfx('back'); useGame.getState().setOverlay(null); };
   return (
     <MobileSurface className="account-mobile"><div className="fill account-modal" role="dialog" aria-modal="true" aria-label="Account" style={{ zIndex: 60 }}>
-      <div className="fill" onClick={close} style={{ background: 'rgba(8,9,20,0.78)', animation: 'fadeIn 180ms steps(3) both' }} />
-      <div className="account-modal-panel" style={{ position: 'absolute', left: (1440 - width) / 2, top: 150, width, animation: 'panelIn 300ms steps(6) both' }}>{children}</div>
+      <div className="fill" onClick={close} style={{ background: 'rgba(8,9,20,0.78)', animation: 'fadeIn 180ms var(--ease-out) both' }} />
+      <div className="account-modal-panel" style={{ position: 'absolute', left: (1440 - width) / 2, top: 150, width, animation: 'panelIn 300ms var(--ease-out) both' }}>{children}</div>
     </div></MobileSurface>
   );
 }

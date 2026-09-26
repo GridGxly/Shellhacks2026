@@ -23,7 +23,7 @@ export function MenuShell({ title, children, onBack }: { title: string; children
       <div className="fill" style={{ backgroundImage: 'radial-gradient(ellipse 70% 70% at 50% 45%, rgba(16,17,38,0) 30%, rgba(16,17,38,0.9) 100%)' }} />
       <div style={{ opacity: 0.3 }}><FloatingNotes count={8} /></div>
       <div style={{ position: 'absolute', left: 0, top: 84, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
-        <div className="f-press" style={{ fontSize: 36, lineHeight: '40px', color: 'var(--parchment)', textShadow: '#101126 4px 4px 0, rgba(255,210,63,0.35) 0 0 18px', animation: 'dropIn 300ms steps(5) both' }}>{title}</div>
+        <div className="f-press" style={{ fontSize: 36, lineHeight: '40px', color: 'var(--parchment)', textShadow: '#101126 4px 4px 0, rgba(255,210,63,0.35) 0 0 18px', animation: 'dropIn 300ms var(--ease-out) both' }}>{title}</div>
         <Ornament />
       </div>
       <div style={{ animation: 'fadeIn 300ms 180ms both' }}>{children}</div>
@@ -72,7 +72,7 @@ export function HowToPlay() {
       art: (
         <>
           <Sprite src="/assets/sprites/goblin.png" x={110} y={24} size={170} style={{ animation: 'hitFlash 1.6s steps(2) infinite' }} />
-          <div className="f-press" style={{ position: 'absolute', left: 18, top: 30, fontSize: 34, color: '#FF4F5E', textShadow: '#101126 3px 0 0, #101126 -3px 0 0, #101126 0 3px 0, #101126 0 -3px 0, #FFD23F 4px 6px 0', animation: 'dmgPop 1.6s steps(8) infinite' }}>-30</div>
+          <div className="f-press" style={{ position: 'absolute', left: 18, top: 30, fontSize: 34, color: '#FF4F5E', textShadow: '#101126 3px 0 0, #101126 -3px 0 0, #101126 0 3px 0, #101126 0 -3px 0, #FFD23F 4px 6px 0', animation: 'dmgPop 1.6s var(--ease-out) infinite' }}>-30</div>
         </>
       ),
     },
@@ -81,7 +81,7 @@ export function HowToPlay() {
     <MenuShell title="HOW TO PLAY">
       <div style={{ position: 'absolute', left: 0, top: 232, width: 1440, display: 'flex', justifyContent: 'center', gap: 48 }}>
         {steps.map((s, i) => (
-          <div key={s.n} style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 18, animation: `riseIn 400ms ${200 + i * 120}ms steps(5) both` }}>
+          <div key={s.n} style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 18, animation: `riseIn 400ms ${200 + i * 120}ms var(--ease-out) both` }}>
             <div style={{ position: 'relative', width: 300, height: 200, overflow: 'hidden', ...panel }}>{s.art}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div className="f-press" style={{ width: 32, height: 32, display: 'grid', placeItems: 'center', background: 'var(--sun)', color: '#101126', fontSize: 14 }}>{s.n}</div>
@@ -158,7 +158,7 @@ export function MicCheck() {
           .
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, height: 80 }}>
-          <div key={nearest ?? 'x'} className="f-press" style={{ fontSize: 72, lineHeight: '76px', color: nearest == null ? '#3A3F70' : inTune ? 'var(--meadow)' : 'var(--sun)', textShadow: '#101126 5px 5px 0', animation: 'popIn 200ms steps(3)' }}>
+          <div key={nearest ?? 'x'} className="f-press" style={{ fontSize: 72, lineHeight: '76px', color: nearest == null ? '#3A3F70' : inTune ? 'var(--meadow)' : 'var(--sun)', textShadow: '#101126 5px 5px 0', animation: 'popIn 200ms var(--ease-out)' }}>
             {nearest == null ? '—' : noteName(nearest, key)}
           </div>
           <div className="f-press" style={{ fontSize: 24, color: 'var(--muted)' }}>{nearest != null ? Math.floor(nearest / 12) - 1 : ''}</div>
@@ -171,7 +171,7 @@ export function MicCheck() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div style={{ position: 'relative', width: 520, height: 28, display: 'flex', gap: 4 }}>
             {['#3A1B2E', '#3A1B2E', '#3A3020', '#1E3A28', '#4CC26B', '#4CC26B', '#1E3A28', '#3A3020', '#3A1B2E', '#3A1B2E'].map((c, i) => <div key={i} style={{ flex: 1, background: c }} />)}
-            <div style={{ position: 'absolute', left: 257 + (cents / 50) * 250, top: -8, width: 6, height: 44, background: 'var(--parchment)', boxShadow: '#101126 2px 0 0', transition: 'left 80ms steps(2)', opacity: nearest == null ? 0.2 : 1 }} />
+            <div style={{ position: 'absolute', left: 257 + (cents / 50) * 250, top: -8, width: 6, height: 44, background: 'var(--parchment)', boxShadow: '#101126 2px 0 0', transition: 'left 80ms var(--ease-out)', opacity: nearest == null ? 0.2 : 1 }} />
           </div>
           <div className="f-label" style={{ width: 520, display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)' }}>
             <span>FLAT</span>
@@ -215,7 +215,7 @@ export function Credits() {
     <MenuShell title="CREDITS">
       <div style={{ position: 'absolute', left: 0, top: 236, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
         {rows.map(([k, v, c], i) => (
-          <div key={k} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, animation: `riseIn 400ms ${200 + i * 120}ms steps(5) both` }}>
+          <div key={k} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, animation: `riseIn 400ms ${200 + i * 120}ms var(--ease-out) both` }}>
             <div className="f-label" style={{ fontSize: 14, color: c ?? 'var(--sun)', letterSpacing: '0.22em' }}>{k}</div>
             <div className={i === 0 ? 'f-press' : 'f-body'} style={{ fontSize: i === 0 ? 18 : 22, fontWeight: 500, color: 'var(--parchment)', textShadow: i === 0 ? '#101126 3px 3px 0' : undefined, maxWidth: 1100, textAlign: 'center' }}>{v}</div>
           </div>

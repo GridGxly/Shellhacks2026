@@ -5,7 +5,7 @@
 .training-header{position:absolute;inset:0 0 auto;height:120px;display:flex;align-items:center;gap:32px;padding:24px 48px;background:#11162D;border-bottom:4px solid #3C4261}
 .training-header>div{margin-right:auto}.training-header h1{font:30px var(--press);color:#FFD23F}.training-header p{font:18px var(--label);letter-spacing:2px;color:#C9B8E8;margin-top:12px}
 .training-header button{font-size:17px;min-width:230px}
-.training-dialog,.training-choice,.training-modal,.training-feedback{position:absolute;color:#FFF6E0;background:#1C213E;border:4px solid #FFD23F;box-shadow:9px 9px 0 #090D20;padding:28px 30px;animation:panelIn 220ms steps(4) both}
+.training-dialog,.training-choice,.training-modal,.training-feedback{position:absolute;color:#FFF6E0;background:#1C213E;border:4px solid #FFD23F;box-shadow:9px 9px 0 #090D20;padding:28px 30px;animation:panelIn 220ms var(--ease-out) both}
 .training-stage h2{font:23px/1.4 var(--press);color:#FFD23F}.training-stage p{font:26px/1.35 var(--body)}
 .training-dialog{left:96px;right:96px;bottom:48px;min-height:164px;display:flex;align-items:center;justify-content:space-between;gap:28px}.training-dialog p{margin-top:14px}.training-dialog>div:last-child:has(button){display:flex;flex-direction:column;gap:16px;flex-shrink:0}
 .training-choice{left:128px;right:128px;top:518px;padding:24px 28px}.training-choice>p{margin:10px 0 20px}.training-choice>div{display:grid;grid-template-columns:1fr 1fr;gap:24px}.training-choice button{text-align:left;padding:24px;background:#272E50;border:3px solid #A09AC2}.training-choice button strong{display:block;font:19px var(--press);color:#FFD23F;margin-bottom:12px}.training-choice button span{font:25px/1.2 var(--body);display:block}

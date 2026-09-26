@@ -74,12 +74,12 @@ export default function MapScreen() {
         style={{
           transformOrigin: `${nodeCenter.x}px ${nodeCenter.y}px`,
           transform: phase === 'dive' || phase === 'versus' ? 'scale(3)' : phase === 'press' ? 'scale(1.03)' : 'scale(1)',
-          transition: phase === 'dive' ? 'transform 200ms steps(3)' : 'transform 200ms steps(2)',
+          transition: phase === 'dive' ? 'transform 200ms var(--ease-out)' : 'transform 200ms var(--ease-out)',
         }}
       >
         <Bg src="/assets/bg/map.png" />
         <div className="fill" style={{ background: 'radial-gradient(ellipse 70% 70% at 50% 50%, rgba(16,17,38,0) 40%, rgba(16,17,38,0.7) 100%)' }} />
-        {reveal && [0, 1, 2].map((i) => <div key={i} aria-hidden="true" style={{ position: 'absolute', left: 709, top: inAct > 0 ? NODE_Y[inAct - 1] : 875, width: 22, height: 22, background: 'var(--sun)', transform: 'rotate(45deg)', ['--rise' as string]: `${NODE_Y[inAct] - (inAct > 0 ? NODE_Y[inAct - 1] : 875)}px`, animation: `mapUnlockFlow 300ms ${500 + i * 50}ms steps(4) both` }} />)}
+        {reveal && [0, 1, 2].map((i) => <div key={i} aria-hidden="true" style={{ position: 'absolute', left: 709, top: inAct > 0 ? NODE_Y[inAct - 1] : 875, width: 22, height: 22, background: 'var(--sun)', transform: 'rotate(45deg)', ['--rise' as string]: `${NODE_Y[inAct] - (inAct > 0 ? NODE_Y[inAct - 1] : 875)}px`, animation: `mapUnlockFlow 300ms ${500 + i * 50}ms var(--ease-out) both` }} />)}
         {enemies.map((e, i) => {
           const state = i < inAct ? 'cleared' : i === inAct ? 'available' : e.boss ? 'boss' : 'locked';
           const justCleared = reveal && i === inAct - 1;
@@ -90,7 +90,7 @@ export default function MapScreen() {
 
       {phase === 'idle' && (
         <>
-          <div className="map-act-heading" style={{ position: 'absolute', left: 40, top: 96, display: 'flex', flexDirection: 'column', gap: 6, animation: 'slideInLeft 300ms steps(5) both' }}>
+          <div className="map-act-heading" style={{ position: 'absolute', left: 40, top: 96, display: 'flex', flexDirection: 'column', gap: 6, animation: 'slideInLeft 300ms var(--ease-out) both' }}>
             <div className="f-label" style={{ fontSize: 13, color: 'var(--sun)' }}>ACT {act + 1} OF 6</div>
             <div className="f-press" style={{ fontSize: 20, color: '#fff', textShadow: '#101126 3px 3px 0' }}>{ACTS[act].name.toUpperCase()}</div>
           </div>
@@ -115,7 +115,7 @@ function MapNode({ enemy, state, y, justCleared, justUnlocked, pressed, onClick 
   return (
     <div style={{ position: 'absolute', left: 720 - 120, top: y - size / 2, width: 240, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
       {state === 'available' && (
-        <div className="f-press" style={{ position: 'absolute', top: -58, padding: '6px 12px', background: 'var(--sun)', border: '3px solid #101126', color: '#101126', fontSize: 13, animation: justUnlocked ? 'dropIn 300ms 1300ms steps(5) both, pinBob 1.2s 1600ms steps(2) infinite' : 'pinBob 1.2s steps(2) infinite' }}>
+        <div className="f-press" style={{ position: 'absolute', top: -58, padding: '6px 12px', background: 'var(--sun)', border: '3px solid #101126', color: '#101126', fontSize: 13, animation: justUnlocked ? 'dropIn 300ms 1300ms var(--ease-out) both, pinBob 1.2s 1600ms steps(2) infinite' : 'pinBob 1.2s steps(2) infinite' }}>
           FIGHT
         </div>
       )}
@@ -141,7 +141,7 @@ function MapNode({ enemy, state, y, justCleared, justUnlocked, pressed, onClick 
           />
         </div>
         {state === 'cleared' && (
-          <svg style={{ position: 'absolute', left: size * 0.2, top: size * 0.2, animation: justCleared ? 'stamp 300ms 300ms steps(4) both' : undefined }} width={size * 0.6} height={size * 0.6} viewBox="0 0 10 10" shapeRendering="crispEdges">
+          <svg style={{ position: 'absolute', left: size * 0.2, top: size * 0.2, animation: justCleared ? 'stamp 300ms 300ms var(--ease-out) both' : undefined }} width={size * 0.6} height={size * 0.6} viewBox="0 0 10 10" shapeRendering="crispEdges">
             {[0, 2, 4, 6, 8].map((v) => <rect key={`a${v}`} x={v} y={v} width="2" height="2" fill="#E8434F" />)}
             {[0, 2, 6, 8].map((v) => <rect key={`b${v}`} x={8 - v} y={v} width="2" height="2" fill="#E8434F" />)}
           </svg>
@@ -183,7 +183,7 @@ function ShatterLock() {
           <div key={i} style={{ position: 'absolute', width: 8, height: 8, background: '#E6E8F7', ['--dx' as string]: `${Math.cos(a) * 70}px`, ['--dy' as string]: `${Math.sin(a) * 70}px`, animation: 'pixelDrift 500ms 900ms steps(6) both' }} />
         );
       })}
-      <div style={{ animation: 'fadeOut 100ms 900ms steps(1) forwards' }}><LockIcon size={28} /></div>
+      <div style={{ animation: 'fadeOut 100ms 900ms var(--ease-out) forwards' }}><LockIcon size={28} /></div>
     </div>
   );
 }
@@ -217,7 +217,7 @@ function NextFightPanel({ onFight, reveal }: { onFight: () => void; reveal: bool
   }, []);
   const d = danger?.[next.id];
   return (
-    <div style={{ position: 'absolute', right: 40, bottom: 64, width: 392, display: 'flex', flexDirection: 'column', background: 'rgba(16,17,38,0.94)', border: '4px solid #101126', boxShadow: '#3A3F70 0 0 0 3px inset, rgba(0,0,0,0.4) 6px 6px 0', animation: `slideInRight 300ms ${reveal ? 1400 : 150}ms steps(5) both` }}>
+    <div style={{ position: 'absolute', right: 40, bottom: 64, width: 392, display: 'flex', flexDirection: 'column', background: 'rgba(16,17,38,0.94)', border: '4px solid #101126', boxShadow: '#3A3F70 0 0 0 3px inset, rgba(0,0,0,0.4) 6px 6px 0', animation: `slideInRight 300ms ${reveal ? 1400 : 150}ms var(--ease-out) both` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 24px 0' }}>
         <span className="f-label" style={{ fontSize: 13, color: next.boss ? '#FF7DB8' : 'var(--sun)' }}>{next.boss ? 'BOSS FIGHT' : 'NEXT FIGHT'}</span>
         <span className="f-label" style={{ fontSize: 13, color: 'var(--muted)' }}>{run.floor + 1} / 18</span>
@@ -242,7 +242,7 @@ function NextFightPanel({ onFight, reveal }: { onFight: () => void; reveal: bool
         </div>
       </div>
       {d && d.attempts >= 3 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '0 24px 18px', padding: '10px 12px', background: '#1B1E3B', border: '2px solid #2A2F55', animation: 'fadeIn 300ms steps(3) both' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '0 24px 18px', padding: '10px 12px', background: '#1B1E3B', border: '2px solid #2A2F55', animation: 'fadeIn 300ms var(--ease-out) both' }}>
           <div style={{ display: 'flex', gap: 3 }}>
             {Array.from({ length: 5 }, (_, i) => <div key={i} style={{ width: 8, height: 14, background: i < Math.ceil(d.fellRate / 20) ? 'var(--hp)' : '#2A2F55' }} />)}
           </div>
@@ -266,16 +266,16 @@ function Versus() {
   const inst = instrumentOf(run);
   return (
     <div className="fill" style={{ zIndex: 60, background: '#101126', overflow: 'hidden' }}>
-      <div className="fill" style={{ background: '#D1307E', clipPath: 'polygon(0 0, 780px 0, 640px 900px, 0 900px)', animation: 'slideInLeft 220ms steps(4) both' }} />
-      <div className="fill" style={{ background: e.boss ? '#3A1B2E' : '#1E2140', clipPath: 'polygon(800px 0, 1440px 0, 1440px 900px, 660px 900px)', animation: 'slideInRight 220ms steps(4) both' }} />
-      <Sprite src={inst.sprite} x={60} y={200} size={560} style={{ animation: 'slideInLeft 220ms 40ms steps(3) both' }} />
-      <Sprite src={e.sprite} x={800} y={170} size={600} style={{ filter: e.spriteFilter, animation: 'slideInRight 220ms 40ms steps(3) both' }} />
-      <div className="f-press" style={{ position: 'absolute', left: 620, top: 380, fontSize: 96, color: 'var(--sun)', textShadow: '#101126 8px 8px 0', animation: 'slam 220ms 100ms steps(3) both' }}>VS</div>
-      <div style={{ position: 'absolute', right: 60, top: 80, textAlign: 'right', animation: 'dropIn 160ms 220ms steps(2) both' }}>
+      <div className="fill" style={{ background: '#D1307E', clipPath: 'polygon(0 0, 780px 0, 640px 900px, 0 900px)', animation: 'slideInLeft 220ms var(--ease-out) both' }} />
+      <div className="fill" style={{ background: e.boss ? '#3A1B2E' : '#1E2140', clipPath: 'polygon(800px 0, 1440px 0, 1440px 900px, 660px 900px)', animation: 'slideInRight 220ms var(--ease-out) both' }} />
+      <Sprite src={inst.sprite} x={60} y={200} size={560} style={{ animation: 'slideInLeft 220ms 40ms var(--ease-out) both' }} />
+      <Sprite src={e.sprite} x={800} y={170} size={600} style={{ filter: e.spriteFilter, animation: 'slideInRight 220ms 40ms var(--ease-out) both' }} />
+      <div className="f-press" style={{ position: 'absolute', left: 620, top: 380, fontSize: 96, color: 'var(--sun)', textShadow: '#101126 8px 8px 0', animation: 'slam 220ms 100ms var(--ease-out) both' }}>VS</div>
+      <div style={{ position: 'absolute', right: 60, top: 80, textAlign: 'right', animation: 'dropIn 160ms 220ms var(--ease-out) both' }}>
         <div className="f-label" style={{ fontSize: 14, color: e.boss ? '#FF7DB8' : 'var(--sun)' }}>FLOOR {e.floor}{e.boss ? ' · BOSS' : ''} · {e.place.toUpperCase()}</div>
         <div className="f-press" style={{ marginTop: 10, fontSize: 34, color: '#fff', textShadow: '#101126 4px 4px 0' }}>{e.name.toUpperCase()}</div>
       </div>
-      <div style={{ position: 'absolute', left: 60, bottom: 80, animation: 'riseIn 160ms 220ms steps(2) both' }}>
+      <div style={{ position: 'absolute', left: 60, bottom: 80, animation: 'riseIn 160ms 220ms var(--ease-out) both' }}>
         <div className="f-label" style={{ fontSize: 14, color: 'var(--parchment)' }}>RIFF · THE {inst.name.toUpperCase()}</div>
       </div>
     </div>

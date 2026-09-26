@@ -425,10 +425,10 @@ export default function Combat() {
     <div ref={rootRef} className="fill screen-clip" style={{ background: '#101126', animation: fx.flash === 'red' || phase === 'ko' ? 'shake 300ms steps(4)' : undefined }}>
       <Bg src={enemy.bg} style={{ filter: `${enemy.bgFilter ?? ''} ${phase === 'ko' ? 'saturate(0.2)' : ''} ${dark ? 'brightness(0.2)' : ''}`, transition: 'filter 300ms steps(3)' }} />
       <div className="fill" style={{ background: 'linear-gradient(180deg, rgba(16,17,38,0.35) 0%, rgba(16,17,38,0.1) 45%, rgba(16,17,38,0.15) 70%, rgba(16,17,38,0.8) 100%)' }} />
-      {dark && <div style={{ position: 'absolute', left: 120, top: 0, width: 500, height: 900, background: 'linear-gradient(180deg, rgba(255,230,150,0.4), rgba(255,230,150,0.05))', clipPath: 'polygon(40% 0, 60% 0, 100% 100%, 0 100%)', animation: 'fadeIn 300ms steps(3)' }} />}
+      {dark && <div style={{ position: 'absolute', left: 120, top: 0, width: 500, height: 900, background: 'linear-gradient(180deg, rgba(255,230,150,0.4), rgba(255,230,150,0.05))', clipPath: 'polygon(40% 0, 60% 0, 100% 100%, 0 100%)', animation: 'fadeIn 300ms var(--ease-out)' }} />}
 
       {/* Riff */}
-      <div style={{ position: 'absolute', left: RIFF.x, top: FLOOR_Y - RIFF.size, width: RIFF.size, zIndex: 5, animation: phase === 'enter' ? 'slideInLeft 500ms 300ms steps(6) both' : undefined }}>
+      <div style={{ position: 'absolute', left: RIFF.x, top: FLOOR_Y - RIFF.size, width: RIFF.size, zIndex: 5, animation: phase === 'enter' ? 'slideInLeft 500ms 300ms var(--ease-out) both' : undefined }}>
         <div style={{ position: 'absolute', left: 80, top: RIFF.size - 16, width: 160, height: 18, borderRadius: '50%', background: 'rgba(16,17,38,0.55)' }} />
         <Sprite
           key={`${riffSprite}-${fx.riff}`}
@@ -439,9 +439,9 @@ export default function Combat() {
           style={{
             position: 'relative',
             animation:
-              phase === 'ko' && fx.riff === 'hurt' ? 'knockback 500ms steps(5) both, dissolve 600ms 1500ms steps(8) forwards'
-              : fx.riff === 'hurt' ? 'knockback 500ms steps(5), hitFlash 400ms steps(2)'
-              : fx.riff === 'attack' || fx.riff === 'encore' ? 'lungeRight 500ms steps(4)'
+              phase === 'ko' && fx.riff === 'hurt' ? 'knockback 500ms var(--ease-snap) both, dissolve 600ms 1500ms steps(8) forwards'
+              : fx.riff === 'hurt' ? 'knockback 500ms var(--ease-snap), hitFlash 400ms steps(2)'
+              : fx.riff === 'attack' || fx.riff === 'encore' ? 'lungeRight 500ms var(--ease-snap)'
               : fx.riff === 'windup' ? undefined : 'breathe 1.2s steps(2) infinite',
             transform: fx.riff === 'windup' ? 'translateX(-18px) rotate(-3deg)' : undefined,
             filter: fx.flash === 'white' ? 'brightness(0)' : undefined,
@@ -453,7 +453,7 @@ export default function Combat() {
       </div>
 
       {/* Enemy */}
-      <div style={{ position: 'absolute', left: enemyX, top: enemyY, width: size, zIndex: 5, animation: phase === 'enter' ? 'slideInRight 500ms 300ms steps(6) both' : undefined }}>
+      <div style={{ position: 'absolute', left: enemyX, top: enemyY, width: size, zIndex: 5, animation: phase === 'enter' ? 'slideInRight 500ms 300ms var(--ease-out) both' : undefined }}>
         {phase !== 'win' && (
           <div style={{ position: 'absolute', left: size / 2 - 38, top: -46, display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 6px', background: 'rgba(16,17,38,0.85)', border: '3px solid #101126', animation: 'bob 1.4s steps(2) infinite' }}>
             <svg width="24" height="24" viewBox="0 0 8 8" shapeRendering="crispEdges">
@@ -477,7 +477,7 @@ export default function Combat() {
             animation:
               fx.enemy === 'dissolve' ? 'hitFlash 300ms steps(2), dissolve 1200ms 300ms steps(10) forwards'
               : fx.enemy === 'hit' ? 'hitFlash 400ms steps(2), shakeSmall 300ms steps(3)'
-              : fx.enemy === 'attack' ? 'lungeLeft 700ms steps(5)'
+              : fx.enemy === 'attack' ? 'lungeLeft 700ms var(--ease-snap)'
               : fx.enemy === 'windup' ? undefined : 'breathe 1.4s steps(2) infinite',
             transform: fx.enemy === 'windup' ? 'translateX(20px) rotate(4deg)' : undefined,
             filter: fx.flash === 'white' ? 'brightness(0)' : enemy.spriteFilter,
@@ -495,7 +495,7 @@ export default function Combat() {
 
       {/* Damage pops */}
       {fx.pop && (
-        <div key={`pop-${fx.pop.key}`} className="f-press" style={{ position: 'absolute', zIndex: 20, left: fx.pop.side === 'enemy' ? enemyX + size * 0.6 : RIFF.x + 60, top: fx.pop.side === 'enemy' ? enemyY + 10 : FLOOR_Y - RIFF.size + 10, fontSize: fx.pop.v >= 100 ? 96 : 60, color: '#FF4F5E', textShadow: '#101126 -4px 0 0, #101126 4px 0 0, #101126 0 -4px 0, #101126 0 4px 0, #FFD23F 6px 8px 0', animation: 'dmgPop 1100ms steps(8) forwards' }}>
+        <div key={`pop-${fx.pop.key}`} className="f-press" style={{ position: 'absolute', zIndex: 20, left: fx.pop.side === 'enemy' ? enemyX + size * 0.6 : RIFF.x + 60, top: fx.pop.side === 'enemy' ? enemyY + 10 : FLOOR_Y - RIFF.size + 10, fontSize: fx.pop.v >= 100 ? 96 : 60, color: '#FF4F5E', textShadow: '#101126 -4px 0 0, #101126 4px 0 0, #101126 0 -4px 0, #101126 0 4px 0, #FFD23F 6px 8px 0', animation: 'dmgPop 1100ms var(--ease-out) forwards' }}>
           -{fx.pop.v}
         </div>
       )}
@@ -505,14 +505,14 @@ export default function Combat() {
 
       {/* Card fly-off (09a) */}
       {fx.flyoff && (
-        <div key={`fly-${fx.flyoff.key}`} style={{ position: 'absolute', left: 620, top: 300, zIndex: 25, animation: 'cardFlyOff 700ms steps(8) forwards' }}>
+        <div key={`fly-${fx.flyoff.key}`} style={{ position: 'absolute', left: 620, top: 300, zIndex: 25, animation: 'cardFlyOff 700ms var(--ease-out) forwards' }}>
           <div style={{ width: 200, height: 280, background: fx.flyoff.type === 'chord' ? '#C23A7E' : fx.flyoff.type === 'rhythm' ? '#C9901B' : '#2F7EC4', border: '4px solid #101126', boxShadow: '#FFF6E0 0 0 0 4px inset' }} />
         </div>
       )}
 
       {/* Turn banner */}
       {banner && (
-        <div key={banner.k} className="combat-turn-banner" style={{ position: 'absolute', left: 0, top: 92, width: 1440, display: 'flex', justifyContent: 'center', zIndex: 8, animation: 'dropIn 260ms steps(4) both' }}>
+        <div key={banner.k} className="combat-turn-banner" style={{ position: 'absolute', left: 0, top: 92, width: 1440, display: 'flex', justifyContent: 'center', zIndex: 8, animation: 'dropIn 260ms var(--ease-out) both' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 28px', backgroundImage: 'linear-gradient(90deg, rgba(27,29,58,0), rgba(27,29,58,0.85) 18%, rgba(27,29,58,0.85) 82%, rgba(27,29,58,0))' }}>
             <span className="f-press" style={{ fontSize: 16, color: banner.c }}>{banner.k}</span>
             <span style={{ width: 6, height: 6, background: 'var(--muted)' }} />
@@ -545,12 +545,12 @@ export default function Combat() {
                 ['--rot' as string]: `${rot}deg`,
                 transform: dragging ? `rotate(${Math.max(-12, Math.min(12, (drag.x - (x + 100)) / 30))}deg) scale(1.05)` : `rotate(${rot}deg)`,
                 transformOrigin: '50% 100%',
-                transition: dragging ? undefined : 'top 120ms steps(3)',
+                transition: dragging ? undefined : 'top 120ms var(--ease-out)',
                 filter: phase !== 'player' ? 'brightness(0.6)' : picked === i ? 'drop-shadow(0 0 14px rgba(255,210,63,0.9))' : undefined,
               }}
               className={canAct && !dragging ? 'card-hover' : undefined}
             >
-              <div style={{ ['--rot' as string]: '0deg', animation: `cardDeal 360ms ${n * 90}ms steps(6) both` }}>
+              <div style={{ ['--rot' as string]: '0deg', animation: `cardDeal 360ms ${n * 90}ms var(--ease-out) both` }}>
                 <CardView type={card.type} ex={card.exercise} damage={cardDamage} lifted={dragging} />
               </div>
               <div className="f-press kbd-only" style={{ position: 'absolute', right: 8, bottom: 190, width: 20, height: 20, display: 'grid', placeItems: 'center', background: '#101126', color: 'var(--muted)', fontSize: 10 }}>{n + 1}</div>
@@ -595,12 +595,12 @@ export default function Combat() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
           <span className="f-label" style={{ fontSize: 12, color: '#C9CDE8' }}>LANDED</span>
           <div style={{ display: 'flex', gap: 4 }}>
-            {[0, 1, 2].map((i) => <div key={i} style={{ width: 12, height: 16, background: i < landedCount ? 'var(--magenta)' : '#3A3F70', border: '2px solid #101126', animation: i === landedCount - 1 ? 'popIn 300ms steps(4)' : undefined }} />)}
+            {[0, 1, 2].map((i) => <div key={i} style={{ width: 12, height: 16, background: i < landedCount ? 'var(--magenta)' : '#3A3F70', border: '2px solid #101126', animation: i === landedCount - 1 ? 'popIn 300ms var(--ease-out)' : undefined }} />)}
           </div>
         </div>
         <Octagon size={112}>
           <span className="f-label" style={{ fontSize: 12, color: 'var(--muted)' }}>ROUND</span>
-          <span key={combat.round} className="f-press" style={{ fontSize: 30, color: '#fff', textShadow: '#101126 3px 3px 0', animation: 'popIn 300ms steps(4)' }}>{combat.round}</span>
+          <span key={combat.round} className="f-press" style={{ fontSize: 30, color: '#fff', textShadow: '#101126 3px 3px 0', animation: 'popIn 300ms var(--ease-out)' }}>{combat.round}</span>
         </Octagon>
       </div>
 
@@ -608,7 +608,7 @@ export default function Combat() {
       {perform && (
         <>
           {perform.stage === 'unfold' && typeof perform.active === 'number' && (
-            <div style={{ position: 'absolute', left: 620, top: 280, zIndex: 32, animation: 'flipOpen 300ms steps(6) both' }}>
+            <div style={{ position: 'absolute', left: 620, top: 280, zIndex: 32, animation: 'flipOpen 300ms var(--ease-out) both' }}>
               <CardView type={combat.hand[perform.active].type} ex={perform.ex} damage={cardDamage} />
             </div>
           )}
@@ -631,9 +631,9 @@ export default function Combat() {
       {/* Entry letterbox + FIGHT! */}
       {phase === 'enter' && (
         <>
-          <div style={{ position: 'absolute', left: 0, top: 0, width: 1440, height: 450, background: '#101126', zIndex: 50, animation: 'curtainUp 500ms steps(6) forwards' }} />
-          <div style={{ position: 'absolute', left: 0, top: 450, width: 1440, height: 450, background: '#101126', zIndex: 50, animation: 'curtainDown 500ms steps(6) forwards' }} />
-          <div className="f-press" style={{ position: 'absolute', left: 0, top: 360, width: 1440, textAlign: 'center', zIndex: 51, fontSize: 88, color: 'var(--sun)', textShadow: '#101126 6px 6px 0, #D1307E 10px 12px 0', animation: 'slam 400ms 600ms steps(6) both, fadeOut 200ms 1300ms forwards' }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, width: 1440, height: 450, background: '#101126', zIndex: 50, animation: 'curtainUp 500ms var(--ease-out) forwards' }} />
+          <div style={{ position: 'absolute', left: 0, top: 450, width: 1440, height: 450, background: '#101126', zIndex: 50, animation: 'curtainDown 500ms var(--ease-out) forwards' }} />
+          <div className="f-press" style={{ position: 'absolute', left: 0, top: 360, width: 1440, textAlign: 'center', zIndex: 51, fontSize: 88, color: 'var(--sun)', textShadow: '#101126 6px 6px 0, #D1307E 10px 12px 0', animation: 'slam 400ms 600ms var(--ease-out) both, fadeOut 200ms 1300ms forwards' }}>
             {enemy.boss ? 'BOSS!' : 'FIGHT!'}
           </div>
         </>
@@ -646,7 +646,7 @@ export default function Combat() {
 function Reticle({ size }: { size: number }) {
   const s = size * 0.7;
   return (
-    <svg style={{ position: 'absolute', left: size * 0.15, top: size * 0.1, pointerEvents: 'none', animation: 'popIn 160ms steps(3)' }} width={s} height={s} viewBox="0 0 20 20" shapeRendering="crispEdges">
+    <svg style={{ position: 'absolute', left: size * 0.15, top: size * 0.1, pointerEvents: 'none', animation: 'popIn 160ms var(--ease-out)' }} width={s} height={s} viewBox="0 0 20 20" shapeRendering="crispEdges">
       {[[0, 0], [16, 0], [0, 16], [16, 16]].map(([x, y], i) => (
         <g key={i} fill="#FFD23F"><rect x={x} y={y} width="4" height="1" /><rect x={x + (x ? 3 : 0)} y={y} width="1" height="4" /><rect x={x} y={y + (y ? 3 : 0)} width="4" height="1" /><rect x={x + (x ? 3 : 0)} y={y} width="1" height="4" /></g>
       ))}
@@ -676,7 +676,7 @@ function NoteBarrage({ from, to, enemy }: { from: { x: number; y: number }; to: 
           height="36"
           viewBox="0 0 5 6"
           shapeRendering="crispEdges"
-          style={{ position: 'absolute', left: from.x, top: from.y + ((i * 37) % 60) - 30, ['--dx' as string]: `${to.x - from.x}px`, ['--dy' as string]: `${to.y - from.y - ((i * 37) % 60) + 30}px`, animation: `noteFly 520ms ${i * 60}ms steps(8) both` }}
+          style={{ position: 'absolute', left: from.x, top: from.y + ((i * 37) % 60) - 30, ['--dx' as string]: `${to.x - from.x}px`, ['--dy' as string]: `${to.y - from.y - ((i * 37) % 60) + 30}px`, animation: `noteFly 520ms ${i * 60}ms var(--ease-out) both` }}
         >
           <rect x="3" y="0" width="1" height="5" fill={c} /><rect x="0" y="3" width="4" height="3" fill={c} /><rect x="4" y="0" width="1" height="2" fill={c} />
         </svg>
@@ -714,10 +714,10 @@ function PixelBurst({ x, y, delay = 300 }: { x: number; y: number; delay?: numbe
 function KoOverlay() {
   return (
     <div className="fill" style={{ zIndex: 45, pointerEvents: 'none' }}>
-      <div className="fill" style={{ background: 'rgba(232,67,79,0.35)', animation: 'fadeIn 500ms 100ms steps(4) both' }} />
-      <div style={{ position: 'absolute', left: 0, top: 0, width: 1440, height: 60, background: '#101126', animation: 'dropIn 300ms 700ms steps(4) both' }} />
-      <div style={{ position: 'absolute', left: 0, bottom: 0, width: 1440, height: 60, background: '#101126', animation: 'riseIn 300ms 700ms steps(4) both' }} />
-      <div className="f-press" style={{ position: 'absolute', left: 0, top: 330, width: 1440, textAlign: 'center', fontSize: 180, lineHeight: '190px', color: 'var(--sun)', textShadow: '#101126 10px 10px 0, #E8434F 16px 18px 0', animation: 'slam 300ms 700ms steps(4) both' }}>
+      <div className="fill" style={{ background: 'rgba(232,67,79,0.35)', animation: 'fadeIn 500ms 100ms var(--ease-out) both' }} />
+      <div style={{ position: 'absolute', left: 0, top: 0, width: 1440, height: 60, background: '#101126', animation: 'dropIn 300ms 700ms var(--ease-out) both' }} />
+      <div style={{ position: 'absolute', left: 0, bottom: 0, width: 1440, height: 60, background: '#101126', animation: 'riseIn 300ms 700ms var(--ease-out) both' }} />
+      <div className="f-press" style={{ position: 'absolute', left: 0, top: 330, width: 1440, textAlign: 'center', fontSize: 180, lineHeight: '190px', color: 'var(--sun)', textShadow: '#101126 10px 10px 0, #E8434F 16px 18px 0', animation: 'slam 300ms 700ms var(--ease-out) both' }}>
         K.O.
       </div>
     </div>
@@ -752,7 +752,7 @@ function EncoreButton({ charged, damage, onPlay }: { charged: boolean; damage: n
 function TauntBubble({ taunt, name, x, y }: { taunt: Taunt & { heat: number; speaking: boolean }; name: string; x: number; y: number }) {
   const hot = taunt.heat >= 3;
   return (
-    <div key={taunt.id + taunt.text} style={{ position: 'absolute', left: x, top: y, width: 460, zIndex: 35, animation: `popIn 220ms steps(4) both${hot ? ', shakeSmall 200ms 220ms steps(2) 4' : ''}` }}>
+    <div key={taunt.id + taunt.text} style={{ position: 'absolute', left: x, top: y, width: 460, zIndex: 35, animation: `popIn 220ms var(--ease-out) both${hot ? ', shakeSmall 200ms 220ms steps(2) 4' : ''}` }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 20px 18px', background: 'var(--parchment)', border: `4px solid ${hot ? '#E8434F' : '#101126'}`, boxShadow: 'inset 0 -5px 0 #F0DDB4, #101126 6px 6px 0', rotate: hot ? '-1.5deg' : undefined }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

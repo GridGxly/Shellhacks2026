@@ -108,7 +108,7 @@ export function Leaderboard() {
 
         <PlayerSearch />
 
-        <div style={{ background: 'rgba(16,17,38,0.88)', border: '4px solid #3A3F70', boxShadow: '#101126 8px 8px 0', animation: 'unrollDown 400ms steps(8) both' }}>
+        <div style={{ background: 'rgba(16,17,38,0.88)', border: '4px solid #3A3F70', boxShadow: '#101126 8px 8px 0', animation: 'unrollDown 400ms var(--ease-out) both' }}>
           <div className="f-label" style={{ display: 'grid', gridTemplateColumns: '80px 1fr 170px 110px 110px 150px', padding: '12px 22px', fontSize: 11, color: 'var(--muted)', borderBottom: '3px solid #2A2F55' }}>
             <span>RANK</span><span>PLAYER</span><span>INSTRUMENT</span><span>FLOOR</span><span>ACC</span><span style={{ textAlign: 'right' }}>SCORE</span>
           </div>
@@ -214,7 +214,7 @@ function Row({ r, mine, delay, from }: { r: BoardRow; mine: boolean; delay: numb
         display: 'grid', gridTemplateColumns: '80px 1fr 170px 110px 110px 150px', alignItems: 'center', padding: '10px 22px',
         background: mine ? 'rgba(255,210,63,0.12)' : r.rank % 2 ? 'transparent' : 'rgba(42,47,85,0.35)',
         borderLeft: mine ? '4px solid var(--sun)' : '4px solid transparent',
-        animation: `countUp 200ms ${delay}ms steps(3) both`,
+        animation: `countUp 200ms ${delay}ms var(--ease-out) both`,
       }}
     >
       <span className="f-press" style={{ fontSize: 16, color: medal ?? 'var(--muted)' }}>{r.rank}</span>
@@ -288,7 +288,7 @@ function ProfileCard({ target }: { target: string | null }) {
     <MenuShell title="PROFILE" onBack={() => useGame.getState().go(target ? 'leaderboard' : 'title')}>
       <div style={{ position: 'absolute', left: 170, top: 190, width: 1100, display: 'flex', gap: 24 }}>
         {/* Card */}
-        <div style={{ width: 340, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: 24, background: 'rgba(16,17,38,0.9)', border: '4px solid var(--sun)', boxShadow: '#101126 8px 8px 0', animation: 'panelIn 400ms steps(6) both' }}>
+        <div style={{ width: 340, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: 24, background: 'rgba(16,17,38,0.9)', border: '4px solid var(--sun)', boxShadow: '#101126 8px 8px 0', animation: 'panelIn 400ms var(--ease-out) both' }}>
           <div style={{ position: 'relative', width: 150, height: 150, overflow: 'hidden', background: '#2A2F55', border: '4px solid #101126' }}>
             <div className="sprite" style={{ left: -30, top: 4, width: 210, height: 210, backgroundImage: `url(${art(instIcon(data?.favoriteInstrument ?? 'trumpet'))})`, backgroundPosition: '50% 0', animation: 'breathe 1.2s steps(2) infinite' }} />
           </div>
@@ -315,7 +315,7 @@ function ProfileCard({ target }: { target: string | null }) {
 
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 18 }}>
           {/* Bestiary */}
-          <div style={{ padding: '16px 20px', background: 'rgba(16,17,38,0.88)', border: '3px solid #3A3F70', animation: 'panelIn 400ms 120ms steps(6) both' }}>
+          <div style={{ padding: '16px 20px', background: 'rgba(16,17,38,0.88)', border: '3px solid #3A3F70', animation: 'panelIn 400ms 120ms var(--ease-out) both' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
               <span className="f-press" style={{ fontSize: 14 }}>BESTIARY</span>
               <span className="f-label" style={{ fontSize: 11, color: 'var(--muted)' }}>{data?.deepest ?? 0}/18 DEFEATED</span>
@@ -324,7 +324,7 @@ function ProfileCard({ target }: { target: string | null }) {
               {ENEMIES.map((e, i) => {
                 const seen = (data?.deepest ?? 0) > i;
                 return (
-                  <div key={e.id} title={seen ? e.name : '???'} style={{ position: 'relative', height: 70, background: seen ? '#2A2F55' : '#15172E', border: `2px solid ${e.boss ? 'var(--magenta-dark)' : '#3A3F70'}`, overflow: 'hidden', animation: `popIn 200ms ${200 + i * 30}ms steps(3) both` }}>
+                  <div key={e.id} title={seen ? e.name : '???'} style={{ position: 'relative', height: 70, background: seen ? '#2A2F55' : '#15172E', border: `2px solid ${e.boss ? 'var(--magenta-dark)' : '#3A3F70'}`, overflow: 'hidden', animation: `popIn 200ms ${200 + i * 30}ms var(--ease-out) both` }}>
                     <div className="sprite" style={{ inset: 4, backgroundImage: `url(${art(e.sprite, 'thumb')})`, filter: seen ? e.spriteFilter : 'brightness(0) opacity(0.5)' }} />
                   </div>
                 );
@@ -332,7 +332,7 @@ function ProfileCard({ target }: { target: string | null }) {
             </div>
           </div>
           {/* Recent runs */}
-          <div style={{ flex: 1, padding: '16px 20px', background: 'rgba(16,17,38,0.88)', border: '3px solid #3A3F70', animation: 'panelIn 400ms 240ms steps(6) both' }}>
+          <div style={{ flex: 1, padding: '16px 20px', background: 'rgba(16,17,38,0.88)', border: '3px solid #3A3F70', animation: 'panelIn 400ms 240ms var(--ease-out) both' }}>
             <div className="f-press" style={{ fontSize: 14, marginBottom: 10 }}>RECENT RUNS</div>
             {p === null && <Empty text="Loading…" />}
             {p === 'offline' && <Empty text={target ? 'Profile is unavailable. Try again shortly.' : 'Sign in to see your profile.'} />}

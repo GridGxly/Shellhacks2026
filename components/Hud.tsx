@@ -58,7 +58,7 @@ export default function Hud({ center, pulse }: { center: string; pulse?: 'map' |
             <rect x="2" y="4" width="3" height="1" fill="#E8434F" /><rect x="3" y="5" width="1" height="1" fill="#E8434F" />
             <rect x="1" y="1" width="1" height="1" fill="#FFB3BA" />
           </svg>
-          <span key={run.hp} className="f-press hud-value" style={{ fontSize: 14, color: '#FF8A93', animation: 'popIn 300ms steps(4)' }}>{run.hp}/{maxHp}</span>
+          <span key={run.hp} className="f-press hud-value" style={{ fontSize: 14, color: '#FF8A93', animation: 'popIn 300ms var(--ease-out)' }}>{run.hp}/{maxHp}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--sun)' }}>
           <span className="f-music" style={{ fontSize: 24, lineHeight: '24px' }}>𝄞</span>
@@ -71,7 +71,7 @@ export default function Hud({ center, pulse }: { center: string; pulse?: 'map' |
             <rect x="2" y="9" width="6" height="1" fill="#C9901B" /><rect x="5" y="2" width="1" height="4" fill="#101126" />
             <rect x="6" y="2" width="1" height="1" fill="#101126" /><rect x="3" y="5" width="3" height="2" fill="#101126" />
           </svg>
-          <span key={run.tips} className="f-press hud-value" style={{ fontSize: 13, color: 'var(--sun)', animation: 'popIn 300ms steps(4)' }}>{run.tips}</span>
+          <span key={run.tips} className="f-press hud-value" style={{ fontSize: 13, color: 'var(--sun)', animation: 'popIn 300ms var(--ease-out)' }}>{run.tips}</span>
         </div>
       </div>
       {/* Handhelds drop the section name ("THE CLIMB") and keep where you are. */}

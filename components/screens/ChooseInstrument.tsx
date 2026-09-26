@@ -70,7 +70,7 @@ export default function ChooseInstrument() {
 
       {/* Riff, equipped */}
       <div style={{ position: 'absolute', left: 60, top: 250, width: 360, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Sprite key={inst.id} src={inst.sprite} x={0} y={0} size={360} style={{ position: 'relative', animation: 'popIn 300ms steps(5) both, breathe 1.2s 300ms steps(2) infinite' }} />
+        <Sprite key={inst.id} src={inst.sprite} x={0} y={0} size={360} style={{ position: 'relative', animation: 'popIn 300ms var(--ease-out) both, breathe 1.2s 300ms steps(2) infinite' }} />
         <div className="f-press" style={{ marginTop: 6, padding: '6px 12px', background: 'var(--meadow)', color: '#101126', fontSize: 11 }}>EQUIPPED</div>
       </div>
 
@@ -82,7 +82,7 @@ export default function ChooseInstrument() {
       <button onClick={() => move(1)} className="hoverable" style={{ position: 'absolute', left: 914, top: 360 }} aria-label="Next"><Arrow size={56} /></button>
 
       {/* Info card */}
-      <div key={`card-${idx}`} style={{ position: 'absolute', left: 1000, top: 250, width: 380, display: 'flex', flexDirection: 'column', gap: 16, padding: 24, background: 'rgba(16,17,38,0.92)', border: '4px solid #101126', boxShadow: '#3A3F70 0 0 0 3px inset, #D1307E 6px 6px 0', animation: 'fadeIn 250ms steps(4) both' }}>
+      <div key={`card-${idx}`} style={{ position: 'absolute', left: 1000, top: 250, width: 380, display: 'flex', flexDirection: 'column', gap: 16, padding: 24, background: 'rgba(16,17,38,0.92)', border: '4px solid #101126', boxShadow: '#3A3F70 0 0 0 3px inset, #D1307E 6px 6px 0', animation: 'fadeIn 250ms var(--ease-out) both' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div className="f-press" style={{ fontSize: 20, color: '#fff' }}>{inst.name.toUpperCase()}</div>
           <div className="f-press" style={{ padding: '6px 10px', background: 'var(--sun)', color: '#101126', fontSize: 13 }}>{inst.keyLabel}</div>
@@ -102,7 +102,7 @@ export default function ChooseInstrument() {
           <button
             key={it.id}
             onClick={() => { setDir(i > idx ? 1 : -1); setIdx(i); sfx('hover'); }}
-            style={{ width: 96, height: 84, display: 'grid', placeItems: 'center', background: i === idx ? '#2A2F55' : 'rgba(16,17,38,0.8)', border: `3px solid ${i === idx ? 'var(--sun)' : '#3A3F70'}`, transform: i === idx ? 'translateY(-6px)' : undefined, transition: 'transform 100ms steps(2)' }}
+            style={{ width: 96, height: 84, display: 'grid', placeItems: 'center', background: i === idx ? '#2A2F55' : 'rgba(16,17,38,0.8)', border: `3px solid ${i === idx ? 'var(--sun)' : '#3A3F70'}`, transform: i === idx ? 'translateY(-6px)' : undefined, transition: 'transform 100ms var(--ease-out)' }}
           >
             <Icon i={it.iconIndex} scale={0.55} />
           </button>
