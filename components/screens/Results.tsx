@@ -59,7 +59,7 @@ function Confetti({ n = 36 }: { n?: number }) {
 
 function StatLine({ label, value, color = '#fff', delay }: { label: string; value: ReactNode; color?: string; delay: number }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '2px dashed #3A3F70', animation: `countUp 200ms ${delay}ms var(--ease-out) both` }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '2px dashed #3A3F70', animation: `countUp 200ms ${delay}ms steps(3) both` }}>
       <span className="f-label" style={{ fontSize: 13, color: 'var(--muted)' }}>{label}</span>
       <span className="f-press" style={{ fontSize: 16, color }}>{value}</span>
     </div>
@@ -108,21 +108,21 @@ export function Victory() {
       {/* 10 Victory: no Riff here; the beaten foe fades on the right */}
       <Sprite src={beaten.sprite} x={1010} y={420} size={260} style={{ filter: `${beaten.spriteFilter ?? ''} grayscale(1) brightness(0.5)`, opacity: 0.55, transform: 'rotate(8deg)', animation: 'dissolve 800ms 500ms steps(8) forwards' }} />
       {/* The defeated foe releases tips; the count starts on the first landing. */}
-      {[0, 1, 2, 3, 4].map((i) => <div key={i} aria-hidden="true" style={{ position: 'absolute', left: 1130, top: 520 + (i % 2) * 22, zIndex: 7, ['--reward-x' as string]: `${-310 - i * 9}px`, ['--reward-y' as string]: `${-188 - (i % 2) * 22}px`, animation: `victoryReward 400ms ${500 + i * 80}ms var(--ease-out) both` }}>
+      {[0, 1, 2, 3, 4].map((i) => <div key={i} aria-hidden="true" style={{ position: 'absolute', left: 1130, top: 520 + (i % 2) * 22, zIndex: 7, ['--reward-x' as string]: `${-310 - i * 9}px`, ['--reward-y' as string]: `${-188 - (i % 2) * 22}px`, animation: `victoryReward 400ms ${500 + i * 80}ms steps(6) both` }}>
         <svg width="26" height="26" viewBox="0 0 8 8" shapeRendering="crispEdges"><path d="M2 0H6V1H7V2H8V6H7V7H6V8H2V7H1V6H0V2H1V1H2Z" fill="#FFD23F"/><path d="M2 2H6V6H2Z" fill="#D9A21B"/><path d="M3 1H4V6H3Z" fill="#FFF6E0"/></svg>
       </div>)}
 
       {/* Handhelds lay the headline beside the results so both can be drawn larger. */}
-      <div ref={column} className="victory-col" style={{ position: 'absolute', left: 470, top: fit.top, scale: fit.k === 1 ? undefined : fit.k, transformOrigin: '50% 0', width: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, zIndex: 5, animation: leaving ? 'victoryExit 500ms var(--ease-out) forwards' : undefined }}>
+      <div ref={column} className="victory-col" style={{ position: 'absolute', left: 470, top: fit.top, scale: fit.k === 1 ? undefined : fit.k, transformOrigin: '50% 0', width: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, zIndex: 5, animation: leaving ? 'victoryExit 500ms steps(6) forwards' : undefined }}>
         <div className="victory-group">
-        <div className="f-press" style={{ fontSize: 60, color: 'var(--sun)', textShadow: '#101126 6px 6px 0, #D1307E 10px 10px 0', animation: 'slam 450ms var(--ease-out) both' }}>VICTORY!</div>
+        <div className="f-press" style={{ fontSize: 60, color: 'var(--sun)', textShadow: '#101126 6px 6px 0, #D1307E 10px 10px 0', animation: 'slam 450ms steps(6) both' }}>VICTORY!</div>
         <div className="f-body" style={{ fontSize: 20, color: 'var(--soft)', animation: 'fadeIn 300ms 300ms both' }}>
           {beaten.name} is out of tune for good.
         </div>
         <Ornament width={420} />
         </div>
         <div className="victory-group">
-        <div style={{ width: 500, padding: '18px 26px', background: 'rgba(16,17,38,0.9)', border: '4px solid #3A3F70', boxShadow: '#101126 8px 8px 0', animation: 'panelIn 400ms 400ms var(--ease-out) both' }}>
+        <div style={{ width: 500, padding: '18px 26px', background: 'rgba(16,17,38,0.9)', border: '4px solid #3A3F70', boxShadow: '#101126 8px 8px 0', animation: 'panelIn 400ms 400ms steps(6) both' }}>
           <StatLine label="HP RESTORED" value={`${run.hp}/${stat(run, 'maxHp')}`} color="#FF8A93" delay={600} />
           <StatLine label="TIPS" value={<>+{tips} <span style={{ color: 'var(--muted)', fontSize: 12 }}>· {run.tips} total</span></>} color="var(--sun)" delay={800} />
           <StatLine label="XP" value={`+${xp}`} color="var(--sky)" delay={1200} />
@@ -130,11 +130,11 @@ export function Victory() {
           <StatLine label="ACCURACY" value={`${accuracy(run.stats)}%`} color="var(--meadow)" delay={1700} />
         </div>
         {canUpgrade && (
-          <div className="f-body" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', background: 'rgba(76,194,107,0.15)', border: '2px solid var(--meadow)', fontSize: 16, color: 'var(--parchment)', animation: 'popIn 300ms 2000ms var(--ease-out) both' }}>
+          <div className="f-body" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', background: 'rgba(76,194,107,0.15)', border: '2px solid var(--meadow)', fontSize: 16, color: 'var(--parchment)', animation: 'popIn 300ms 2000ms steps(4) both' }}>
             <span style={{ width: 10, height: 10, background: 'var(--meadow)' }} /> You can afford an upgrade. <span className="kbd-only">Click</span><span className="touch-only">Tap</span> Riff&apos;s face, top left.
           </div>
         )}
-        <div style={{ marginTop: 10, animation: 'riseIn 300ms 2100ms var(--ease-out) both' }}>
+        <div style={{ marginTop: 10, animation: 'riseIn 300ms 2100ms steps(4) both' }}>
           <YellowButton onClick={proceed}>PROCEED ▸</YellowButton>
         </div>
         <div className="f-label" style={{ fontSize: 12, color: 'var(--muted)', animation: 'fadeIn 300ms 2300ms both' }}>
@@ -174,11 +174,11 @@ export function Loss() {
       <div className="fill" style={{ background: 'radial-gradient(ellipse 60% 60% at 50% 45%, rgba(232,67,79,0.18), rgba(11,11,24,0.95) 80%)' }} />
       <Sprite src={foe.sprite} x={1000} y={300} size={foe.size} style={{ opacity: 0.35, filter: `${foe.spriteFilter ?? ''} brightness(0.4)`, animation: 'breathe 1.4s steps(2) infinite' }} />
       <div ref={column} className="loss-col" style={{ position: 'absolute', left: 0, top: fit.top, scale: fit.k === 1 ? undefined : fit.k, transformOrigin: '50% 0', width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-        <div className="f-press" style={{ fontSize: 80, color: 'var(--hp)', textShadow: '#101126 8px 8px 0', animation: 'slam 450ms var(--ease-out) both' }}>DEFEAT</div>
+        <div className="f-press" style={{ fontSize: 80, color: 'var(--hp)', textShadow: '#101126 8px 8px 0', animation: 'slam 450ms steps(6) both' }}>DEFEAT</div>
         <div className="f-body" style={{ fontSize: 22, color: 'var(--soft)', animation: 'fadeIn 300ms 400ms both' }}>
           {foe.name} drowned you out on floor {foe.floor}.
         </div>
-        <div style={{ display: 'flex', gap: 14, marginTop: 20, animation: 'panelIn 400ms 500ms var(--ease-out) both' }}>
+        <div style={{ display: 'flex', gap: 14, marginTop: 20, animation: 'panelIn 400ms 500ms steps(6) both' }}>
           {[
             ['SCORE', score.toLocaleString(), 'var(--sun)'],
             ['FLOORS', `${run.floor}/18`, '#fff'],
@@ -195,7 +195,7 @@ export function Loss() {
           {newBest && <span className="f-press" style={{ padding: '4px 8px', background: 'var(--sun)', color: '#101126', fontSize: 11, animation: 'pulseGold 1s steps(3) infinite' }}>NEW BEST</span>}
           {run.demo ? 'Practice run (demo mode): not ranked.' : user ? `Posted to the leaderboard as ${user.username}.` : 'Playing as guest. Sign in on the title to post scores.'}
         </div>
-        <div style={{ marginTop: 18, animation: 'riseIn 300ms 1800ms var(--ease-out) both' }}>
+        <div style={{ marginTop: 18, animation: 'riseIn 300ms 1800ms steps(4) both' }}>
           <YellowButton onClick={() => { if (!startingRun) void again(); }}>{startingRun ? 'PREPARING…' : 'TRY AGAIN'}</YellowButton>
         </div>
       </div>
@@ -404,7 +404,7 @@ export function FinalVictory() {
     <div className="fill screen-clip" style={{ background: '#101126' }}>
       <Bg src="/assets/bg/summit.png" style={{ filter: `brightness(${sing ? 0.75 : 0.2}) saturate(${sing ? 1 : 0.3})`, transition: 'filter 500ms steps(5)' }} />
       {sing && <Stars />}
-      {sing && <div style={{ position: 'absolute', left: 520, top: 0, width: 400, height: 900, background: 'linear-gradient(180deg, rgba(255,230,150,0.35), rgba(255,230,150,0))', clipPath: 'polygon(35% 0, 65% 0, 100% 100%, 0 100%)', animation: 'fadeIn 600ms var(--ease-out) both' }} />}
+      {sing && <div style={{ position: 'absolute', left: 520, top: 0, width: 400, height: 900, background: 'linear-gradient(180deg, rgba(255,230,150,0.35), rgba(255,230,150,0))', clipPath: 'polygon(35% 0, 65% 0, 100% 100%, 0 100%)', animation: 'fadeIn 600ms steps(6) both' }} />}
       {sing && <FloatingNotes count={16} />}
       {sing && <Confetti n={48} />}
       {sing && t < SING + 120 && <div className="fill" style={{ background: '#FFF6E0', zIndex: 30 }} />}
@@ -434,21 +434,21 @@ export function FinalVictory() {
       {/* Beat 3: it sings */}
       {sing && (
         <>
-          <Sprite src={inst.id === 'trumpet' ? '/assets/sprites/riff-leap.png' : inst.sprite} x={560} y={430} size={320} style={{ animation: 'dropIn 500ms var(--ease-out) both, bob 900ms 600ms steps(2) infinite' }} />
+          <Sprite src={inst.id === 'trumpet' ? '/assets/sprites/riff-leap.png' : inst.sprite} x={560} y={430} size={320} style={{ animation: 'dropIn 500ms steps(6) both, bob 900ms 600ms steps(2) infinite' }} />
           <div style={{ position: 'absolute', left: 0, top: 90, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, zIndex: 5 }}>
             <div className="f-label" style={{ fontSize: 14, color: 'var(--sun)', animation: 'fadeIn 300ms both' }}>…THEN IT SINGS</div>
-            <div className="f-press" style={{ fontSize: 58, color: '#fff', textShadow: '#101126 6px 6px 0, #D1307E 10px 10px 0', animation: 'slam 500ms 100ms var(--ease-out) both' }}>ENCORE LANDED</div>
+            <div className="f-press" style={{ fontSize: 58, color: '#fff', textShadow: '#101126 6px 6px 0, #D1307E 10px 10px 0', animation: 'slam 500ms 100ms steps(6) both' }}>ENCORE LANDED</div>
             <div className="f-body" style={{ fontSize: 20, color: 'var(--soft)', animation: 'fadeIn 300ms 500ms both' }}>All 18 floors. Six bosses. One {inst.name.toLowerCase()}.</div>
           </div>
           <div style={{ position: 'absolute', left: 0, top: 290, width: 1440, display: 'flex', justifyContent: 'center', zIndex: 5 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 22, padding: '14px 26px', background: 'rgba(16,17,38,0.88)', border: '4px solid var(--sun)', animation: 'panelIn 400ms 700ms var(--ease-out) both' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 22, padding: '14px 26px', background: 'rgba(16,17,38,0.88)', border: '4px solid var(--sun)', animation: 'panelIn 400ms 700ms steps(6) both' }}>
               <span className="f-label" style={{ fontSize: 13, color: 'var(--muted)' }}>FINAL SCORE</span>
               <span className="f-press" style={{ fontSize: 36, color: 'var(--sun)', minWidth: 230 }}>{score.toLocaleString()}</span>
               <span className="f-label" style={{ fontSize: 12, color: 'var(--muted)' }}>{accuracy(run.stats)}% · {run.stats.encoresLanded} ENCORES · {mins} MIN</span>
             </div>
           </div>
           {t > 6500 && (
-            <div className="f-press" style={{ position: 'absolute', left: 980, top: 470, zIndex: 6, padding: '12px 16px', fontSize: rank ? 26 : 14, color: '#101126', background: rank ? 'var(--sun)' : 'var(--parchment)', border: '4px solid #101126', boxShadow: '#D1307E 6px 6px 0', animation: 'stamp 360ms var(--ease-out) both' }}>
+            <div className="f-press" style={{ position: 'absolute', left: 980, top: 470, zIndex: 6, padding: '12px 16px', fontSize: rank ? 26 : 14, color: '#101126', background: rank ? 'var(--sun)' : 'var(--parchment)', border: '4px solid #101126', boxShadow: '#D1307E 6px 6px 0', animation: 'stamp 360ms steps(5) both' }}>
               {rank ? `#${rank} ON THE BOARD` : user ? 'SCORE POSTED' : 'SIGN IN TO RANK'}
             </div>
           )}

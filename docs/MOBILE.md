@@ -30,7 +30,6 @@ Set on `<html>` on every resize and rotation. Values are in stage px unless note
 | `--rail-l/r/t/b` | How far an edge control moves outward: bleed minus the safe inset. Negative when the frame itself sits under the notch, which moves the control inward. |
 | `--hud-bottom` | Bottom edge of the scaled HUD. |
 | `--tap` | A 44px rendered touch target, expressed in the element's own px. |
-| `--ease-out`, `--ease-snap`, `--ease-in` | Interface motion curves. |
 
 ## The rules
 
@@ -97,9 +96,9 @@ Give the panel a compact handheld layout first (a class plus `:root[data-handhel
 
 The stage is landscape. Portrait phones see the rotate card (`RotateHint` in `Game.tsx`). Turning to landscape plays `stageWake`, a 460ms stepped iris, or a short fade with reduced motion. Full screen is offered from menus (the title links and the pause panel) where the browser supports it, never as a floating button over play. iPhone Safari has no element full screen, so the rotate card suggests adding the game to the home screen.
 
-### 11. Motion: ease the interface, step the sprites
+### 11. Motion: exactly as designed
 
-Interface pieces (panels, banners, wipes, cards, toasts) enter on `var(--ease-out)`, leave on `var(--ease-in)` and flip state on `var(--ease-snap)`. Pixel sprites keep their `steps(n)` loops (breathe, bob, blink) so they still read as sprite frames. Animate `transform`, `opacity` and `clip-path` only, and respect `prefers-reduced-motion`.
+Handhelds change where things sit, never how they move. Rails and cluster scaling never add, drop or retime an animation: each screen keeps the motion the desktop design gives it, the stepped `steps(n)` timing of the motion spec (Paper M6, "Nothing sits still"). The one motion phones add, the rotate wake, is stepped too: 460ms in 8 steps. Respect `prefers-reduced-motion`.
 
 ### 12. Weight: light art, no idle work
 
@@ -124,7 +123,7 @@ Text entry is the one exception to "never reflow": a phone keyboard needs native
 - [ ] Detail a phone doesn't need is `.desk-only`.
 - [ ] Centred panels use `useStageFit`.
 - [ ] Art goes through `art()`.
-- [ ] Interface motion uses the ease tokens; sprites step.
+- [ ] Motion follows the M6 spec: stepped timing, nothing retimed for phones.
 - [ ] Checked in landscape on phone sizes and in portrait (rotate card).
 
 ## Testing

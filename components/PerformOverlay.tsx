@@ -60,14 +60,14 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
 
   return (
     <>
-      <div className="fill bleed" style={{ zIndex: 30, background: 'rgba(12,13,30,0.72)', animation: 'fadeIn 200ms var(--ease-out) both' }} />
+      <div className="fill bleed" style={{ zIndex: 30, background: 'rgba(12,13,30,0.72)', animation: 'fadeIn 200ms steps(3) both' }} />
       <div
         ref={panel}
         className="performance-panel"
         style={{
           position: 'absolute', left: (1440 - width - 56) / 2, top: fit.top, width: width + 56, zIndex: 31, scale: fit.k === 1 ? undefined : fit.k, transformOrigin: '50% 0',
           display: 'flex', flexDirection: 'column', background: '#14162E', border: '4px solid #2A2F55', boxShadow: '#101126 0 0 0 4px, rgba(0,0,0,0.5) 10px 10px 0',
-          animation: stage === 'unfold' ? 'unfold 200ms var(--ease-out) both' : undefined,
+          animation: stage === 'unfold' ? 'unfold 200ms steps(4) both' : undefined,
         }}
       >
         {/* Header */}
@@ -121,7 +121,7 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
             revealUpTo={stage === 'unfold' ? -1 : Infinity}
           />
           {stage === 'countin' && (
-            <div key={count} className="f-press" style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 96, color: 'var(--magenta)', textShadow: '#101126 6px 6px 0', animation: 'countSlam 500ms var(--ease-out) both' }}>
+            <div key={count} className="f-press" style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 96, color: 'var(--magenta)', textShadow: '#101126 6px 6px 0', animation: 'countSlam 500ms steps(5) both' }}>
               {count}
             </div>
           )}
@@ -130,7 +130,7 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
         <div className="performance-footer" style={{ display: 'flex', alignItems: 'center', gap: 28, padding: '20px 28px 24px', minHeight: 116 }}>
           {stage === 'review' ? (
             <>
-              <div className="f-press" style={{ padding: '14px 22px', fontSize: 34, color: pass ? '#101126' : '#fff', background: pass ? 'var(--meadow)' : 'var(--hp)', border: '4px solid #101126', boxShadow: `${pass ? '#FFD23F' : '#101126'} 6px 6px 0`, animation: 'stamp 360ms var(--ease-out) both' }}>
+              <div className="f-press" style={{ padding: '14px 22px', fontSize: 34, color: pass ? '#101126' : '#fff', background: pass ? 'var(--meadow)' : 'var(--hp)', border: '4px solid #101126', boxShadow: `${pass ? '#FFD23F' : '#101126'} 6px 6px 0`, animation: 'stamp 360ms steps(5) both' }}>
                 {pass ? 'HIT!' : 'MISSED'}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -184,7 +184,7 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
 function AccuracyBar({ value, passLine }: { value: number; passLine: number }) {
   return (
     <div style={{ position: 'relative', flex: 1, minWidth: 240, height: 22, background: '#101126', border: '3px solid #3A3F70' }}>
-      <div style={{ position: 'absolute', left: 0, top: 0, height: 16, width: `${Math.round(value * 100)}%`, background: value >= passLine ? 'var(--meadow)' : 'var(--hp)', transition: 'width 200ms var(--ease-out)' }} />
+      <div style={{ position: 'absolute', left: 0, top: 0, height: 16, width: `${Math.round(value * 100)}%`, background: value >= passLine ? 'var(--meadow)' : 'var(--hp)', transition: 'width 200ms steps(4)' }} />
       <div style={{ position: 'absolute', left: `${passLine * 100}%`, top: -8, width: 4, height: 32, background: 'var(--parchment)' }} />
       <div className="f-label" style={{ position: 'absolute', left: `${passLine * 100}%`, top: 26, transform: 'translateX(-50%)', fontSize: 10, color: 'var(--muted)', whiteSpace: 'nowrap' }}>PASS {Math.round(passLine * 100)}%</div>
     </div>

@@ -28,20 +28,20 @@
 .tavern-bottom-status h2 { font:16px var(--press); color:#FFD23F; margin:0; }
 .tavern-bottom-status p { font:20px var(--body); margin:0; }
 .tavern-bottom-status button { padding:12px 20px; }
-.tavern-sheet { position:absolute; left:160px; top:32px; width:1120px; padding:16px; background:#FFF6E0; border:4px solid #101126; color:#101126; box-shadow:6px 6px #D1307E; animation:slideInTop 300ms var(--ease-out) both; }
+.tavern-sheet { position:absolute; left:160px; top:32px; width:1120px; padding:16px; background:#FFF6E0; border:4px solid #101126; color:#101126; box-shadow:6px 6px #D1307E; animation:slideInTop 300ms steps(5) both; }
 .tavern-sheet header,.tavern-sheet footer { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:4px 12px 12px; font:14px/1.5 var(--label); }
 .tavern-sheet header strong { font:15px var(--press); }
 .tavern-sheet header strong span { color:#A62763; font:14px var(--label); }
 .tavern-sheet footer { padding:12px 12px 0; border-top:2px solid #BDAF97; }
 .tavern-sheet footer strong { color:#A62763; }
-.tavern-count { position:absolute; left:650px; top:318px; width:140px; text-align:center; font:82px var(--press); color:#FFD23F; text-shadow:6px 6px #101126; animation:popIn 250ms var(--ease-out) both; }
+.tavern-count { position:absolute; left:650px; top:318px; width:140px; text-align:center; font:82px var(--press); color:#FFD23F; text-shadow:6px 6px #101126; animation:popIn 250ms steps(3) both; }
 .tavern-partner-status { position:absolute; left:1040px; top:737px; width:330px; padding:16px; background:#101126ED; border:3px solid #8A5A33; }
 .tavern-partner-status .f-label { font-size:14px; color:#9FD8FF; }
 .tavern-partner-status p { font:19px var(--body); margin:12px 0 0; }
 .tavern-progress { height:18px; background:#292845; border:3px solid #101126; margin-top:14px; }
 .tavern-progress i { display:block; height:100%; background:#FFD23F; }
 .tavern-playback { position:absolute; left:260px; top:762px; width:920px; padding:18px; background:#101126EA; border:3px solid #8A5A33; text-align:center; font-size:14px; }
-.tavern-verdict h1 { animation:popIn 240ms var(--ease-out) both; font-size:50px; }
+.tavern-verdict h1 { animation:popIn 240ms steps(3) both; font-size:50px; }
 .tavern-verdict p { font-size:22px; }
 .tavern-tip-award { position:absolute; left:340px; top:752px; width:760px; background:#101126EF; border:3px solid #FFD23F; padding:14px; text-align:center; display:flex; flex-direction:column; gap:8px; }
 .tavern-tip-award strong { color:#FFD23F; font:16px var(--press); }

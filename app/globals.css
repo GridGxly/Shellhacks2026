@@ -11,12 +11,6 @@
   --ui-soft: 1; /* half-strength --ui for things that live inside the composition */
   --hud-bottom: 63px; /* bottom edge of the scaled HUD, in stage px */
 
-  /* Motion: interface pieces move smoothly and settle crisply; pixel sprites keep
-     their stepped loops (breathe, bob, blink) so they still read as sprite frames. */
-  --ease-out: cubic-bezier(.16, 1, .3, 1);
-  --ease-snap: cubic-bezier(.3, 0, .2, 1);
-  --ease-in: cubic-bezier(.7, 0, .84, 0);
-
   --ink: #1b1f3b;
   --night: #101126;
   --panel: #14162e;

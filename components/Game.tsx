@@ -240,7 +240,7 @@ function Wipe() {
             height: 'calc(10% + 1px)',
             background: '#101126',
             boxShadow: '16px 0 0 #FF4FA3',
-            animation: `wipeIn 340ms ${i * 20}ms var(--ease-out) both, wipeOut 340ms ${420 + i * 20}ms var(--ease-in) forwards`,
+            animation: `wipeIn 360ms ${i * 22}ms steps(8) both, wipeOut 360ms ${420 + i * 22}ms steps(8) forwards`,
           }}
         />
       ))}
@@ -273,7 +273,7 @@ function Toast({ text }: { text: string }) {
         background: 'rgba(16,17,38,0.95)',
         border: '3px solid var(--meadow)',
         boxShadow: '#101126 5px 5px 0',
-        animation: 'slideInLeft 300ms var(--ease-out) both, fadeOut 400ms 2800ms forwards',
+        animation: 'slideInLeft 300ms steps(6) both, fadeOut 400ms 2800ms forwards',
       }}
     >
       <svg width="32" height="32" viewBox="0 0 8 8" shapeRendering="crispEdges" style={{ animation: 'blink 300ms steps(1) 2' }}>

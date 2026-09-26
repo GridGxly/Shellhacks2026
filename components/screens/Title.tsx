@@ -152,7 +152,7 @@ export default function Title() {
           height and the smaller links the right rail, both clear of the summit. */}
       {shot >= 5 && handheld && (
         <>
-          <nav aria-label="Game modes" className="ui-l" style={{ position: 'absolute', left: 'calc(36px - var(--rail-l))', top: 470, translate: '0 -50%', width: 236, display: 'flex', flexDirection: 'column', gap: 10, padding: 14, background: '#11162DEB', border: '4px solid #343852', boxShadow: '#101126 6px 6px 0', animation: 'fadeIn 300ms var(--ease-out) both' }}>
+          <nav aria-label="Game modes" className="ui-l" style={{ position: 'absolute', left: 'calc(36px - var(--rail-l))', top: 470, translate: '0 -50%', width: 236, display: 'flex', flexDirection: 'column', gap: 10, padding: 14, background: '#11162DEB', border: '4px solid #343852', boxShadow: '#101126 6px 6px 0', animation: 'fadeIn 300ms steps(3) both' }}>
             {lead.map((it) => it.primary ? (
               <button key={it.label} className="f-press pressable" disabled={busy} onClick={() => pick(it)} style={{ minHeight: 58, padding: '10px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 14, lineHeight: '16px', color: '#101126', background: 'var(--sun)', border: '4px solid #101126', boxShadow: 'inset -4px -4px 0 #D9A21B, #D1307E 5px 5px 0' }}>
                 {saved ? 'CONTINUE' : it.label}
@@ -165,7 +165,7 @@ export default function Title() {
               </button>
             ))}
           </nav>
-          <nav aria-label="More" className="ui-br" style={{ position: 'absolute', right: 'calc(40px - var(--rail-r))', bottom: 'calc(28px - var(--rail-b))', display: 'flex', flexDirection: 'column', gap: 2, animation: 'fadeIn 300ms 120ms var(--ease-out) both' }}>
+          <nav aria-label="More" className="ui-br" style={{ position: 'absolute', right: 'calc(40px - var(--rail-r))', bottom: 'calc(28px - var(--rail-b))', display: 'flex', flexDirection: 'column', gap: 2, animation: 'fadeIn 300ms 120ms steps(3) both' }}>
             {links.map((it) => (
               <button key={it.label} className="f-label tap" disabled={busy} onClick={() => pick(it)} style={{ minHeight: 30, display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, letterSpacing: '0.12em', color: '#C9B8E8', textShadow: '#101126 2px 2px 0', whiteSpace: 'nowrap' }}>
                 <span style={{ width: 6, height: 6, flexShrink: 0, background: 'var(--magenta)', boxShadow: '#101126 2px 2px 0' }} />{it.label}
@@ -195,7 +195,7 @@ function MenuButton({ children, active, big, disabled, onClick, onHover, delay }
         position: 'relative', display: 'flex', alignItems: 'center', fontSize: big ? 24 : 14, lineHeight: big ? '28px' : '18px', whiteSpace: 'nowrap',
         color: active ? '#fff' : big ? '#fff' : '#C9B8E8',
         textShadow: active ? `rgba(255,210,63,0.8) 0 0 12px, #101126 3px 3px 0` : '#101126 2px 2px 0',
-        animation: `riseIn 300ms ${delay}ms var(--ease-out) both`,
+        animation: `riseIn 300ms ${delay}ms steps(5) both`,
       }}
     >
       {/* Arrows float outside the label so hidden ones don't take up row width. */}
@@ -212,7 +212,7 @@ function AccountChip({ compact }: { compact?: boolean }) {
   const setOverlay = useGame((s) => s.setOverlay);
   if (user) {
     return (
-      <div className="title-account ui-tr" style={{ position: 'absolute', right: 'calc(40px - var(--rail-r))', top: 28, display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px 8px 8px', background: 'rgba(16,17,38,0.85)', border: '3px solid #3A3F70', animation: 'dropIn 300ms var(--ease-out) both' }}>
+      <div className="title-account ui-tr" style={{ position: 'absolute', right: 'calc(40px - var(--rail-r))', top: 28, display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px 8px 8px', background: 'rgba(16,17,38,0.85)', border: '3px solid #3A3F70', animation: 'dropIn 300ms steps(5) both' }}>
         <div style={{ position: 'relative', width: 44, height: 44, overflow: 'hidden', background: '#2A2F55', border: '3px solid var(--sun)' }}>
           <div className="sprite" style={{ left: -68, top: 2, width: 150, height: 150, backgroundImage: `url(${art('/assets/sprites/riff-trumpet.png')})`, backgroundPosition: '50% 0' }} />
         </div>
@@ -236,7 +236,7 @@ function AccountChip({ compact }: { compact?: boolean }) {
     );
   }
   return (
-    <div className="title-account ui-tr" style={{ position: 'absolute', right: 'calc(40px - var(--rail-r))', top: 32, display: 'flex', alignItems: 'center', gap: 14, animation: 'dropIn 300ms var(--ease-out) both' }}>
+    <div className="title-account ui-tr" style={{ position: 'absolute', right: 'calc(40px - var(--rail-r))', top: 32, display: 'flex', alignItems: 'center', gap: 14, animation: 'dropIn 300ms steps(5) both' }}>
       {!compact && <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
         <div className="f-label" style={{ fontSize: 12, color: 'var(--muted)' }}>PLAYING AS GUEST</div>
         <div className="f-body" style={{ fontSize: 14, color: 'var(--soft)' }}>Sign in to save runs + get ranked</div>
