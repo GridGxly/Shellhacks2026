@@ -199,6 +199,23 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 :root[data-handheld] .boot-start { font-size: 32px !important; }
 :root[data-handheld] .mobile-audio-hint { font-size: 24px !important; line-height: 28px; }
 
+/* Handheld overlays: compact layouts first, then useStageFit grows them to the glass. */
+:root[data-handheld] .stats-panel { left: 320px !important; width: 800px !important; height: auto !important; }
+:root[data-handheld] .stats-panel .f-label { font-size: 15px !important; }
+:root[data-handheld] .stats-panel .f-body { font-size: 18px !important; }
+:root[data-handheld] .stats-panel button.f-press { font-size: 16px !important; padding: 14px 12px !important; }
+:root[data-handheld] .pause-panel { left: 110px !important; width: 1220px !important; }
+:root[data-handheld] .pause-rows { display: grid !important; grid-template-columns: 1fr 1fr; gap: 20px 48px !important; }
+:root[data-handheld] .pause-mic { grid-column: 1 / -1; }
+:root[data-handheld] .pause-panel .f-label { font-size: 17px !important; }
+:root[data-handheld] .pause-panel .f-body { font-size: 18px !important; }
+:root[data-handheld] .pause-step { width: 30px !important; height: 40px !important; }
+:root[data-handheld] .pause-choice { font-size: 14px !important; padding: 12px 14px !important; }
+:root[data-handheld] .pause-panel button.f-press { font-size: 15px !important; }
+:root[data-handheld] .peek-panel .f-press { font-size: 15px !important; }
+:root[data-handheld] .peek-act { width: 290px !important; font-size: 13px !important; line-height: 18px; }
+:root[data-handheld] .peek-panel .f-label { font-size: 15px !important; }
+
 /* Native-sized phone controls: never scale a form down with the game artwork. */
 .mobile-surface { position:fixed; inset-inline:0; top:var(--visual-top,0px); height:var(--visual-height,100dvh); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; z-index:50; padding:12px max(16px,env(safe-area-inset-right)) 16px max(16px,env(safe-area-inset-left)); background:#101126; }
 .mobile-surface button { min-height:44px; touch-action:manipulation; }

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useState, useSyncExternalStore, type RefObject } from 'react';
 
 /**
  * How the 1440×900 stage meets the physical screen (docs/MOBILE.md).
@@ -120,4 +120,31 @@ export function useFullscreenOffer() {
     return () => document.removeEventListener('fullscreenchange', on);
   }, []);
   return offer;
+}
+
+/**
+ * Handheld fit for a centred panel (sheet music, pause, upgrades, map peek): it
+ * grows to the largest size that fits the glass, inside the notch and
+ * home-indicator insets and (optionally) under the HUD. Desktop gets back the
+ * designed top and scale 1.
+ */
+export function useStageFit(ref: RefObject<HTMLElement | null>, designedTop: number, { underHud = false, max = 2.4 } = {}) {
+  const { handheld, ui, scale, bleedX, safe } = useViewport();
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!handheld || !el) return;
+    const read = () => setBox({ w: el.offsetWidth, h: el.offsetHeight });
+    // Measured before paint so the panel never flashes at its designed size.
+    read();
+    const watch = new ResizeObserver(read);
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, [handheld, ref]);
+  if (!handheld || !box) return { k: 1, top: designedTop };
+  const above = underHud ? 63 * ui + 20 : 24 + safe.t / scale;
+  const availW = STAGE_W + 2 * bleedX - (safe.l + safe.r) / scale - 64;
+  const availH = STAGE_H - above - safe.b / scale - 20;
+  const k = Math.max(1, Math.min(max, availW / box.w, availH / box.h));
+  return { k, top: above + Math.max(0, (availH - box.h * k) / 2) };
 }

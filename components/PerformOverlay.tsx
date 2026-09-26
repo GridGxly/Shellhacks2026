@@ -1,7 +1,7 @@
 'use client';
-import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useRef } from 'react';
 import { settings } from '@/lib/audio';
-import { useViewport } from '@/lib/viewport';
+import { useStageFit } from '@/lib/viewport';
 import type { Exercise } from '@/lib/music';
 import type { NoteResult } from '@/lib/mic';
 import type { Enemy, Instrument } from '@/lib/content';
@@ -39,7 +39,8 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
   const bars = Array.from({ length: ex.bars }, (_, b) => ex.notes.map((n, i) => ({ n, i })).filter(({ n }) => Math.floor(n.startBeat / ex.beatsPerBar) === b));
   const curBar = beat !== null ? Math.floor(beat / ex.beatsPerBar) : -1;
   const panel = useRef<HTMLDivElement>(null);
-  const fit = useFit(panel, encore ? 96 : 150);
+  // Handhelds: the sheet is what the player reads, so it fills the glass under the HUD.
+  const fit = useStageFit(panel, encore ? 96 : 150, { underHud: true });
 
   return (
     <>
@@ -172,28 +173,4 @@ function AccuracyBar({ value, passLine }: { value: number; passLine: number }) {
       <div className="f-label" style={{ position: 'absolute', left: `${passLine * 100}%`, top: 26, transform: 'translateX(-50%)', fontSize: 10, color: 'var(--muted)', whiteSpace: 'nowrap' }}>PASS {Math.round(passLine * 100)}%</div>
     </div>
   );
-}
-
-/**
- * Handhelds: the sheet is what the player reads, so it grows to the largest
- * size that fits under the HUD and inside the notch and home-indicator insets,
- * using the whole width of the glass. Desktop keeps the designed placement.
- */
-function useFit(ref: RefObject<HTMLDivElement | null>, designedTop: number) {
-  const { handheld, ui, scale, bleedX, safe } = useViewport();
-  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!handheld || !el) return;
-    // The observer reports the first size right away, then every change.
-    const watch = new ResizeObserver(() => setBox({ w: el.offsetWidth, h: el.offsetHeight }));
-    watch.observe(el);
-    return () => watch.disconnect();
-  }, [handheld, ref]);
-  if (!handheld || !box) return { k: 1, top: designedTop };
-  const hudBottom = 63 * ui;
-  const availW = 1440 + 2 * bleedX - (safe.l + safe.r) / scale - 64;
-  const availH = 900 - hudBottom - safe.b / scale - 40;
-  const k = Math.max(1, Math.min(availW / box.w, availH / box.h));
-  return { k, top: hudBottom + 20 + Math.max(0, (availH - box.h * k) / 2) };
 }

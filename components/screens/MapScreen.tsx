@@ -90,7 +90,7 @@ export default function MapScreen() {
 
       {phase === 'idle' && (
         <>
-          <div className="map-act-heading" style={{ position: 'absolute', left: 40, top: 96, display: 'flex', flexDirection: 'column', gap: 6, animation: 'slideInLeft 300ms var(--ease-out) both' }}>
+          <div className="map-act-heading ui-tl" style={{ position: 'absolute', left: 'calc(40px - var(--rail-l))', top: 'calc(var(--hud-bottom) + 33px)', display: 'flex', flexDirection: 'column', gap: 6, animation: 'slideInLeft 300ms var(--ease-out) both' }}>
             <div className="f-label" style={{ fontSize: 13, color: 'var(--sun)' }}>ACT {act + 1} OF 6</div>
             <div className="f-press" style={{ fontSize: 20, color: '#fff', textShadow: '#101126 3px 3px 0' }}>{ACTS[act].name.toUpperCase()}</div>
           </div>
@@ -115,7 +115,7 @@ function MapNode({ enemy, state, y, justCleared, justUnlocked, pressed, onClick 
   return (
     <div style={{ position: 'absolute', left: 720 - 120, top: y - size / 2, width: 240, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
       {state === 'available' && (
-        <div className="f-press" style={{ position: 'absolute', top: -58, padding: '6px 12px', background: 'var(--sun)', border: '3px solid #101126', color: '#101126', fontSize: 13, animation: justUnlocked ? 'dropIn 300ms 1300ms var(--ease-out) both, pinBob 1.2s 1600ms steps(2) infinite' : 'pinBob 1.2s steps(2) infinite' }}>
+        <div className="f-press ui-b ui-soft" style={{ position: 'absolute', top: -58, padding: '6px 12px', background: 'var(--sun)', border: '3px solid #101126', color: '#101126', fontSize: 13, animation: justUnlocked ? 'dropIn 300ms 1300ms var(--ease-out) both, pinBob 1.2s 1600ms steps(2) infinite' : 'pinBob 1.2s steps(2) infinite' }}>
           FIGHT
         </div>
       )}
@@ -151,6 +151,7 @@ function MapNode({ enemy, state, y, justCleared, justUnlocked, pressed, onClick 
         {state === 'boss' && <SuperLock size={size} />}
       </button>
       <div
+        className="ui-t ui-soft"
         style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '6px 14px',
           background: 'rgba(16,17,38,0.85)', border: `3px solid ${state === 'available' ? 'var(--sun)' : enemy.boss ? 'var(--magenta)' : '#3A3F70'}`,
@@ -217,7 +218,7 @@ function NextFightPanel({ onFight, reveal }: { onFight: () => void; reveal: bool
   }, []);
   const d = danger?.[next.id];
   return (
-    <div style={{ position: 'absolute', right: 40, bottom: 64, width: 392, display: 'flex', flexDirection: 'column', background: 'rgba(16,17,38,0.94)', border: '4px solid #101126', boxShadow: '#3A3F70 0 0 0 3px inset, rgba(0,0,0,0.4) 6px 6px 0', animation: `slideInRight 300ms ${reveal ? 1400 : 150}ms var(--ease-out) both` }}>
+    <div className="ui-br ui-soft" style={{ position: 'absolute', right: 'calc(40px - var(--rail-r))', bottom: 'calc(64px - var(--rail-b))', width: 392, display: 'flex', flexDirection: 'column', background: 'rgba(16,17,38,0.94)', border: '4px solid #101126', boxShadow: '#3A3F70 0 0 0 3px inset, rgba(0,0,0,0.4) 6px 6px 0', animation: `slideInRight 300ms ${reveal ? 1400 : 150}ms var(--ease-out) both` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 24px 0' }}>
         <span className="f-label" style={{ fontSize: 13, color: next.boss ? '#FF7DB8' : 'var(--sun)' }}>{next.boss ? 'BOSS FIGHT' : 'NEXT FIGHT'}</span>
         <span className="f-label" style={{ fontSize: 13, color: 'var(--muted)' }}>{run.floor + 1} / 18</span>
@@ -251,7 +252,7 @@ function NextFightPanel({ onFight, reveal }: { onFight: () => void; reveal: bool
           </span>
         </div>
       )}
-      <button onMouseEnter={() => sfx('hover')} onClick={onFight} className="pressable" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', background: 'var(--sun)', boxShadow: 'inset 0 -4px 0 #D9A21B' }}>
+      <button onMouseEnter={() => sfx('hover')} onClick={onFight} className="pressable tap" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', background: 'var(--sun)', boxShadow: 'inset 0 -4px 0 #D9A21B' }}>
         <span className="f-press" style={{ fontSize: 15, color: '#101126' }}>FIGHT</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><KeyHint k="ENTER" /></span>
       </button>
