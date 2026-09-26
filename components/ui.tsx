@@ -60,12 +60,15 @@ export function Ornament({ width = 560 }: { width?: number }) {
   );
 }
 
-export function HpBar({ hp, max, width = 210, style }: { hp: number; max: number; width?: number; style?: CSSProperties }) {
+/** `big`: the handheld size, so the numbers stay readable when the stage is drawn small. */
+export function HpBar({ hp, max, width = 210, big, style }: { hp: number; max: number; width?: number; big?: boolean; style?: CSSProperties }) {
   const pct = Math.max(0, hp) / max;
+  const w = big ? Math.round(width * 1.12) : width;
+  const inner = big ? 26 : 16;
   return (
-    <div style={{ position: 'relative', width, height: 22, backgroundColor: '#2A1520', border: '3px solid #101126', ...style }}>
-      <div style={{ position: 'absolute', left: 0, top: 0, height: 16, width: (width - 6) * pct, backgroundColor: 'var(--hp)', boxShadow: '#FF8A93 0 3px 0 inset', transition: 'width 500ms var(--ease-out)' }} />
-      <div className="f-press" style={{ position: 'absolute', inset: 0, height: 16, display: 'grid', placeItems: 'center', fontSize: 11, lineHeight: '12px', textShadow: '#101126 2px 2px 0', color: '#fff' }}>
+    <div style={{ position: 'relative', width: w, height: inner + 6, backgroundColor: '#2A1520', border: '3px solid #101126', ...style }}>
+      <div style={{ position: 'absolute', left: 0, top: 0, height: inner, width: (w - 6) * pct, backgroundColor: 'var(--hp)', boxShadow: '#FF8A93 0 3px 0 inset', transition: 'width 500ms var(--ease-out)' }} />
+      <div className="f-press" style={{ position: 'absolute', inset: 0, height: inner, display: 'grid', placeItems: 'center', fontSize: big ? 20 : 11, lineHeight: big ? '22px' : '12px', textShadow: '#101126 2px 2px 0', color: '#fff' }}>
         {Math.max(0, hp)}/{max}
       </div>
     </div>

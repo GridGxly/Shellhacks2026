@@ -32,12 +32,26 @@ export interface Viewport {
   bleedY: number;
   handheld: boolean;
   portrait: boolean;
+  /** Notch / home-indicator insets in css px. */
+  safe: { t: number; r: number; b: number; l: number };
   /** Stage centre in page px. */
   x: number;
   y: number;
 }
 
-const DESKTOP: Viewport = { scale: 1, ui: 1, bleedX: 0, bleedY: 0, handheld: false, portrait: false, x: STAGE_W / 2, y: STAGE_H / 2 };
+const DESKTOP: Viewport = { scale: 1, ui: 1, bleedX: 0, bleedY: 0, handheld: false, portrait: false, safe: { t: 0, r: 0, b: 0, l: 0 }, x: STAGE_W / 2, y: STAGE_H / 2 };
+
+let probe: HTMLDivElement | null = null;
+/** env(safe-area-inset-*) as numbers, read from a hidden probe. */
+function safeInsets() {
+  if (!probe) {
+    probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;inset:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+    document.body.appendChild(probe);
+  }
+  const cs = getComputedStyle(probe);
+  return { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
+}
 let current = DESKTOP;
 const listeners = new Set<() => void>();
 
@@ -51,6 +65,7 @@ export function measureViewport(width: number, height: number, left = 0, top = 0
     bleedY: handheld ? Math.max(0, (height / scale - STAGE_H) / 2) : 0,
     handheld,
     portrait: window.matchMedia('(orientation: portrait)').matches,
+    safe: safeInsets(),
     x: left + width / 2,
     y: top + height / 2,
   };
