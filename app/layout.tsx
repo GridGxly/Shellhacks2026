@@ -10,6 +10,7 @@ const notoMusic = Noto_Music({ variable: "--font-music", weight: "400", subsets:
 export const metadata: Metadata = {
   title: "Slay the Choir",
   description: "A roguelike where every card is music you play into the mic.",
+  icons: { apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }] },
   // Added to a phone's home screen it opens full screen, with no browser bars.
   appleWebApp: { capable: true, title: "Slay the Choir", statusBarStyle: "black-translucent" },
 };
