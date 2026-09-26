@@ -38,7 +38,7 @@ export default function Combat() {
   const [hearing, setHearing] = useState<number | null>(null);
   const [fx, setFx] = useState<{ riff?: 'attack' | 'hurt' | 'encore'; enemy?: 'hit' | 'attack' | 'dissolve'; pop?: { v: number; side: 'enemy' | 'riff'; key: number }; flash?: 'red' | 'white'; barrage?: number; burst?: number; flyoff?: { type: string; key: number } }>({});
   const [taunt, setTaunt] = useState<(Taunt & { heat: number; speaking: boolean }) | null>(null);
-  const [drag, setDrag] = useState<{ idx: number; x: number; y: number; ox: number; oy: number; sx: number; sy: number; overEnemy: boolean } | null>(null);
+  const [drag, setDrag] = useState<{ idx: number; x: number; y: number; ox: number; oy: number; sx: number; sy: number; pointerId: number; pointerType: string; overEnemy: boolean } | null>(null);
   // Touch: a tapped card is picked up and aimed; tapping the foe (or the card again) plays it.
   const [picked, setPicked] = useState<number | null>(null);
   const [dealKey, setDealKey] = useState(0);
@@ -100,11 +100,14 @@ export default function Combat() {
   // ---------- one card / encore performance ----------
   const performAction = useCallback(
     async (active: Active) => {
-      if (busy.current) return;
+      const s = useGame.getState();
+      const c = s.combat;
+      if (busy.current || s.overlay || !c) return;
+      if (active === 'encore' ? !c.encore?.charged : !c.hand[active] || c.hand[active].landed) return;
       busy.current = true;
       performing.current = true;
-      const s = useGame.getState();
-      const c = s.combat!;
+      setPicked(null);
+      setDrag(null);
       const ex = active === 'encore' ? c.encoreExercise : c.hand[active].exercise;
       setTaunt(null);
       stopVoices();
@@ -288,33 +291,51 @@ export default function Combat() {
   useEffect(() => {
     if (!drag) return;
     const move = (e: PointerEvent) => {
+      if (e.pointerId !== dragRef.current?.pointerId) return;
       const p = toStage(e);
       setDrag((d) => d && { ...d, x: p.x, y: p.y, overEnemy: overEnemy(p.x, p.y) });
     };
-    const up = () => {
-      const d = dragRef.current;
+    const cancel = (e: PointerEvent) => {
+      if (e.pointerId !== dragRef.current?.pointerId) return;
+      dragRef.current = null;
       setDrag(null);
+      setPicked(null);
+    };
+    const up = (e: PointerEvent) => {
+      const d = dragRef.current;
+      if (!d || e.pointerId !== d.pointerId) return;
+      dragRef.current = null;
+      setDrag(null);
+      if (busy.current || useGame.getState().overlay) return;
       if (d?.overEnemy) {
         setPicked(null);
         sfx('drop');
         void performAction(d.idx);
-      } else if (d && Math.hypot(d.x - d.sx, d.y - d.sy) < 14) {
-        // A tap, not a drag.
+      } else if (d.pointerType !== 'mouse' && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 14) {
+        // Use screen pixels so a phone's stage scale does not shrink tap tolerance.
         if (pickedRef.current === d.idx) { setPicked(null); sfx('drop'); void performAction(d.idx); }
         else { setPicked(d.idx); sfx('hover'); }
       } else if (d) sfx('back');
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
     return () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drag?.idx]);
 
   const canAct = phase === 'player' && !overlay;
-  useEffect(() => { if (!canAct) setPicked(null); }, [canAct]);
+  useEffect(() => {
+    if (!canAct) {
+      dragRef.current = null;
+      setDrag(null);
+      setPicked(null);
+    }
+  }, [phase, canAct]);
   const playPicked = () => {
     if (picked === null || !canAct) return;
     const i = picked;
@@ -460,10 +481,10 @@ export default function Combat() {
             <div
               key={`${i}-${dealKey}-${card.exercise.id}`}
               onPointerDown={(e) => {
-                if (!canAct) return;
+                if (!canAct || busy.current || !e.isPrimary || e.button !== 0 || dragRef.current) return;
                 const p = toStage(e);
                 sfx('drag');
-                setDrag({ idx: i, x: p.x, y: p.y, ox: p.x - x, oy: p.y - y, sx: p.x, sy: p.y, overEnemy: false });
+                setDrag({ idx: i, x: p.x, y: p.y, ox: p.x - x, oy: p.y - y, sx: e.clientX, sy: e.clientY, pointerId: e.pointerId, pointerType: e.pointerType, overEnemy: false });
               }}
               onMouseEnter={() => canAct && sfx('hover')}
               style={{
@@ -473,12 +494,13 @@ export default function Combat() {
                 transform: dragging ? `rotate(${Math.max(-12, Math.min(12, (drag.x - (x + 100)) / 30))}deg) scale(1.05)` : `rotate(${rot}deg)`,
                 transformOrigin: '50% 100%',
                 transition: dragging ? undefined : 'top 120ms steps(3)',
-                animation: !dragging ? `cardDeal 360ms ${n * 90}ms steps(6) both` : undefined,
                 filter: phase !== 'player' ? 'brightness(0.6)' : picked === i ? 'drop-shadow(0 0 14px rgba(255,210,63,0.9))' : undefined,
               }}
               className={canAct && !dragging ? 'card-hover' : undefined}
             >
-              <CardView type={card.type} ex={card.exercise} damage={cardDamage} lifted={dragging} />
+              <div style={{ ['--rot' as string]: '0deg', animation: `cardDeal 360ms ${n * 90}ms steps(6) both` }}>
+                <CardView type={card.type} ex={card.exercise} damage={cardDamage} lifted={dragging} />
+              </div>
               <div className="f-press kbd-only" style={{ position: 'absolute', right: 8, bottom: 190, width: 20, height: 20, display: 'grid', placeItems: 'center', background: '#101126', color: 'var(--muted)', fontSize: 10 }}>{n + 1}</div>
             </div>
           );
