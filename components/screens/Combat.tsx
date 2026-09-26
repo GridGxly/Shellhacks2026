@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ac, clickAt, muteMusic, playFile, playMusic, playVoice, settings, sfx, stopVoices } from '@/lib/audio';
-import { COUNT_IN_BEATS, RECORD_TAIL_MS, REVIEW_DURATION_MS, TAUNT_ON_HIT_CHANCE } from '@/lib/config';
+import { COUNT_IN_BEATS, RECORD_TAIL_MS, REVIEW_DURATION_MS, TAUNT_ON_HIT_CHANCE, ULTIMATE_PASS_THRESHOLD } from '@/lib/config';
 import { ENEMIES } from '@/lib/content';
 import { grade, mic, simulate, type NoteResult } from '@/lib/mic';
 import type { Exercise } from '@/lib/music';
@@ -30,7 +30,7 @@ export default function Combat() {
   const inst = instrumentOf(run);
   const cardDamage = stat(run, 'cardDamage');
   const encoreDamage = stat(run, 'encoreDamage');
-  const passLine = stat(run, 'passLine') / 100;
+  const passLine = stat(run, 'passLine') / 100; // cards only; the Encore has its own line
   const timing = stat(run, 'timingWindow');
 
   const [phase, setPhase] = useState<Phase>('enter');
@@ -46,6 +46,7 @@ export default function Combat() {
   const dragRef = useRef(drag);
   dragRef.current = drag;
   const busy = useRef(false); // one performance at a time
+  const performing = useRef(false); // count-in + recording: no voice may start
 
   const size = enemy.size;
   const enemyX = 1030 - size / 2;
@@ -82,7 +83,8 @@ export default function Combat() {
       const c = s.combat!;
       const facts = buildFacts(ex, results, inst.shift, inst.writtenOffset, s.run.hp, failCount);
       const t = await fetchTaunt(enemy, c.heat, moment, facts, c.used);
-      if (!t || !alive.current) return;
+      // A slow reply must not start talking once the next performance is under way (it would leak into the mic).
+      if (!t || !alive.current || performing.current) return;
       s.noteTaunt(t.id);
       setTaunt({ ...t, heat: c.heat, speaking: true });
       await Promise.race([speak(t, enemy), wait(5000)]);
@@ -96,6 +98,7 @@ export default function Combat() {
     async (active: Active) => {
       if (busy.current) return;
       busy.current = true;
+      performing.current = true;
       const s = useGame.getState();
       const c = s.combat!;
       const ex = active === 'encore' ? c.encoreExercise : c.hand[active].exercise;
@@ -154,7 +157,8 @@ export default function Combat() {
       const readings = mic.endRecording();
       const final: NoteResult[] = sim ?? grade(ex, readings, startPerf, inst.shift, timing);
       const hits = final.filter((r) => r.status === 'hit').length;
-      const pass = hits / final.length >= passLine;
+      const pass = hits / final.length >= (active === 'encore' ? ULTIMATE_PASS_THRESHOLD : passLine);
+      performing.current = false;
       muteMusic(false);
       if (!alive.current) return;
       setPerform((p) => p && { ...p, stage: 'review', beat: null, results: final });
@@ -162,8 +166,8 @@ export default function Combat() {
 
       const st = useGame.getState();
       const failCount = active === 'encore' ? 0 : c.hand[active].fails + (pass ? 0 : 1);
-      if (active === 'encore') st.resolveEncore(pass, hits, final.length);
-      else st.resolveCard(active, pass, hits, final.length);
+      if (active === 'encore') st.resolveEncore(pass, hits, final.length, !!sim);
+      else st.resolveCard(active, pass, hits, final.length, !!sim);
 
       // Miss: the enemy heckles during the review (PRD §7a).
       const talk = !pass ? say('miss', ex, final, failCount) : Promise.resolve();
@@ -194,6 +198,7 @@ export default function Combat() {
     setFx((f) => ({ ...f, barrage: Date.now() }));
     if (typeof active === 'number') setFx((f) => ({ ...f, flyoff: { type: useGame.getState().combat!.hand[active].type, key: Date.now() } }));
     await wait(encore ? 700 : 520);
+    if (!alive.current) return;
     sfx('impact');
     setFx((f) => ({ ...f, enemy: 'hit', burst: Date.now(), pop: { v: dmg, side: 'enemy', key: Date.now() }, flash: encore ? 'white' : undefined }));
     useGame.getState().damageEnemy(dmg);
@@ -214,6 +219,7 @@ export default function Combat() {
     setFx({ enemy: 'attack' });
     void playFile(enemy.attackSfx, 0.9);
     await wait(300);
+    if (!alive.current) return;
     const hp = useGame.getState().enemyHitsPlayer();
     sfx('hurt');
     setFx({ enemy: 'attack', riff: 'hurt', flash: 'red', pop: { v: enemy.damage, side: 'riff', key: Date.now() } });
@@ -299,6 +305,11 @@ export default function Combat() {
   }, [drag?.idx]);
 
   const canAct = phase === 'player' && !overlay;
+  // Pause/stats/map can only open on the player's turn: nothing is running then.
+  useEffect(() => {
+    useGame.setState({ combatLocked: phase !== 'player' });
+    return () => useGame.setState({ combatLocked: false });
+  }, [phase]);
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (!canAct) return;
@@ -628,7 +639,7 @@ function EncoreButton({ charged, damage, onPlay }: { charged: boolean; damage: n
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <span className="f-label" style={{ fontSize: 11, color: charged ? 'var(--sun)' : 'var(--muted)' }}>{charged ? '■ CHARGED · PRESS E' : '□ LAND ALL 3 CARDS'}</span>
         <span className="f-press" style={{ fontSize: 16, color: '#fff' }}>{damage} DMG</span>
-        <span className="f-body" style={{ width: 170, fontSize: 15, lineHeight: '19px', color: 'var(--muted)' }}>Play 8 bars of Ode to Joy.</span>
+        <span className="f-body" style={{ width: 170, fontSize: 15, lineHeight: '19px', color: 'var(--muted)' }}>Play Gran Vals (the Nokia tune).</span>
       </div>
     </div>
   );

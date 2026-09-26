@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { MongoClient, type Db } from 'mongodb';
+import { MongoClient, type Db, type ClientSession } from 'mongodb';
 import { cookies } from 'next/headers';
 
 // PRD §7b: users, sessions, saves, runs. Everything degrades to 503 when
@@ -29,12 +29,19 @@ export interface RunDoc {
   accuracy: number;
   notesHit: number;
   notesTotal: number;
-  encores: number;
+  runId: string;
+  cardsLanded: number;
+  cardsFailed: number;
+  encoresLanded: number;
+  rounds: number;
+  victory: boolean;
+  durationMs?: number;
+  weekKey: string;
   endedBy: 'loss' | 'victory';
   at: Date;
 }
 
-const g = globalThis as unknown as { _stcMongo?: Promise<Db> };
+const g = globalThis as unknown as { _stcMongo?: Promise<Db>; _stcClient?: MongoClient };
 
 export function dbConfigured() {
   return !!process.env.MONGODB_URI;
@@ -43,11 +50,16 @@ export function dbConfigured() {
 export function db(): Promise<Db> {
   if (!g._stcMongo) {
     const client = new MongoClient(process.env.MONGODB_URI!);
+    g._stcClient = client;
     g._stcMongo = client.connect().then(async (c) => {
       const d = c.db(process.env.MONGODB_DB ?? 'slay-the-choir');
       await Promise.all([
         d.collection('sessions').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
         d.collection('runs').createIndex({ score: -1 }),
+        d.collection('runs').createIndex({ weekKey: 1, score: -1 }),
+        d.collection('runs').createIndex({ userId: 1, score: -1 }),
+        d.collection('runs').createIndex({ userId: 1, runId: 1 }, { unique: true, partialFilterExpression: { runId: { $type: 'string' } } }),
+        d.collection('rateLimits').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
         d.collection('runs').createIndex({ userId: 1, at: -1 }),
         d.collection('fights').createIndex({ enemyId: 1 }),
       ]);
@@ -80,8 +92,11 @@ export async function createSession(userId: string) {
 export async function endSession() {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
-  if (token && dbConfigured()) await (await db()).collection<SessionDoc>('sessions').deleteOne({ _id: hash(token) });
-  jar.delete(SESSION_COOKIE);
+  try {
+    if (token && dbConfigured()) await (await db()).collection<SessionDoc>('sessions').deleteOne({ _id: hash(token) });
+  } finally {
+    jar.delete(SESSION_COOKIE);
+  }
 }
 
 export async function currentUser(): Promise<UserDoc | null> {
@@ -95,3 +110,10 @@ export async function currentUser(): Promise<UserDoc | null> {
 }
 
 export const publicUser = (u: UserDoc) => ({ username: u.username, level: 1 + Math.floor(u.xp / 100) });
+
+export async function transaction<T>(work: (d: Db, session: ClientSession) => Promise<T>) {
+  const d = await db();
+  const session = g._stcClient!.startSession();
+  try { return await session.withTransaction(() => work(d, session)); }
+  finally { await session.endSession(); }
+}

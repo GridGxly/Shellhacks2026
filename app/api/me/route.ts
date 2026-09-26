@@ -1,7 +1,9 @@
 import { currentUser, publicUser } from '@/lib/db';
+import { handled } from '@/lib/server/http';
 
 export async function GET() {
-  const u = await currentUser().catch(() => null);
-  if (!u) return Response.json(null);
-  return Response.json(publicUser(u));
+  return handled(async () => {
+    const u = await currentUser();
+    return Response.json(u ? publicUser(u) : null);
+  });
 }

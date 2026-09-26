@@ -8,7 +8,7 @@ import { ac, clickAt, muteMusic, saveSettings, settings, sfx } from '@/lib/audio
 import { COUNT_IN_BEATS, IGNORE_OCTAVE, INPUT_LATENCY_MS, PERFECT_MS, PITCH_TOLERANCE_CENTS, RECORD_TAIL_MS, TIMING_WINDOW_MS } from '@/lib/config';
 import { INSTRUMENTS } from '@/lib/content';
 import { grade, mic, type NoteResult, type Reading } from '@/lib/mic';
-import { makeExercise, noteName, ODE_TO_JOY, writtenKey, type Exercise, type KeySig } from '@/lib/music';
+import { GRAN_VALS, makeExercise, noteName, writtenKey, type Exercise, type KeySig } from '@/lib/music';
 import { instrumentOf, useGame } from '@/lib/store';
 import Staff from '../Staff';
 import { MenuShell } from './Menus';
@@ -16,7 +16,7 @@ import { MenuShell } from './Menus';
 const wait = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 const clock = () => performance.now();
 
-type Pick = 'one' | 'scale' | 'chord' | 'rhythm' | 'ode';
+type Pick = 'one' | 'scale' | 'chord' | 'rhythm' | 'encore';
 type Stage = 'idle' | 'countin' | 'recording' | 'done';
 
 type Inst = { writtenOffset: number; shift: number };
@@ -49,7 +49,7 @@ function oneC(tempo: number, inst: Inst): Exercise {
 function build(pick: Pick, tempo: number, inst: Inst): Exercise {
   if (pick === 'one') return oneC(tempo, inst);
   if (pick === 'scale') return cMajorScale(tempo, inst);
-  return pick === 'ode' ? { ...ODE_TO_JOY, tempo } : makeExercise(pick, tempo);
+  return pick === 'encore' ? { ...GRAN_VALS, tempo } : makeExercise(pick, tempo);
 }
 
 export function PitchLab() {
@@ -207,7 +207,7 @@ export function PitchLab() {
         {tab('scale', 'C MAJOR')}
         {tab('chord', 'CHORD')}
         {tab('rhythm', 'RHYTHM')}
-        {tab('ode', 'ODE TO JOY')}
+        {tab('encore', 'GRAN VALS')}
         <div className="f-label" style={{ marginLeft: 16, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--soft)' }}>
           <button onClick={() => choose(pick, Math.max(40, tempo - 8))} style={{ color: 'var(--sun)', font: 'inherit' }}>◀</button>
           {tempo} BPM

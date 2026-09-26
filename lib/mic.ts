@@ -213,7 +213,9 @@ export function grade(
     const prevSame = index > 0 && ex.notes[index - 1].midi === n.midi;
     let onset: number | null = null;
     if (prevSame) {
-      onset = ons.find((t) => Math.abs(t - t0) <= timingWindowMs) ?? null;
+      // Nearest attack, not the first: on fast repeated notes the previous
+      // note's (late) attack can also fall inside the window.
+      for (const t of ons) if (Math.abs(t - t0) <= timingWindowMs && (onset === null || Math.abs(t - t0) < Math.abs(onset - t0))) onset = t;
     } else {
       // A frame is stamped at the END of its buffer, so back-date the first
       // frame that reads this pitch by how much of the buffer it needed.

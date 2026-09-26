@@ -1,5 +1,5 @@
 'use client';
-import { FLAT_STEPS, SHARP_STEPS, staffStep, writtenKey, type Exercise, type KeySig } from '@/lib/music';
+import { accidentalFor, FLAT_STEPS, SHARP_STEPS, staffStep, writtenKey, type Exercise, type KeySig } from '@/lib/music';
 import { PERFECT_MS } from '@/lib/config';
 import type { NoteResult } from '@/lib/mic';
 
@@ -48,6 +48,66 @@ export default function Staff({ ex, shift, writtenOffset, width, beat, results, 
   const yOf = (step: number) => 48 + GAP * 4 - step * (GAP / 2);
   const mspb = 60000 / ex.tempo;
 
+  // Beam runs of consecutive eighths that sit in the same bar, so they read as
+  // one rhythmic group instead of separate flagged notes. A beamed group takes
+  // a single stem direction and a shared stem end, as engraved music does.
+  const stepOf = (n: Exercise['notes'][number]) => staffStep(n.midi + shift + writtenOffset, key);
+  const xOf = (n: Exercise['notes'][number], b0: number) => left + (n.startBeat - b0) * beatW + beatW * 0.45;
+  const beamOf = new Map<number, { stemUp: boolean; y: number }>();
+  const beamGroups = new Map<number, { x0: number; x1: number; y0: number; y1: number; stemUp: boolean }[]>();
+  {
+    let run: number[] = [];
+    const flush = () => {
+      if (run.length > 1) {
+        const line = Math.floor(ex.notes[run[0]].startBeat / beatsPerLine);
+        const b0 = line * beatsPerLine;
+        const steps = run.map((i) => stepOf(ex.notes[i]));
+        // One direction for the whole group: follow whichever end is farther
+        // from the middle line, the usual engraving rule.
+        const avg = steps.reduce((a, b) => a + b, 0) / steps.length;
+        const stemUp = avg < 4;
+        // Shared stem end, pushed out to clear the most extreme notehead.
+        const ys = steps.map((s) => yOf(s));
+        const xs = run.map((i) => xOf(ex.notes[i], b0));
+        // Slope the beam with the notes, as engraved music does, but keep the
+        // tilt gentle so stems stay readable.
+        const first = ys[0];
+        const lastY = ys[ys.length - 1];
+        const span = xs[xs.length - 1] - xs[0];
+        const rise = Math.max(-14, Math.min(14, lastY - first));
+        const base = stemUp ? Math.min(...ys) - 46 : Math.max(...ys) + 46;
+        // Anchor the sloped line so no notehead's stem falls short.
+        const yAt = (x: number) => base + ((x - xs[0]) / (span || 1)) * rise;
+        let shiftY = 0;
+        run.forEach((i, k) => {
+          const need = ys[k] + (stemUp ? -18 : 18);
+          const have = yAt(xs[k]);
+          shiftY = stemUp ? Math.min(shiftY, need - have) : Math.max(shiftY, need - have);
+        });
+        run.forEach((i, k) => beamOf.set(i, { stemUp, y: yAt(xs[k]) + shiftY }));
+        const list = beamGroups.get(line) ?? [];
+        list.push({
+          x0: xs[0] + (stemUp ? 8 : -10),
+          x1: xs[xs.length - 1] + (stemUp ? 10.5 : -7.5),
+          y0: yAt(xs[0]) + shiftY,
+          y1: yAt(xs[xs.length - 1]) + shiftY,
+          stemUp,
+        });
+        beamGroups.set(line, list);
+      }
+      run = [];
+    };
+    ex.notes.forEach((n, i) => {
+      const prev = ex.notes[i - 1];
+      const sameBar = prev && Math.floor(prev.startBeat / ex.beatsPerBar) === Math.floor(n.startBeat / ex.beatsPerBar);
+      const sameLine = prev && Math.floor(prev.startBeat / beatsPerLine) === Math.floor(n.startBeat / beatsPerLine);
+      if (n.durBeats > 0.5) { flush(); return; }
+      if (run.length && (!sameBar || !sameLine)) flush();
+      run.push(i);
+    });
+    flush();
+  }
+
   return (
     <svg width={width} height={lines * lineH} viewBox={`0 0 ${width} ${lines * lineH}`} style={{ display: 'block', overflow: 'visible' }}>
       {Array.from({ length: lines }, (_, line) => {
@@ -66,7 +126,7 @@ export default function Staff({ ex, shift, writtenOffset, width, beat, results, 
             ))}
             {line === 0 && (
               <g fontFamily="var(--press)" fontSize={20} fill="#1B1F3B">
-                <text x={96 + Math.abs(key.accidentals) * 6} y={48 + GAP * 2 - 2}>4</text>
+                <text x={96 + Math.abs(key.accidentals) * 6} y={48 + GAP * 2 - 2}>{ex.beatsPerBar}</text>
                 <text x={96 + Math.abs(key.accidentals) * 6} y={48 + GAP * 4}>4</text>
               </g>
             )}
@@ -78,9 +138,32 @@ export default function Staff({ ex, shift, writtenOffset, width, beat, results, 
                 <text key={c.bar} x={left + (c.bar % barsPerLine) * ex.beatsPerBar * beatW + 20} y={30} fontFamily="var(--press)" fontSize={11} fill="#D1307E">{c.label}</text>
               ) : null,
             )}
+            {beamGroups.get(line)?.map((g, gi) => {
+              const t = g.stemUp ? 0 : -5;
+              return (
+                <polygon
+                  key={`beam${gi}`}
+                  points={`${g.x0},${g.y0 + t} ${g.x1},${g.y1 + t} ${g.x1},${g.y1 + t + 5} ${g.x0},${g.y0 + t + 5}`}
+                  fill="#1B1F3B"
+                />
+              );
+            })}
             {notes.map(({ n, i }) => {
               const written = n.midi + shift + writtenOffset;
               const step = staffStep(written, key);
+              // An accidental holds for the rest of its bar, so only the first
+              // note that needs one in each bar carries the sign.
+              const rawAccidental = accidentalFor(written, key);
+              const bar = Math.floor(n.startBeat / ex.beatsPerBar);
+              const alreadyMarked = ex.notes.some(
+                (o, oi) =>
+                  oi < i &&
+                  Math.floor(o.startBeat / ex.beatsPerBar) === bar &&
+                  staffStep(o.midi + shift + writtenOffset, key) === step &&
+                  accidentalFor(o.midi + shift + writtenOffset, key) === rawAccidental,
+              );
+              const accidental = alreadyMarked ? '' : rawAccidental;
+              const beam = beamOf.get(i);
               const x = left + (n.startBeat - b0) * beatW + beatW * 0.45;
               const y = yOf(step);
               const r = results[i];
@@ -88,7 +171,7 @@ export default function Staff({ ex, shift, writtenOffset, width, beat, results, 
               const isCurrent = beat !== null && beat >= n.startBeat && beat < n.startBeat + n.durBeats;
               const color = r ? (r.status === 'hit' ? '#3FA75C' : r.status === 'wrong' ? '#E8434F' : '#9A9CB4') : isCurrent ? '#1B1F3B' : passed ? '#1B1F3B' : beat === null ? '#1B1F3B' : '#6B6F8E';
               const hollow = n.durBeats >= 2;
-              const stemUp = step < 4;
+              const stemUp = beam ? beam.stemUp : step < 4;
               const ghost = r?.status === 'wrong' && r.playedMidi !== null ? yOf(staffStep(r.playedMidi + writtenOffset, key)) : null;
               const hidden = i > revealUpTo;
               // ms until this note's beat (negative once it has started)
@@ -103,11 +186,24 @@ export default function Staff({ ex, shift, writtenOffset, width, beat, results, 
                   {isCurrent && !r && <circle cx={x} cy={y} r={16} fill="#FFD23F" opacity={0.45} />}
                   {r?.status === 'hit' && <circle cx={x} cy={y} r={12} fill="none" stroke="#4CC26B" strokeWidth={3} style={{ animation: 'burst 300ms steps(4) forwards', transformOrigin: `${x}px ${y}px` }} />}
                   {ledgers.map((s) => <rect key={s} x={x - 16} y={yOf(s) - 1} width={32} height={2} fill="#1B1F3B" />)}
+                  {accidental && (
+                    <text x={x - 34} y={y + 10} fontFamily="var(--music)" fontSize={34} fill={color}>{accidental}</text>
+                  )}
                   {ghost !== null && <ellipse cx={x + 4} cy={ghost} rx={10} ry={7.5} transform={`rotate(-20 ${x + 4} ${ghost})`} fill="none" stroke="#E8434F" strokeWidth={2} strokeDasharray="3 3" />}
                   <g style={{ animation: r?.status === 'wrong' ? 'shakeSmall 180ms steps(2) 3' : r?.status === 'hit' ? 'popIn 220ms steps(3)' : undefined, transformOrigin: `${x}px ${y}px` }}>
                     <ellipse cx={x} cy={y} rx={10} ry={7.5} transform={`rotate(-20 ${x} ${y})`} fill={hollow ? 'none' : color} stroke={color} strokeWidth={hollow ? 3 : 0} />
-                    {n.durBeats < 4 && <rect x={stemUp ? x + 8 : x - 10} y={stemUp ? y - 46 : y} width={2.5} height={46} fill={color} />}
-                    {n.durBeats <= 0.5 && <path d={stemUp ? `M${x + 10} ${y - 46} q 14 10 8 26` : `M${x - 8} ${y + 46} q 14 -10 8 -26`} stroke={color} strokeWidth={3} fill="none" />}
+                    {n.durBeats < 4 && (
+                      <rect
+                        x={stemUp ? x + 8 : x - 10}
+                        y={beam ? Math.min(beam.y, y) : stemUp ? y - 46 : y}
+                        width={2.5}
+                        // A beamed stem runs to the group's shared beam line;
+                        // an unbeamed one is a fixed length.
+                        height={beam ? Math.abs(beam.y - y) : 46}
+                        fill={color}
+                      />
+                    )}
+                    {n.durBeats <= 0.5 && !beam && <path d={stemUp ? `M${x + 10} ${y - 46} q 14 10 8 26` : `M${x - 8} ${y + 46} q 14 -10 8 -26`} stroke={color} strokeWidth={3} fill="none" />}
                     {n.durBeats === 1.5 || n.durBeats === 3 ? <circle cx={x + 16} cy={y - 3} r={2.5} fill={color} /> : null}
                   </g>
                   {closing !== null && (

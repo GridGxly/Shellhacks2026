@@ -5,7 +5,7 @@ import type { NoteResult } from '@/lib/mic';
 import type { Enemy, Instrument } from '@/lib/content';
 import { CARD_STYLE } from './CardView';
 import Staff from './Staff';
-import { noteName, writtenKey } from '@/lib/music';
+import { CONCERT_KEY_NAME, noteName, writtenKey } from '@/lib/music';
 
 export type PerformStage = 'unfold' | 'countin' | 'recording' | 'review';
 
@@ -51,7 +51,7 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div className="f-press" style={{ padding: '6px 10px', background: color.body, border: '2px solid #FF4FA3', fontSize: 13, color: '#FFF6E0' }}>{encore ? 'ENCORE' : ex.type.toUpperCase()}</div>
             <div className="f-press" style={{ fontSize: 17, color: '#fff' }}>{ex.title}</div>
-            <div className="f-body" style={{ fontSize: 16, color: 'var(--muted)' }}>concert B♭ · written in {key.name} for {inst.name.toLowerCase()}</div>
+            <div className="f-body" style={{ fontSize: 16, color: 'var(--muted)' }}>concert {CONCERT_KEY_NAME} · written in {key.name} for {inst.name.toLowerCase()}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span className="f-label" style={{ fontSize: 12, color: 'var(--muted)' }}>TARGET</span>
@@ -93,7 +93,7 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
             beat={stage === 'recording' || (stage === 'countin' && settings.approach === 'on') ? beat : null}
             approach={settings.approach === 'on'}
             results={results}
-            barsPerLine={encore ? 4 : ex.bars}
+            barsPerLine={encore ? 4 : Math.min(ex.bars, 4)}
             revealUpTo={stage === 'unfold' ? -1 : Infinity}
           />
           {stage === 'countin' && (
