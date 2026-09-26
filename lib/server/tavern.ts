@@ -193,6 +193,7 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
         }
       } else if (action === 'done') {
         if (!finished(room)) return error('The duet is not ready yet.', 409);
+        if (room.phase === 'done') return json(snapshot(room, side, now));
         player.doneAt ??= new Date(now);
         if (room.host.doneAt && room.guest?.doneAt) { room.phase = 'done'; room.expiresAt = new Date(now + TAVERN_DONE_TTL_MS); }
       } else if (action === 'leave') {
