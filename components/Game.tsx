@@ -7,6 +7,7 @@ import Title from './screens/Title';
 import { Credits, HowToPlay, MicCheck } from './screens/Menus';
 import { PitchLab } from './screens/PitchLab';
 import { BossDemo } from './screens/BossDemo';
+import { GeminiLab } from './screens/GeminiLab';
 import ChooseInstrument from './screens/ChooseInstrument';
 import MapScreen from './screens/MapScreen';
 import Combat from './screens/Combat';
@@ -101,6 +102,7 @@ export default function Game() {
             {screen === 'mic' && <MicCheck />}
             {screen === 'lab' && <PitchLab />}
             {screen === 'bossdemo' && <BossDemo />}
+            {screen === 'gemlab' && <GeminiLab />}
             {screen === 'credits' && <Credits />}
             {screen === 'instrument' && <ChooseInstrument />}
             {screen === 'map' && <MapScreen />}

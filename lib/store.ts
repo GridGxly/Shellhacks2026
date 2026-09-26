@@ -6,7 +6,7 @@ import { exerciseKey, makeExercise, GRAN_VALS, type CardType, type Exercise } fr
 import { addScore, type RunEvent } from './score';
 
 export type Screen =
-  | 'title' | 'howto' | 'mic' | 'lab' | 'bossdemo' | 'credits' | 'instrument' | 'map' | 'combat'
+  | 'title' | 'howto' | 'mic' | 'lab' | 'gemlab' | 'bossdemo' | 'credits' | 'instrument' | 'map' | 'combat'
   | 'victory' | 'actclear' | 'loss' | 'final' | 'leaderboard' | 'profile';
 export type Overlay = null | 'stats' | 'pause' | 'mappeek' | 'signin' | 'overwrite';
 export type Transition = null | 'wipe' | 'iris';

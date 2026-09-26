@@ -18,6 +18,7 @@ export interface Exercise {
   bars: number;
   notes: Note[];
   chordLabels?: { bar: number; label: string }[];
+  keyPc?: number; // concert major key (pitch class) when not CONCERT_KEY_PC, e.g. a user's own piece
 }
 
 // A major, concert — the key of Gran Vals (F♯, C♯, G♯).
@@ -231,10 +232,14 @@ const KEYS_BY_PC: Record<number, KeySig> = {
   1: { name: 'D♭', accidentals: -5 },
 };
 
-export function writtenKey(offset: number): KeySig {
-  // The concert key transposed by the instrument's written offset.
-  const pc = (((CONCERT_KEY_PC + offset) % 12) + 12) % 12;
+/** A concert major key (pitch class) transposed by the instrument's written offset. */
+export function keySigFor(concertPc: number, offset: number): KeySig {
+  const pc = (((concertPc + offset) % 12) + 12) % 12;
   return KEYS_BY_PC[pc] ?? { name: 'C', accidentals: 0 };
+}
+
+export function writtenKey(offset: number): KeySig {
+  return keySigFor(CONCERT_KEY_PC, offset);
 }
 
 // Order letters take accidentals in: sharps F C G D A E B, flats the reverse.

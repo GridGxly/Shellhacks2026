@@ -44,7 +44,7 @@ export default function Title() {
     } else {
       list.push({ label: 'BEGIN THE CLIMB', primary: true, act: () => { useGame.getState().newRun(); go('instrument'); } });
     }
-    list.push({ label: 'HOW TO PLAY', act: nav('howto') }, { label: 'MIC CHECK', act: nav('mic') }, { label: 'PITCH LAB', act: nav('lab') }, { label: 'BOSS DEMO', act: nav('bossdemo') }, { label: 'LEADERBOARD', act: nav('leaderboard') });
+    list.push({ label: 'HOW TO PLAY', act: nav('howto') }, { label: 'MIC CHECK', act: nav('mic') }, { label: 'PITCH LAB', act: nav('lab') }, { label: 'BOSS DEMO', act: nav('bossdemo') }, { label: 'GEMINI LAB', act: nav('gemlab') }, { label: 'LEADERBOARD', act: nav('leaderboard') });
     if (user) list.push({ label: 'PROFILE', act: nav('profile') });
     list.push({ label: 'CREDITS', act: nav('credits') });
     return list;

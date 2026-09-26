@@ -1,5 +1,5 @@
 'use client';
-import { accidentalFor, FLAT_STEPS, SHARP_STEPS, staffStep, writtenKey, type Exercise, type KeySig } from '@/lib/music';
+import { accidentalFor, FLAT_STEPS, keySigFor, SHARP_STEPS, staffStep, writtenKey, type Exercise, type KeySig } from '@/lib/music';
 import { PERFECT_MS } from '@/lib/config';
 import type { NoteResult } from '@/lib/mic';
 
@@ -38,7 +38,7 @@ interface Props {
 }
 
 export default function Staff({ ex, shift, writtenOffset, width, beat, results, barsPerLine = ex.bars, revealUpTo = Infinity, keySig, approach = false }: Props) {
-  const key = keySig ?? writtenKey(writtenOffset);
+  const key = keySig ?? (ex.keyPc !== undefined ? keySigFor(ex.keyPc, writtenOffset) : writtenKey(writtenOffset));
   const lines = Math.ceil(ex.bars / barsPerLine);
   const lineH = GAP * 4 + 96;
   const left = 150;
