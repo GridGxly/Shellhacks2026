@@ -67,6 +67,8 @@ export default function Title() {
 
   const primary = items.filter((i) => i.primary);
   const secondary = items.filter((i) => !i.primary);
+  const rowSize = secondary.length > 6 ? Math.ceil(secondary.length / 2) : secondary.length;
+  const secondaryRows = [secondary.slice(0, rowSize), secondary.slice(rowSize)].filter((row) => row.length);
 
   return (
     <div className="fill" style={{ background: '#1B1D3A' }}>
@@ -101,8 +103,9 @@ export default function Title() {
               {saved.score.toLocaleString()} PTS · {saved.tips} TIPS · HP {saved.hp}
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 44, marginTop: 4 }}>
-            {secondary.map((it, n) => {
+          {secondaryRows.map((row, rowIndex) => (
+          <div key={rowIndex} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 44, marginTop: 4 }}>
+            {row.map((it, n) => {
               const i = items.indexOf(it);
               return (
                 <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 44 }}>
@@ -114,6 +117,7 @@ export default function Title() {
               );
             })}
           </div>
+          ))}
         </div>
       )}
       {shot >= 5 && <AccountChip />}
