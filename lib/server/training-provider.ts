@@ -1,28 +1,34 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { makeOfflinePlan, offlineFeedback, validatePlan } from '@/lib/training-core';
+import { geminiJson as geminiStructured } from './gemini';
 import type { Exercise } from '@/lib/music';
 import type { NoteResult } from '@/lib/mic';
 import type { TrainingFeedback, TrainingPlan, TrainingRegiment, WeaknessSummary } from '@/lib/training-types';
 
 const voices = { castor: () => process.env.ELEVENLABS_CASTOR_VOICE_ID || 'zauh4pbY6h1ZRErsRiAJ', pollux: () => process.env.ELEVENLABS_POLLUX_VOICE_ID || 'xYWUvKNK6zWCgsdAK7Wi' };
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-async function boundedText(response: Response, max = 128 * 1024) {
-  const reader = response.body?.getReader(); if (!reader) throw new Error('Empty provider response');
-  const decoder = new TextDecoder(); let size = 0, value = '';
-  try { while (true) { const part = await reader.read(); if (part.done) break; size += part.value.length; if (size > max) { await reader.cancel(); throw new Error('Provider response too large'); } value += decoder.decode(part.value, { stream: true }); } return value + decoder.decode(); }
-  finally { reader.releaseLock(); }
-}
+// Uses the shared Gemini client (lib/server/gemini.ts): falls back across models
+// when one is overloaded (503) or out of free-tier quota (429), with caching.
+// Any failure still surfaces as 'unavailable' so the offline plan/feedback is used.
 export async function geminiJson(prompt: string, schema: Record<string, unknown>): Promise<unknown> {
-  const key = process.env.GEMINI_API_KEY; if (!key) throw new Error('not_configured');
-  const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 8000);
-  try {
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', { method: 'POST', signal: controller.signal, headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: process.env.GEMINI_MODEL || 'gemini-3.8-flash', store: false, input: prompt, generation_config: { max_output_tokens: 4096 }, response_format: { type: 'text', mime_type: 'application/json', schema } }) });
-    if (!response.ok) { void response.body?.cancel().catch(() => {}); throw new Error('unavailable'); }
-    const envelope: unknown = JSON.parse(await boundedText(response));
-    if (!object(envelope) || envelope.status !== 'completed' || !Array.isArray(envelope.steps)) throw new Error('invalid_response');
-    const texts = envelope.steps.filter(s => object(s) && s.type === 'model_output').flatMap(s => object(s) && Array.isArray(s.content) ? s.content : []).filter(c => object(c) && c.type === 'text' && typeof c.text === 'string').map(c => (c as { text: string }).text);
-    return JSON.parse(texts.join(''));
-  } finally { clearTimeout(timer); }
+  if (!process.env.GEMINI_API_KEY) throw new Error('not_configured');
+  try { return (await geminiStructured(prompt, toGeminiSchema(schema), false, 'low')).data; }
+  catch (e) { console.error('[training gemini]', e instanceof Error ? e.message : e); throw new Error('unavailable'); }
+}
+/** JSON Schema -> Gemini responseSchema: UPPERCASE types; drop additionalProperties/minItems/maxItems. */
+function toGeminiSchema(v: unknown): Record<string, unknown> {
+  if (!object(v)) return {};
+  const out: Record<string, unknown> = {};
+  for (const [k, val] of Object.entries(v)) {
+    // Not every Gemini model accepts these (3.7-flash rejects the plan schema with them);
+    // validatePlan() enforces the counts in code anyway.
+    if (k === 'additionalProperties' || k === 'minItems' || k === 'maxItems') continue;
+    if (k === 'type' && typeof val === 'string') out.type = val.toUpperCase();
+    else if (k === 'properties' && object(val)) out.properties = Object.fromEntries(Object.entries(val).map(([p, sub]) => [p, toGeminiSchema(sub)]));
+    else if (k === 'items') out.items = toGeminiSchema(val);
+    else out[k] = val;
+  }
+  return out;
 }
 const noteSchema = { type: 'object', properties: { midi: { type: 'integer' }, startBeat: { type: 'number' }, durBeats: { type: 'number' } }, required: ['midi', 'startBeat', 'durBeats'], additionalProperties: false };
 const planSchema = { type: 'object', properties: { focusSummary: { type: 'string' }, exercises: { type: 'array', minItems: 4, maxItems: 4, items: { type: 'object', properties: { goal: { type: 'string' }, title: { type: 'string' }, notes: { type: 'array', minItems: 3, maxItems: 32, items: noteSchema } }, required: ['goal', 'title', 'notes'], additionalProperties: false } } }, required: ['focusSummary', 'exercises'], additionalProperties: false };
@@ -37,11 +43,15 @@ export async function createTrainingPlan(regiment: TrainingRegiment, weaknesses:
   } catch (e) { return { ...fallback, fallbackReason: e instanceof Error && e.message === 'invalid_response' ? 'invalid_response' : 'unavailable' }; }
 }
 const feedbackSchema = { type: 'object', properties: { castor: { type: 'string' }, pollux: { type: 'string' } }, required: ['castor', 'pollux'], additionalProperties: false };
+// Musicians say "G4", not "67": the model only repeats what it's given. ASCII
+// accidentals because models can mangle ♭/♯ symbols.
+const NOTE_NAMES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+const noteLabel = (midi: number) => `${NOTE_NAMES[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`;
 export async function createTrainingFeedback(exercise: Exercise, notes: NoteResult[], final = false): Promise<TrainingFeedback> {
   const fallback = offlineFeedback(exercise, notes, final);
   if (!process.env.GEMINI_API_KEY) return fallback;
   try {
-    const facts = { final, tempo: exercise.tempo, hits: notes.filter(n => n.status === 'hit').length, total: notes.length, silent: notes.filter(n => n.status === 'silent').length, offsets: notes.map(n => n.onsetOffsetMs), expected: exercise.notes.map(n => n.midi), played: notes.map(n => n.playedMidi) };
+    const facts = { final, tempo: exercise.tempo, hits: notes.filter(n => n.status === 'hit').length, total: notes.length, silent: notes.filter(n => n.status === 'silent').length, offsets: notes.map(n => n.onsetOffsetMs), expected: exercise.notes.map(n => noteLabel(n.midi)), played: notes.map(n => n.playedMidi === null ? null : noteLabel(n.playedMidi)) };
     const raw = await geminiJson(`Give supportive concrete music practice feedback using only these measured pitch/onset facts: ${JSON.stringify(facts)}. Castor discusses one pitch strength or next step; Pollux discusses pulse and one next step. Each line<=180 chars, no markup. No fabricated hearing or audio qualities; no pass/fail language. Return schema JSON.`, feedbackSchema);
     if (!object(raw) || typeof raw.castor !== 'string' || typeof raw.pollux !== 'string' || !raw.castor.length || !raw.pollux.length || raw.castor.length > 180 || raw.pollux.length > 180 || /[<>\u0000-\u001f]/.test(raw.castor + raw.pollux)) return fallback;
     return { source: 'gemini', castor: raw.castor, pollux: raw.pollux };

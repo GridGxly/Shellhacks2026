@@ -35,8 +35,9 @@ export async function geminiJson<T>(prompt: string, schema: object, fresh = fals
   const hit = cache.get(id) as { data: T; model: string } | undefined;
   if (!fresh && hit) return { data: hit.data, cached: true, usage: null, model: hit.model };
 
-  // A model can be unavailable two ways, neither billed: 503 (overloaded) or 429
-  // (its quota is used up — free-tier quotas are per model, e.g. 20/day).
+  // A model can be unavailable three ways, none billed: 503 (overloaded), 429
+  // (its quota is used up — free-tier quotas are per model, e.g. 20/day), or 400
+  // (this model doesn't accept part of the request, e.g. a schema feature).
   // Either way move down the chain and skip that model for a while.
   // Any other error (bad request, auth) stops immediately.
   const all = [MODEL(), ...FALLBACKS().filter((m) => m !== MODEL())];
@@ -85,7 +86,9 @@ async function callOnce<T>(model: string, id: string, prompt: string, schema: ob
     const body = await res.json().catch(() => null);
     if (res.status === 503) throw new OverloadedError(`${model} overloaded (503)`);
     if (res.status === 429) throw new OverloadedError(`${model} out of quota (429)`, retryAfter(body));
-    if (!res.ok) throw new GeminiError(`Gemini ${res.status}: ${body?.error?.message ?? 'request failed'}`.slice(0, 300));
+    // Models differ in which schema features they accept; a 400 on one is worth trying on the next.
+    if (res.status === 400) throw new OverloadedError(`${model} rejected the request (400): ${body?.error?.message ?? ''}`.slice(0, 200));
+    if (!res.ok) throw new GeminiError(`Gemini ${res.status} (${model}): ${body?.error?.message ?? 'request failed'}`.slice(0, 300));
     const text = body?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (typeof text !== 'string') throw new GeminiError('Gemini returned no content.');
     const data = JSON.parse(text) as T;
