@@ -1,0 +1,95 @@
+:root {
+  --ink: #1b1f3b;
+  --night: #101126;
+  --panel: #14162e;
+  --panel-2: #1e2140;
+  --line: #2a2f55;
+  --line-2: #3a3f70;
+  --parchment: #fff6e0;
+  --parchment-shade: #f0ddb4;
+  --muted: #9aa0c8;
+  --soft: #c9cce8;
+  --sun: #ffd23f;
+  --magenta: #ff4fa3;
+  --magenta-dark: #d1307e;
+  --sky: #6ec6ff;
+  --meadow: #4cc26b;
+  --hp: #e8434f;
+  --press: var(--font-press), monospace;
+  --body: var(--font-pixelify), sans-serif;
+  --label: var(--font-silk), monospace;
+  --music: var(--font-music), serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: #07070f; color: var(--parchment); }
+body { font-family: var(--body); -webkit-font-smoothing: none; user-select: none; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+img { image-rendering: pixelated; -webkit-user-drag: none; }
+
+.viewport { position: fixed; inset: 0; display: grid; place-items: center; overflow: hidden; }
+.stage { position: absolute; left: 50%; top: 50%; width: 1440px; height: 900px; overflow: hidden; background: var(--night); transform-origin: center; }
+.fill { position: absolute; inset: 0; }
+.bg { position: absolute; background-size: cover; background-position: 50%; image-rendering: pixelated; }
+.sprite { position: absolute; background-size: contain; background-repeat: no-repeat; background-position: 50% 100%; image-rendering: pixelated; }
+
+.f-press { font-family: var(--press); }
+.f-body { font-family: var(--body); }
+.f-label { font-family: var(--label); letter-spacing: 0.15em; }
+.f-music { font-family: var(--music); }
+
+/* ---------- motion (all stepped; see M6 spec) ---------- */
+@keyframes breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes floatUp { from { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } to { transform: translateY(-120px); opacity: 0; } }
+@keyframes glow { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes dropIn { from { transform: translateY(-24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes riseIn { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes slideInLeft { from { transform: translateX(-80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideInRight { from { transform: translateX(80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes popIn { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes slam { 0% { transform: scale(3); opacity: 0; } 40% { transform: scale(0.92); opacity: 1; } 60% { transform: scale(1.05); } 100% { transform: scale(1); } }
+@keyframes shake { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(-6px, 3px); } 40% { transform: translate(5px, -4px); } 60% { transform: translate(-4px, -2px); } 80% { transform: translate(4px, 3px); } }
+@keyframes shakeSmall { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+@keyframes lungeLeft { 0%, 100% { transform: translateX(0); } 35% { transform: translateX(-90px); } }
+@keyframes lungeRight { 0%, 100% { transform: translateX(0); } 35% { transform: translateX(40px); } }
+@keyframes knockback { 0% { transform: translateX(0); } 20% { transform: translateX(-40px) rotate(-6deg); } 100% { transform: translateX(0); } }
+@keyframes hitFlash { 0%, 100% { filter: none; } 20%, 50% { filter: brightness(3) saturate(0); } }
+@keyframes redFlash { 0% { opacity: 0.6; } 100% { opacity: 0; } }
+@keyframes dmgPop { 0% { transform: translateY(20px) scale(0.5) rotate(-6deg); opacity: 0; } 20% { transform: translateY(0) scale(1.2) rotate(-6deg); opacity: 1; } 70% { transform: translateY(-20px) scale(1) rotate(-6deg); opacity: 1; } 100% { transform: translateY(-50px) rotate(-6deg); opacity: 0; } }
+@keyframes noteFly { from { transform: translateX(0) translateY(0); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } to { transform: translateX(var(--dx)) translateY(var(--dy)); opacity: 0; } }
+@keyframes burst { 0% { transform: scale(0.3); opacity: 1; } 70% { transform: scale(1.3); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+@keyframes cardFlyOff { 0% { transform: translate(0, 0) scale(1) rotate(0); } 100% { transform: translate(560px, -760px) scale(0.3) rotate(40deg); opacity: 0; } }
+@keyframes cardDeal { from { transform: translate(-560px, 320px) rotate(-30deg); opacity: 0; } to { transform: translate(0, 0) rotate(var(--rot, 0deg)); opacity: 1; } }
+@keyframes cardReturn { 0% { transform: translateY(-120px); } 100% { transform: translateY(0); } }
+@keyframes flipOpen { 0% { transform: scaleX(1) scale(1); } 45% { transform: scaleX(0.15) scale(2.2); } 100% { transform: scaleX(1) scale(1); } }
+@keyframes unfold { from { transform: scale(0.2, 0.3); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
+@keyframes wipeIn { from { transform: translateX(-110%); } to { transform: translateX(0); } }
+@keyframes wipeOut { from { transform: translateX(0); } to { transform: translateX(110%); } }
+@keyframes irisClose { from { clip-path: circle(120% at 50% 50%); } to { clip-path: circle(0% at 50% 50%); } }
+@keyframes confetti { from { transform: translateY(-40px) rotate(0); } to { transform: translateY(980px) rotate(540deg); } }
+@keyframes dissolve { 0% { opacity: 1; filter: none; } 60% { opacity: 0.6; filter: brightness(2) blur(1px); } 100% { opacity: 0; transform: translateY(-40px) scale(1.1); filter: brightness(3) blur(6px); } }
+@keyframes pixelDrift { from { transform: translate(0, 0); opacity: 1; } to { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+@keyframes rattle { 0%, 88%, 100% { transform: rotate(0); } 90% { transform: rotate(-4deg); } 94% { transform: rotate(4deg); } 97% { transform: rotate(-2deg); } }
+@keyframes pinBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes pulseGold { 0%, 100% { box-shadow: 0 0 0 3px #ffd23f, 0 0 10px rgba(255,210,63,0.4); } 50% { box-shadow: 0 0 0 3px #ffd23f, 0 0 24px rgba(255,210,63,0.9); } }
+@keyframes spinSlow { to { transform: rotate(360deg); } }
+@keyframes countSlam { 0% { transform: scale(1.6); opacity: 0; } 25% { transform: scale(1); opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes stamp { 0% { transform: rotate(-8deg) scale(2.4); opacity: 0; } 50% { transform: rotate(-8deg) scale(0.95); opacity: 1; } 70% { transform: rotate(-8deg) scale(1.05); } 100% { transform: rotate(-8deg) scale(1); } }
+@keyframes wave { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
+@keyframes scrollDown { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+
+.hoverable { transition: transform 80ms steps(2); }
+.hoverable:hover { transform: translateY(-2px); }
+.pressable:active { transform: translateY(3px); }
+
+@keyframes curtainUp { to { transform: translateY(-100%); } }
+@keyframes curtainDown { to { transform: translateY(100%); } }
+@keyframes countUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes unrollDown { from { clip-path: inset(0 0 100% 0); transform: translateY(-10px); } to { clip-path: inset(0 0 0 0); transform: none; } }
+@keyframes panelIn { 0% { transform: translateY(40px) scale(0.96); opacity: 0; } 70% { transform: translateY(-4px) scale(1.01); opacity: 1; } 100% { transform: none; } }
+@keyframes errShake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-10px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(4px); } }
+.card-hover:hover > div:first-child { translate: 0 -18px; }
