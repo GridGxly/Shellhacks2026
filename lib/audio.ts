@@ -23,6 +23,8 @@ export const settings: AudioSettings = {
   approach: 'on',
 };
 
+// Keep background arrangements beneath instrument practice, even for saved sliders.
+const MUSIC_BED_GAIN = 0.35;
 let ctx: AudioContext | null = null;
 let musicGain: GainNode;
 let chipGain: GainNode;
@@ -34,14 +36,14 @@ export function ac(): AudioContext {
     musicGain = ctx.createGain();
     chipGain = ctx.createGain();
     sfxGain = ctx.createGain();
-    musicGain.gain.value = settings.music;
+    musicGain.gain.value = musicMuted ? 0 : settings.music * MUSIC_BED_GAIN;
     sfxGain.gain.value = settings.sfx;
     chipGain.gain.value = 0.22;
     chipGain.connect(musicGain);
     musicGain.connect(ctx.destination);
     sfxGain.connect(ctx.destination);
   }
-  if (ctx.state === 'suspended') void ctx.resume();
+  if (ctx.state !== 'running' && ctx.state !== 'closed') void ctx.resume().catch(() => {});
   return ctx;
 }
 
@@ -54,14 +56,14 @@ export function saveSettings(next: Partial<AudioSettings>) {
 export function applySettings(next: Partial<AudioSettings>) {
   Object.assign(settings, next);
   if (!ctx) return;
-  musicGain.gain.setTargetAtTime(musicMuted ? 0 : settings.music * (ducked ? 0.35 : 1), ctx.currentTime, 0.05);
+  musicGain.gain.setTargetAtTime(musicMuted ? 0 : settings.music * MUSIC_BED_GAIN * (ducked ? 0.35 : 1), ctx.currentTime, 0.05);
   sfxGain.gain.setTargetAtTime(settings.sfx, ctx.currentTime, 0.05);
   voices.forEach((v) => (v.volume = Math.min(1, settings.voice)));
 }
 
 // ---------------------------------------------------------------- music
 
-export type Track = 'title' | 'map' | 'battle' | 'boss' | 'encore' | 'final' | 'none';
+export type Track = 'title' | 'map' | 'battle' | 'boss' | 'encore' | 'final' | 'tavern' | 'none';
 
 const FILES: Partial<Record<Track, string>> = {
   title: '/audio/music/ode-title.m4a',
@@ -126,7 +128,9 @@ export function duck(on: boolean) {
 export function muteMusic(on: boolean) {
   musicMuted = on;
   if (!ctx) return;
-  musicGain.gain.setTargetAtTime(on ? 0 : settings.music * (ducked ? 0.35 : 1), ctx.currentTime, on ? 0.02 : 0.3);
+  musicGain.gain.cancelScheduledValues(ctx.currentTime);
+  if (on) musicGain.gain.setValueAtTime(0, ctx.currentTime);
+  else musicGain.gain.setTargetAtTime(settings.music * MUSIC_BED_GAIN * (ducked ? 0.35 : 1), ctx.currentTime, 0.3);
 }
 
 // Chiptune arrangements of Ode to Joy (D major, degrees -> midi).
@@ -152,6 +156,7 @@ interface ChipStyle {
   leadVol: number;
 }
 const STYLES: Partial<Record<Track, ChipStyle>> = {
+  tavern: { tempo: 104, lead: 'triangle', bass: 'triangle', scale: MAJ, octave: 0, drums: false, leadVol: 0.32 },
   map: { tempo: 84, lead: 'triangle', bass: 'triangle', scale: MAJ, octave: 12, drums: false, leadVol: 0.5 },
   battle: { tempo: 138, lead: 'square', bass: 'triangle', scale: MAJ, octave: 12, drums: true, leadVol: 0.28 },
   boss: { tempo: 112, lead: 'sawtooth', bass: 'square', scale: MIN, octave: 0, drums: true, leadVol: 0.2 },
@@ -217,7 +222,7 @@ function stopChip() {
 
 const mtof = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
 
-function tone(midi: number, t: number, dur: number, type: OscillatorType, vol: number, out: AudioNode, slideTo?: number) {
+function makeTone(midi: number, t: number, dur: number, type: OscillatorType, vol: number, out: AudioNode, slideTo?: number) {
   const c = ac();
   const o = c.createOscillator();
   const g = c.createGain();
@@ -230,6 +235,16 @@ function tone(midi: number, t: number, dur: number, type: OscillatorType, vol: n
   o.connect(g).connect(out);
   o.start(t);
   o.stop(t + dur + 0.02);
+  return o;
+}
+
+const tone = (...args: Parameters<typeof makeTone>) => { makeTone(...args); };
+
+/** A separate bus keeps duet takes audible while accompaniment is muted. */
+export function effectsOutput(): GainNode { ac(); return sfxGain; }
+
+export function duetTone(midi: number, time: number, duration: number, out: AudioNode) {
+  return makeTone(midi, time, duration, 'triangle', 0.24, out);
 }
 
 let noiseBuf: AudioBuffer | null = null;
@@ -299,9 +314,10 @@ export function sfx(name: Sfx, when = 0) {
 }
 
 /** Metronome click at an exact AudioContext time. */
-export function clickAt(time: number, accent: boolean) {
+export function clickAt(time: number, accent: boolean): OscillatorNode | undefined {
   if (settings.metronome !== 'click') return;
-  tone(accent ? 103 : 96, time, accent ? 0.05 : 0.03, 'square', accent ? 0.35 : 0.25, sfxGain);
+  ac();
+  return makeTone(accent ? 103 : 96, time, accent ? 0.05 : 0.03, 'square', accent ? 0.35 : 0.25, sfxGain);
 }
 
 const buffers = new Map<string, Promise<AudioBuffer>>();

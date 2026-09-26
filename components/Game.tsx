@@ -3,7 +3,10 @@ import { useEffect, useState } from 'react';
 import { useGame } from '@/lib/store';
 import { ac, applySettings, playMusic, preload, sfx } from '@/lib/audio';
 import { ENEMIES } from '@/lib/content';
+import { mic } from '@/lib/mic';
 import Title from './screens/Title';
+import Tavern from './screens/Tavern';
+import Training from './screens/Training';
 import { Credits, HowToPlay, MicCheck } from './screens/Menus';
 import { PitchLab } from './screens/PitchLab';
 import { BossDemo } from './screens/BossDemo';
@@ -16,7 +19,7 @@ import { MapPeek, Pause, StatsOverlay } from './overlays/HudOverlays';
 import { Overwrite, SignIn } from './overlays/Account';
 
 export default function Game() {
-  const [scale, setScale] = useState(1);
+  const [view, setView] = useState({ scale: 1, x: 720, y: 450 });
   const [booted, setBooted] = useState(false);
   const screen = useGame((s) => s.screen);
   const overlay = useGame((s) => s.overlay);
@@ -24,9 +27,21 @@ export default function Game() {
   const toast = useGame((s) => s.toast);
 
   useEffect(() => {
-    const fit = () => setScale(Math.min(window.innerWidth / 1440, window.innerHeight / 900));
+    // visualViewport tracks the area left after mobile browser bars show or hide.
+    const fit = () => {
+      const v = window.visualViewport;
+      const width = v?.width ?? window.innerWidth;
+      const height = v?.height ?? window.innerHeight;
+      setView({
+        scale: Math.min(width / 1440, height / 900),
+        x: (v?.offsetLeft ?? 0) + width / 2,
+        y: (v?.offsetTop ?? 0) + height / 2,
+      });
+    };
     fit();
     window.addEventListener('resize', fit);
+    window.visualViewport?.addEventListener('resize', fit);
+    window.visualViewport?.addEventListener('scroll', fit);
     useGame.getState().hydrate();
     // Dev only: window.__stc.setState({...}) to jump around while building.
     if (process.env.NODE_ENV !== 'production') (window as unknown as { __stc: typeof useGame }).__stc = useGame;
@@ -48,7 +63,11 @@ export default function Game() {
         if (body?.run) useGame.getState().adoptSave(body.run);
       })
       .catch(() => {});
-    return () => window.removeEventListener('resize', fit);
+    return () => {
+      window.removeEventListener('resize', fit);
+      window.visualViewport?.removeEventListener('resize', fit);
+      window.visualViewport?.removeEventListener('scroll', fit);
+    };
   }, []);
 
   // Global shortcuts: Esc = pause/back, M = map peek, C = stats.
@@ -77,8 +96,11 @@ export default function Game() {
   }, []);
 
   const boot = () => {
-    if (booted) return;
+    // Resume both contexts inside a new gesture after a phone returns from the background.
     ac();
+    mic.resume();
+    if (booted) return;
+    if (touchDevice()) void enterFullscreen(); // needs this first tap as its user gesture
     preload([
       ...new Set(ENEMIES.map((e) => e.attackSfx)),
       '/audio/sfx/ko-slam.mp3', '/audio/sfx/versus-slam.mp3', '/audio/sfx/encore-charge.mp3',
@@ -91,12 +113,14 @@ export default function Game() {
 
   return (
     <div className="viewport" onPointerDown={boot} onKeyDown={boot} tabIndex={-1}>
-      <div className="stage" style={{ transform: `translate(-50%, -50%) scale(${scale})` }}>
+      <div className="stage" style={{ left: view.x, top: view.y, transform: `translate(-50%, -50%) scale(${view.scale})` }}>
         {!booted ? (
           <BootGate onStart={boot} />
         ) : (
           <>
             {screen === 'title' && <Title />}
+            {screen === 'tavern' && <Tavern />}
+            {screen === 'training' && <Training />}
             {screen === 'howto' && <HowToPlay />}
             {screen === 'mic' && <MicCheck />}
             {screen === 'lab' && <PitchLab />}
@@ -124,6 +148,58 @@ export default function Game() {
           </>
         )}
       </div>
+      {booted && <FullscreenButton />}
+      <RotateHint />
+    </div>
+  );
+}
+
+const touchDevice = () => typeof window !== 'undefined' && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+
+/** Android Chrome goes full screen and locks landscape; iPhone Safari has no element full screen and skips this. */
+async function enterFullscreen() {
+  try {
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+    await (screen.orientation as (ScreenOrientation & { lock?: (o: string) => Promise<void> }) | undefined)?.lock?.('landscape');
+  } catch { /* not supported: the stage still scales to fit */ }
+}
+
+function FullscreenButton() {
+  const [full, setFull] = useState(false);
+  useEffect(() => {
+    const on = () => setFull(!!document.fullscreenElement);
+    on();
+    document.addEventListener('fullscreenchange', on);
+    return () => document.removeEventListener('fullscreenchange', on);
+  }, []);
+  if (full || typeof document === 'undefined' || !document.fullscreenEnabled) return null;
+  return (
+    <button
+      className="touch-only"
+      aria-label="Full screen"
+      onClick={() => { sfx('click'); void enterFullscreen(); }}
+      style={{ position: 'fixed', right: 'max(10px, env(safe-area-inset-right))', bottom: 10, zIndex: 300, width: 40, height: 40, display: 'grid', placeItems: 'center', background: 'rgba(16,17,38,0.85)', border: '3px solid #3A3F70' }}
+    >
+      <svg width="18" height="18" viewBox="0 0 9 9" shapeRendering="crispEdges" fill="#FFD23F">
+        <rect x="0" y="0" width="3" height="1" /><rect x="0" y="0" width="1" height="3" /><rect x="6" y="0" width="3" height="1" /><rect x="8" y="0" width="1" height="3" />
+        <rect x="0" y="8" width="3" height="1" /><rect x="0" y="6" width="1" height="3" /><rect x="6" y="8" width="3" height="1" /><rect x="8" y="6" width="1" height="3" />
+      </svg>
+    </button>
+  );
+}
+
+/** Portrait phones: the 1440×900 stage would be a thin strip, so ask for landscape. */
+function RotateHint() {
+  return (
+    <div className="rotate-hint" style={{ position: 'fixed', inset: 0, zIndex: 400, placeItems: 'center', background: '#07070f', padding: 32 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28, textAlign: 'center' }}>
+        <svg width="96" height="96" viewBox="0 0 16 16" shapeRendering="crispEdges" style={{ animation: 'rotatePhone 1.8s steps(6) infinite alternate' }}>
+          <rect x="4" y="1" width="8" height="14" fill="#FFD23F" /><rect x="5" y="2" width="6" height="11" fill="#1B1D3A" />
+          <rect x="7" y="13" width="2" height="1" fill="#101126" /><rect x="6" y="5" width="4" height="4" fill="#FF4FA3" />
+        </svg>
+        <div className="f-press" style={{ fontSize: 16, lineHeight: '26px', color: 'var(--sun)' }}>TURN YOUR<br />PHONE SIDEWAYS</div>
+        <div className="f-body" style={{ fontSize: 18, lineHeight: '24px', color: 'var(--soft)', maxWidth: 280 }}>The Spire is a landscape climb. Tip: add it to your home screen to play full screen.</div>
+      </div>
     </div>
   );
 }
@@ -133,10 +209,11 @@ function BootGate({ onStart }: { onStart: () => void }) {
     <button className="fill" onClick={onStart} style={{ display: 'grid', placeItems: 'center', background: '#07070f' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28 }}>
         <img src="/assets/logo.png" alt="Slay the Choir" width={520} style={{ animation: 'fadeIn 800ms both' }} />
-        <div className="f-press" style={{ fontSize: 16, color: 'var(--sun)', animation: 'blink 1.1s steps(1) infinite' }}>
-          PRESS ANY KEY
+        <div className="f-press boot-start" style={{ fontSize: 16, color: 'var(--sun)', animation: 'blink 1.1s steps(1) infinite' }}>
+          <span className="kbd-only">PRESS ANY KEY</span>
+          <span className="touch-only">TAP TO START</span>
         </div>
-        <div className="f-label" style={{ fontSize: 12, color: 'var(--muted)' }}>
+        <div className="f-label boot-hint" style={{ fontSize: 12, color: 'var(--muted)' }}>
           HEADPHONES RECOMMENDED · MIC REQUIRED TO PLAY FOR REAL
         </div>
       </div>

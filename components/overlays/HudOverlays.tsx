@@ -63,7 +63,7 @@ export function StatsOverlay() {
     if (useGame.getState().buy(id)) {
       sfx('upgrade');
       window.setTimeout(() => sfx('coin'), 120);
-      setFlash({ id, key: Date.now() });
+      setFlash((previous) => ({ id, key: (previous?.key ?? 0) + 1 }));
     } else {
       sfx('denied');
       setDeny(id);
@@ -268,7 +268,7 @@ export function MapPeek() {
                     return (
                       <div key={e.id} style={{ display: 'flex', alignItems: 'center', flex: i < 2 ? 1 : undefined }}>
                         <div style={{ position: 'relative', width: e.boss ? 58 : 46, height: e.boss ? 58 : 46, background: here ? 'var(--sun)' : cleared ? '#C9B48A' : '#D8C49A', border: `3px solid ${e.boss ? '#C23A7E' : '#101126'}`, overflow: 'hidden', animation: `popIn 200ms ${300 + f * 30}ms steps(3) both` }}>
-                          <div className="sprite" style={{ inset: 2, backgroundImage: `url(${e.sprite})`, filter: cleared ? 'grayscale(1) opacity(0.5)' : f > run.floor ? 'brightness(0) opacity(0.35)' : undefined }} />
+                          <div className="sprite" style={{ inset: 2, backgroundImage: `url(${e.sprite})`, filter: `${e.spriteFilter ?? ''} ${cleared ? 'grayscale(1) opacity(0.5)' : f > run.floor ? 'brightness(0) opacity(0.35)' : ''}`.trim() || undefined }} />
                           {cleared && <span className="f-press" style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 20, color: '#E8434F' }}>✕</span>}
                         </div>
                         {i < 2 && <div style={{ flex: 1, height: 0, borderTop: `4px dashed ${cleared ? '#8A6A45' : '#C9B48A'}`, margin: '0 6px' }} />}
@@ -280,7 +280,7 @@ export function MapPeek() {
               </div>
             ))}
           </div>
-          <div className="f-label" style={{ marginTop: 16, textAlign: 'center', fontSize: 11, color: '#6A5420' }}>PRESS M OR ESC TO CLOSE</div>
+          <div className="f-label" style={{ marginTop: 16, textAlign: 'center', fontSize: 11, color: '#6A5420' }}><span className="kbd-only">PRESS M OR ESC TO CLOSE</span><span className="touch-only">TAP OUTSIDE TO CLOSE</span></div>
         </div>
         <div style={{ width: 980, height: 26, background: '#8A6A45', border: '4px solid #101126', animation: 'dropIn 420ms steps(8) both' }} />
       </div>

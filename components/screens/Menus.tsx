@@ -193,6 +193,10 @@ export function MicCheck() {
       >
         {demo ? '■ DEMO MODE ON: NOTES ARE SIMULATED, NO INSTRUMENT NEEDED' : '□ NO INSTRUMENT? TURN ON DEMO MODE'}
       </button>
+      <div className="f-body touch-only mobile-audio-hint" style={{ position: 'absolute', left: 220, top: 720, width: 1000, textAlign: 'center', color: 'var(--soft)' }}>
+        Use headphones on iPhone: the mic can send sound to the earpiece.
+        <br />After returning to the game, tap once to wake the audio.
+      </div>
     </MenuShell>
   );
 }
@@ -203,11 +207,12 @@ export function Credits() {
     ['MUSIC', '"Ode to Joy" · Ludwig van Beethoven · London Symphony Orchestra, Sir Antonio Pappano'],
     ['VOICES & SFX', 'ElevenLabs'],
     ['BUILT WITH', 'Next.js · Pitchy · Web Audio · Zustand'],
+    ['POWERED BY MONGODB ATLAS', 'Change streams · Search · aggregation leaderboards · TTL sessions'],
     ['MADE AT', 'ShellHacks 2026', '#FF7DB8'],
   ];
   return (
     <MenuShell title="CREDITS">
-      <div style={{ position: 'absolute', left: 0, top: 236, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 34 }}>
+      <div style={{ position: 'absolute', left: 0, top: 236, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
         {rows.map(([k, v, c], i) => (
           <div key={k} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, animation: `riseIn 400ms ${200 + i * 120}ms steps(5) both` }}>
             <div className="f-label" style={{ fontSize: 14, color: c ?? 'var(--sun)', letterSpacing: '0.22em' }}>{k}</div>

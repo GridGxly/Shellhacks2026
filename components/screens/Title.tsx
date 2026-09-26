@@ -1,37 +1,51 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { playFile, playMusic, sfx } from '@/lib/audio';
 import { instrumentOf, useGame, type Screen } from '@/lib/store';
 import { Arrow, Bg, FloatingNotes, Sprite, Stars } from '../ui';
+import IntroMontage from './IntroMontage';
 
 let introSeen = false;
 
-type Item = { label: string; act: () => void; primary?: boolean };
+type Item = { label: string; act: () => void; primary?: boolean; mode?: boolean };
 
 export default function Title() {
   const [shot, setShot] = useState(introSeen ? 5 : 0);
   const saved = useGame((s) => s.saved);
+  const startingRun = useGame(s => s.startingRun);
+  const transition = useGame(s => s.transition);
   const user = useGame((s) => s.user);
   const go = useGame((s) => s.go);
   const setOverlay = useGame((s) => s.setOverlay);
+  const land = useCallback(() => setShot(4), []);
 
   // A3 intro montage: 0 goblin · 1 serpent · 2 choir · 3 leap · 4 land + logo · 5 menu
   useEffect(() => {
     playMusic('title');
     if (introSeen) return;
-    // IntroFilm runs 0–7.4s, then the logo lands (shot 4), then the menu (shot 5).
-    const ids = [window.setTimeout(() => setShot(4), INTRO_MS), window.setTimeout(() => setShot(5), INTRO_MS + 1100)];
-    const skip = () => setShot(5);
-    window.addEventListener('keydown', skip);
-    window.addEventListener('pointerdown', skip);
+    const mountedAt = performance.now();
+    const skip = (event: KeyboardEvent | PointerEvent) => {
+      // The gesture that mounted Title is still bubbling through the boot gate.
+      if (event.timeStamp <= mountedAt || ('repeat' in event && event.repeat)) return;
+      setShot(5);
+    };
+    const listen = window.setTimeout(() => {
+      window.addEventListener('keydown', skip);
+      window.addEventListener('pointerdown', skip);
+    }, 0);
     return () => {
-      ids.forEach(clearTimeout);
+      clearTimeout(listen);
       window.removeEventListener('keydown', skip);
       window.removeEventListener('pointerdown', skip);
     };
   }, []);
   useEffect(() => {
-    if (shot === 4) playFile('/audio/sfx/versus-slam.mp3', 0.8);
+    if (shot === 4) {
+      sfx('impact');
+      void playFile('/audio/sfx/versus-slam.mp3', 0.8);
+      const menu = window.setTimeout(() => setShot(5), 900);
+      return () => clearTimeout(menu);
+    }
     if (shot >= 5) introSeen = true;
   }, [shot]);
 
@@ -42,31 +56,36 @@ export default function Title() {
       list.push({ label: `CONTINUE · FLOOR ${saved.floor + 1}`, primary: true, act: () => { useGame.getState().continueRun(); go('map'); } });
       list.push({ label: 'NEW CLIMB', act: () => setOverlay('overwrite') });
     } else {
-      list.push({ label: 'BEGIN THE CLIMB', primary: true, act: () => { useGame.getState().newRun(); go('instrument'); } });
+      list.push({ label: startingRun ? 'PREPARING CLIMB…' : 'CAMPAIGN', primary: true, act: () => { void useGame.getState().newRun().then(started => { if (started) go('instrument'); }); } });
     }
+    list.splice(1, 0, { label: 'TAVERN MODE', mode: true, act: () => go('tavern', 'iris') }, { label: 'GEMS AND I', mode: true, act: () => go('training', 'iris') });
     list.push({ label: 'HOW TO PLAY', act: nav('howto') }, { label: 'MIC CHECK', act: nav('mic') }, { label: 'PITCH LAB', act: nav('lab') }, { label: 'BOSS DEMO', act: nav('bossdemo') }, { label: 'LEADERBOARD', act: nav('leaderboard') });
     if (user) list.push({ label: 'PROFILE', act: nav('profile') });
     list.push({ label: 'CREDITS', act: nav('credits') });
     return list;
-  }, [saved, user, go, setOverlay]);
+  }, [saved, user, go, setOverlay, startingRun]);
 
   const [sel, setSel] = useState(0);
   useEffect(() => {
     if (shot < 5) return;
     const onKey = (e: KeyboardEvent) => {
-      if (useGame.getState().overlay) return;
+      if (useGame.getState().overlay || useGame.getState().transition || useGame.getState().startingRun || e.repeat) return;
+      if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Enter', ' '].includes(e.key)) return;
+      e.preventDefault();
       if (['ArrowRight', 'ArrowDown'].includes(e.key)) { setSel((i) => (i + 1) % items.length); sfx('hover'); }
       if (['ArrowLeft', 'ArrowUp'].includes(e.key)) { setSel((i) => (i - 1 + items.length) % items.length); sfx('hover'); }
-      if (e.key === 'Enter' || e.key === ' ') { sfx('click'); items[sel].act(); }
+      if (e.key === 'Enter' || e.key === ' ') { sfx('click'); items[sel % items.length].act(); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [shot, items, sel]);
 
-  if (shot < 4) return <IntroFilm />;
+  if (shot < 4) return <IntroMontage onLand={land} />;
 
-  const primary = items.filter((i) => i.primary);
-  const secondary = items.filter((i) => !i.primary);
+  const primary = items.filter((i) => i.primary || i.mode);
+  const secondary = items.filter((i) => !i.primary && !i.mode);
+  const rowSize = secondary.length > 4 ? Math.ceil(secondary.length / 2) : secondary.length;
+  const secondaryRows = [secondary.slice(0, rowSize), secondary.slice(rowSize)].filter((row) => row.length);
 
   return (
     <div className="fill" style={{ background: '#1B1D3A' }}>
@@ -77,43 +96,46 @@ export default function Title() {
       <Sprite src="/assets/sprites/serpent.png" x={1130} y={60} size={420} style={{ opacity: 0.45, filter: 'brightness(0)', animation: 'bob 5s 1s steps(4) infinite' }} />
       <div className="fill" style={{ backgroundImage: 'linear-gradient(180deg, rgba(16,17,38,0) 55%, rgba(16,17,38,0.9) 100%)' }} />
       <div style={{ position: 'absolute', left: 575, top: 366, width: 280, height: 320, backgroundImage: 'radial-gradient(ellipse 50% 50% at 50% 50%, rgba(255,240,190,0.45) 0%, rgba(255,230,140,0.12) 55%, rgba(255,230,140,0) 75%)', animation: 'glow 3s steps(4) infinite' }} />
-      <Sprite src={instrumentOf(useGame.getState().run).sprite} x={545} y={356} size={340} style={{ animation: shot === 4 ? 'slam 500ms steps(6) both' : 'breathe 1.2s steps(2) infinite' }} />
+      <Sprite src={instrumentOf(useGame.getState().run).sprite} x={545} y={314} size={310} style={{ animation: shot === 4 ? 'slam 500ms steps(6) both' : 'breathe 1.2s steps(2) infinite' }} />
       <img
         src="/assets/logo.png"
         alt="Slay the Choir"
-        style={{ position: 'absolute', left: 380, top: 18, width: 680, animation: shot === 4 ? 'slam 600ms 200ms steps(8) both' : undefined }}
+        style={{ position: 'absolute', left: 430, top: -38, width: 580, animation: shot === 4 ? 'slam 600ms 200ms steps(8) both' : undefined }}
       />
       <FloatingNotes count={8} />
-      {shot === 4 && <div className="fill" style={{ background: '#FFF6E0', animation: 'fadeOut 500ms steps(5) forwards', pointerEvents: 'none' }} />}
+      {shot === 4 && <div style={{ position: 'absolute', left: 570, top: 665, width: 300, height: 22, background: '#FFF6E0', animation: 'burst 400ms steps(5) forwards', pointerEvents: 'none' }} />}
 
       {shot >= 5 && (
-        <div style={{ position: 'absolute', left: 0, top: 700, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+        <div style={{ position: 'absolute', left: 0, top: 606, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 17 }}>
+          <div style={{ position: 'absolute', top: -16, bottom: -18, left: 150, right: 150, background: 'rgba(16,17,38,.93)', border: '3px solid #3A3F70', pointerEvents: 'none' }} />
           {primary.map((it) => {
             const i = items.indexOf(it);
             return (
-              <MenuButton key={it.label} big active={sel === i} onHover={() => setSel(i)} onClick={it.act} delay={0}>
-                {it.label}
+              <MenuButton key={it.label} big disabled={startingRun || Boolean(transition)} active={sel === i} onHover={() => setSel(i)} onClick={it.act} delay={0}>
+                {it.label}{it.label === 'GEMS AND I' && <span className="f-label" style={{ fontSize: 15, color: '#9FD8FF', marginLeft: 20 }}>TRAINING</span>}
               </MenuButton>
             );
           })}
           {saved && (
-            <div className="f-label" style={{ fontSize: 13, color: 'var(--sun)', animation: 'fadeIn 400ms 120ms both' }}>
+            <div className="f-label" style={{ position: 'relative', fontSize: 13, color: 'var(--sun)', animation: 'fadeIn 400ms 120ms both' }}>
               {saved.score.toLocaleString()} PTS · {saved.tips} TIPS · HP {saved.hp}
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginTop: 4 }}>
-            {secondary.map((it, n) => {
+          {secondaryRows.map((row, rowIndex) => (
+          <div key={rowIndex} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 44, marginTop: 4 }}>
+            {row.map((it, n) => {
               const i = items.indexOf(it);
               return (
-                <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+                <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 44 }}>
                   {n > 0 && <div style={{ width: 6, height: 6, background: 'var(--magenta)' }} />}
-                  <MenuButton active={sel === i} onHover={() => setSel(i)} onClick={it.act} delay={80 + n * 60}>
-                    {it.label}
+                  <MenuButton disabled={startingRun || Boolean(transition)} active={sel === i} onHover={() => setSel(i)} onClick={it.act} delay={80 + n * 60}>
+                    {it.label === 'TAVERN MODE' && <MugIcon />} {it.label}
                   </MenuButton>
                 </div>
               );
             })}
           </div>
+          ))}
         </div>
       )}
       {shot >= 5 && <AccountChip />}
@@ -122,22 +144,24 @@ export default function Title() {
   );
 }
 
-function MenuButton({ children, active, big, onClick, onHover, delay }: { children: React.ReactNode; active: boolean; big?: boolean; onClick: () => void; onHover: () => void; delay: number }) {
+function MenuButton({ children, active, big, disabled, onClick, onHover, delay }: { children: React.ReactNode; active: boolean; big?: boolean; disabled?: boolean; onClick: () => void; onHover: () => void; delay: number }) {
   return (
     <button
       className="f-press"
+      disabled={disabled}
       onMouseEnter={() => { onHover(); sfx('hover'); }}
       onClick={() => { sfx('click'); onClick(); }}
       style={{
-        display: 'flex', alignItems: 'center', gap: 18, fontSize: big ? 24 : 14, lineHeight: big ? '28px' : '18px',
+        position: 'relative', display: 'flex', alignItems: 'center', fontSize: big ? 24 : 14, lineHeight: big ? '28px' : '18px', whiteSpace: 'nowrap',
         color: active ? '#fff' : big ? '#fff' : '#C9B8E8',
         textShadow: active ? `rgba(255,210,63,0.8) 0 0 12px, #101126 3px 3px 0` : '#101126 2px 2px 0',
         animation: `riseIn 300ms ${delay}ms steps(5) both`,
       }}
     >
-      <span style={{ opacity: active ? 1 : 0, animation: active ? 'shakeSmall 700ms steps(2) infinite' : undefined }}><Arrow size={big ? 40 : 24} /></span>
+      {/* Arrows float outside the label so hidden ones don't take up row width. */}
+      <span style={{ position: 'absolute', right: '100%', marginRight: big ? 18 : 10, display: 'flex', opacity: active ? 1 : 0, animation: active ? 'shakeSmall 700ms steps(2) infinite' : undefined }}><Arrow size={big ? 40 : 24} /></span>
       {children}
-      <span style={{ opacity: active ? 1 : 0, animation: active ? 'shakeSmall 700ms steps(2) infinite' : undefined }}><Arrow dir="left" size={big ? 40 : 24} /></span>
+      <span style={{ position: 'absolute', left: '100%', marginLeft: big ? 18 : 10, display: 'flex', opacity: active ? 1 : 0, animation: active ? 'shakeSmall 700ms steps(2) infinite' : undefined }}><Arrow dir="left" size={big ? 40 : 24} /></span>
     </button>
   );
 }
@@ -189,225 +213,6 @@ function AccountChip() {
   );
 }
 
-
-// ---------------------------------------------------------------- A3 intro film
-// One clock, five beats, 12fps like the sprites:
-//   A 0.0–2.6  The spire. Camera tilts up; every note in the world drifts up into the choir.
-//   B 2.6–3.8  Silence. One grey note falls and shatters.
-//   C 3.8–5.6  A spotlight. Riff steps out of the dark and blows; the shockwave pushes the notes back out.
-//   D 5.6–6.8  Smash cuts: goblin, serpent, choir. The fights ahead.
-//   E 6.8–7.4  Riff leaps up the screen into a whiteout, and the logo lands.
-export const INTRO_MS = 7400;
-const FPS = 12;
-
-function useFilmClock() {
-  const [t, setT] = useState(0);
-  useEffect(() => {
-    const t0 = performance.now();
-    const id = window.setInterval(() => setT(performance.now() - t0), 1000 / FPS);
-    return () => clearInterval(id);
-  }, []);
-  return t;
-}
-
-/** Fire a callback once when the clock passes `at`. */
-function useCue(t: number, at: number, fn: () => void) {
-  const [done, setDone] = useState(false);
-  useEffect(() => {
-    if (!done && t >= at) {
-      setDone(true);
-      fn();
-    }
-  }, [t, at, done, fn]);
-}
-
-const clamp = (v: number) => Math.max(0, Math.min(1, v));
-const seg = (t: number, a: number, b: number) => clamp((t - a) / (b - a));
-const step = (k: number, n = 6) => Math.floor(k * n) / n; // stepped easing
-
-function Typewriter({ text, t, start, cps = 26, style }: { text: string; t: number; start: number; cps?: number; style?: React.CSSProperties }) {
-  const n = Math.max(0, Math.floor(((t - start) / 1000) * cps));
-  if (t < start) return null;
-  return (
-    <div className="f-press" style={{ position: 'absolute', left: 0, width: 1440, textAlign: 'center', fontSize: 24, color: '#FFF6E0', textShadow: '#101126 3px 3px 0', letterSpacing: '0.04em', ...style }}>
-      {text.slice(0, n)}
-      <span style={{ opacity: n < text.length || Math.floor(t / 300) % 2 ? 1 : 0, color: 'var(--magenta)' }}>▌</span>
-    </div>
-  );
-}
-
-const NOTE_COLORS = ['#FFD23F', '#FF7DB8', '#9FD8FF', '#4CC26B', '#FFF6E0'];
-function PixelNote({ x, y, c, s = 1, style }: { x: number; y: number; c: string; s?: number; style?: React.CSSProperties }) {
-  return (
-    <svg width={20 * s} height={24 * s} viewBox="0 0 5 6" shapeRendering="crispEdges" style={{ position: 'absolute', left: x, top: y, ...style }}>
-      <rect x="3" y="0" width="1" height="5" fill={c} /><rect x="0" y="3" width="4" height="3" fill={c} /><rect x="4" y="0" width="1" height="2" fill={c} />
-    </svg>
-  );
-}
-
-function IntroFilm() {
-  const t = useFilmClock();
-  const impact = useMemo(() => () => sfx('impact'), []);
-  const blow = useMemo(() => () => { sfx('zap'); sfx('impact', 0.05); }, []);
-  const light = useMemo(() => () => sfx('stampMiss'), []);
-  const shatter = useMemo(() => () => sfx('lockShatter'), []);
-  useCue(t, 3350, shatter);
-  useCue(t, 3850, light);
-  useCue(t, 4900, blow);
-  useCue(t, 5600, impact);
-  useCue(t, 6000, impact);
-  useCue(t, 6400, impact);
-  useCue(t, 6850, blow);
-
-  let beat: 'A' | 'B' | 'C' | 'D' | 'E' = 'A';
-  if (t >= 2600) beat = 'B';
-  if (t >= 3800) beat = 'C';
-  if (t >= 5600) beat = 'D';
-  if (t >= 6800) beat = 'E';
-  const shake = (at: number, ms = 240) => (t >= at && t < at + ms ? `translate(${(Math.floor(t / 40) % 2 ? -1 : 1) * 8}px, ${(Math.floor(t / 60) % 2 ? 1 : -1) * 5}px)` : undefined);
-
-  return (
-    <div className="fill" style={{ background: '#07070f', overflow: 'hidden' }}>
-      {beat === 'A' && <BeatSpire t={t} />}
-      {beat === 'B' && <BeatSilence t={t} />}
-      {beat === 'C' && <div className="fill" style={{ transform: shake(4900, 320) }}><BeatHorn t={t} /></div>}
-      {beat === 'D' && <BeatCuts t={t} shake={shake} />}
-      {beat === 'E' && <BeatLeap t={t} />}
-
-      {/* letterbox bars close in slightly during the cuts, open for the leap */}
-      <div style={{ position: 'absolute', left: 0, top: 0, width: 1440, height: beat === 'D' ? 110 : 80, background: '#07070f', zIndex: 20 }} />
-      <div style={{ position: 'absolute', left: 0, bottom: 0, width: 1440, height: beat === 'D' ? 110 : 80, background: '#07070f', zIndex: 20 }} />
-      <div className="f-label" style={{ position: 'absolute', right: 40, bottom: 30, zIndex: 21, fontSize: 12, color: '#6B6F8E' }}>ANY KEY TO SKIP</div>
-      {/* film progress ticks */}
-      <div style={{ position: 'absolute', left: 40, bottom: 34, zIndex: 21, display: 'flex', gap: 6 }}>
-        {['A', 'B', 'C', 'D', 'E'].map((b) => <div key={b} style={{ width: 18, height: 6, background: b <= beat ? 'var(--magenta)' : '#2A2F55' }} />)}
-      </div>
-    </div>
-  );
-}
-
-function BeatSpire({ t }: { t: number }) {
-  const k = step(seg(t, 0, 2400), 14);
-  // Tall camera move: the spire image is scaled up and panned from its base to its peak.
-  const panY = -520 + k * 520;
-  const choirGlow = seg(t, 600, 2400);
-  return (
-    <div className="fill">
-      <div style={{ position: 'absolute', left: 0, top: panY, width: 1440, height: 1420 }}>
-        <Bg src="/assets/bg/spire.png" style={{ left: -120, top: 0, width: 1680, height: 1420, filter: 'brightness(0.7) saturate(0.9)' }} />
-        {/* the choir at the peak, lit from inside */}
-        <div style={{ position: 'absolute', left: 520, top: 40, width: 400, height: 400, background: `radial-gradient(circle, rgba(255,79,163,${0.15 + choirGlow * 0.45}), rgba(255,79,163,0) 65%)` }} />
-        <Sprite src="/assets/sprites/choir.png" x={560} y={60} size={320} style={{ filter: `brightness(${0.15 + choirGlow * 0.5}) saturate(1.4)`, animation: 'bob 1.4s steps(2) infinite' }} />
-        {/* notes rising from the valley into the choir */}
-        {Array.from({ length: 22 }, (_, i) => {
-          const born = (i % 11) * 180;
-          const life = seg(t, born, born + 1500);
-          if (life <= 0 || life >= 1) return null;
-          const sx = 120 + ((i * 197) % 1200);
-          const sy = 1300 - ((i * 61) % 160);
-          const ex = 720, ey = 230;
-          const p = step(life, 8);
-          return <PixelNote key={i} x={sx + (ex - sx) * p * p} y={sy + (ey - sy) * p} c={NOTE_COLORS[i % 5]} s={1.4 - p * 0.8} style={{ opacity: 1 - p * 0.3 }} />;
-        })}
-      </div>
-      <div className="fill" style={{ background: 'linear-gradient(180deg, rgba(7,7,15,0.2), rgba(7,7,15,0) 40%, rgba(7,7,15,0.7))' }} />
-      <div className="f-label" style={{ position: 'absolute', left: 0, top: 118, width: 1440, textAlign: 'center', fontSize: 13, color: 'var(--magenta)', opacity: t > 300 ? 1 : 0 }}>THE SPIRE · TOP FLOOR</div>
-      <Typewriter t={t} start={700} text="THE CHOIR STOLE EVERY SONG." style={{ top: 770 }} />
-    </div>
-  );
-}
-
-function BeatSilence({ t }: { t: number }) {
-  const fall = step(seg(t, 2700, 3350), 8);
-  const broke = t >= 3350;
-  return (
-    <div className="fill" style={{ background: '#07070f' }}>
-      {!broke && <PixelNote x={706} y={200 + fall * 330} c="#6B6F8E" s={1.6} />}
-      {broke && (
-        <div style={{ position: 'absolute', left: 720, top: 560 }}>
-          {Array.from({ length: 10 }, (_, i) => {
-            const a = Math.PI + (i / 9) * Math.PI;
-            return <div key={i} style={{ position: 'absolute', width: 6, height: 6, background: '#6B6F8E', ['--dx' as string]: `${Math.cos(a) * 90}px`, ['--dy' as string]: `${Math.sin(a) * 60}px`, animation: 'pixelDrift 400ms steps(5) forwards' }} />;
-          })}
-          <div style={{ position: 'absolute', left: -160, top: 8, width: 320, height: 3, background: '#2A2F55' }} />
-        </div>
-      )}
-      <Typewriter t={t} start={2750} text="THE WORLD WENT QUIET." cps={20} style={{ top: 680, color: '#9AA0C8' }} />
-    </div>
-  );
-}
-
-function BeatHorn({ t }: { t: number }) {
-  const lit = t >= 3850;
-  const reveal = step(seg(t, 3900, 4600), 5); // silhouette -> full colour
-  const blown = t >= 4900;
-  const ring = seg(t, 4900, 5400);
-  return (
-    <div className="fill">
-      <Bg src="/assets/bg/summit.png" style={{ filter: `brightness(${lit ? 0.18 + reveal * 0.25 : 0.05}) saturate(0.6)` }} />
-      {lit && <div style={{ position: 'absolute', left: 470, top: 0, width: 500, height: 900, background: 'linear-gradient(180deg, rgba(255,240,190,0.45), rgba(255,240,190,0.08))', clipPath: 'polygon(38% 0, 62% 0, 100% 100%, 0 100%)' }} />}
-      {lit && <div style={{ position: 'absolute', left: 540, top: 700, width: 360, height: 44, borderRadius: '50%', background: 'rgba(255,240,190,0.35)' }} />}
-      <Sprite
-        src={blown ? '/assets/sprites/riff-attack.png' : '/assets/sprites/riff-trumpet.png'}
-        x={520}
-        y={300}
-        size={420}
-        style={{ filter: `brightness(${lit ? reveal : 0})`, transform: blown && t < 5050 ? 'translateX(-14px)' : undefined }}
-      />
-      {blown && (
-        <>
-          {/* shockwave: stepped ring out of the bell */}
-          <div style={{ position: 'absolute', left: 900 - ring * 420, top: 470 - ring * 420, width: ring * 840, height: ring * 840, borderRadius: '50%', border: `${Math.max(2, 14 - ring * 12)}px solid rgba(255,210,63,${1 - ring})` }} />
-          {/* the stolen notes come back out */}
-          {Array.from({ length: 16 }, (_, i) => {
-            const p = step(seg(t, 4900 + (i % 4) * 60, 5500 + (i % 4) * 60), 7);
-            const a = -0.9 + (i / 15) * 1.8;
-            return <PixelNote key={i} x={900 + Math.cos(a) * p * 620} y={470 + Math.sin(a) * p * 420} c={NOTE_COLORS[i % 5]} s={1.2 + (i % 3) * 0.3} style={{ opacity: 1 - p * 0.4 }} />;
-          })}
-        </>
-      )}
-      <Typewriter t={t} start={4000} text="ONE KID STILL HAD A HORN." style={{ top: 780 }} />
-    </div>
-  );
-}
-
-const CUTS = [
-  { at: 5600, sprite: '/assets/sprites/goblin.png', name: 'SNARE GOBLIN', bg: '#C9901B', size: 520 },
-  { at: 6000, sprite: '/assets/sprites/serpent.png', name: 'BRASS SERPENT', bg: '#2F7EC4', size: 540 },
-  { at: 6400, sprite: '/assets/sprites/choir.png', name: 'THE HOLLOW CHOIR', bg: '#C23A7E', size: 600 },
-];
-
-function BeatCuts({ t, shake }: { t: number; shake: (at: number, ms?: number) => string | undefined }) {
-  const c = [...CUTS].reverse().find((x) => t >= x.at)!;
-  const i = CUTS.indexOf(c);
-  const local = t - c.at;
-  const slide = step(seg(local, 0, 160), 3);
-  return (
-    <div className="fill" style={{ background: c.bg, transform: shake(c.at, 200) }}>
-      {/* speed stripes */}
-      {Array.from({ length: 9 }, (_, n) => (
-        <div key={n} style={{ position: 'absolute', left: -200 + ((n * 173 + local * 3) % 1800), top: 120 + n * 76, width: 260 + (n % 3) * 120, height: 10, background: 'rgba(16,17,38,0.25)' }} />
-      ))}
-      <div style={{ position: 'absolute', left: 0, top: 0, width: 1440, height: 900, background: '#101126', clipPath: 'polygon(0 0, 46% 0, 34% 100%, 0 100%)' }} />
-      <Sprite src={c.sprite} x={1440 - c.size - 60 + (1 - slide) * 400} y={900 - c.size - 100} size={c.size} />
-      <div className="f-label" style={{ position: 'absolute', left: 80, top: 330, fontSize: 16, color: 'var(--sun)' }}>FLOOR {i + 1}{i === 2 ? ' · BOSS' : ''}</div>
-      <div className="f-press" style={{ position: 'absolute', left: 80 - (1 - slide) * 300, top: 370, width: 560, fontSize: 44, lineHeight: '56px', color: '#FFF6E0', textShadow: '#D1307E 5px 5px 0' }}>{c.name}</div>
-      {local < 70 && <div className="fill" style={{ background: '#fff' }} />}
-    </div>
-  );
-}
-
-function BeatLeap({ t }: { t: number }) {
-  const p = step(seg(t, 6800, 7300), 6);
-  const white = seg(t, 7150, 7400);
-  return (
-    <div className="fill" style={{ background: '#1B1D3A' }}>
-      <Bg src="/assets/bg/summit.png" style={{ filter: 'brightness(0.6)', transform: `translateY(${p * 160}px)` }} />
-      {Array.from({ length: 14 }, (_, n) => (
-        <div key={n} style={{ position: 'absolute', left: 80 + n * 97, top: 900 - ((n * 211 + t * 2.4) % 1100), width: 6, height: 140 + (n % 4) * 60, background: 'rgba(255,246,224,0.35)' }} />
-      ))}
-      <Sprite src="/assets/sprites/riff-leap.png" x={520} y={760 - p * 900} size={420} />
-      <div className="fill" style={{ background: '#FFF6E0', opacity: step(white, 4) }} />
-    </div>
-  );
+function MugIcon() {
+  return <svg aria-hidden="true" width="20" height="20" viewBox="0 0 10 10" shapeRendering="crispEdges" style={{ marginRight: 10 }}><path d="M1 2H7V9H1Z" fill="#FFD23F"/><path d="M7 3H9V7H7" fill="none" stroke="#FFD23F"/><path d="M1 1H7V3H1Z" fill="#FFF6E0"/><path d="M2 4H3V8H2Z" fill="#E8A93A"/></svg>;
 }

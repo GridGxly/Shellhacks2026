@@ -1,13 +1,7 @@
 import { db, type RunDoc, type UserDoc, publicUser } from '@/lib/db';
 import type { Document } from 'mongodb';
 
-export function weekKey(date = new Date()) {
-  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const year = d.getUTCFullYear();
-  const week = Math.ceil(((d.getTime() - Date.UTC(year, 0, 1)) / 86400_000 + 1) / 7);
-  return `${year}-W${String(week).padStart(2, '0')}`;
-}
+export { weekKey } from '../week';
 
 // userId breaks exact score/date ties consistently; _id chooses identical runs.
 const sort = { score: -1, at: 1, userId: 1, _id: 1 } as const;

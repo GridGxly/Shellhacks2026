@@ -16,23 +16,24 @@ export default function Hud({ center, pulse }: { center: string; pulse?: 'map' |
 
   return (
     <div
+      className="game-hud"
       style={{
         position: 'absolute', left: 0, top: 0, width: 1440, height: 60, zIndex: 40, display: 'flex', alignItems: 'center',
         justifyContent: 'space-between', padding: '0 24px', background: 'rgba(12,13,30,0.92)', borderBottom: '3px solid #2A2F55',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+      <div className="hud-party" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
         <button
           aria-label="Riff's stats"
           onMouseEnter={() => sfx('hover')}
           onClick={() => open('stats')}
-          className="hoverable"
+          className="hoverable hud-avatar"
           style={{ position: 'relative', width: 44, height: 44 }}
         >
           <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: '#2A2F55', border: '3px solid var(--sun)', boxShadow: pulse === 'face' ? undefined : '#101126 3px 3px 0', animation: pulse === 'face' ? 'pulseGold 900ms steps(3) infinite' : undefined }}>
             <div className="sprite" style={{ left: -68, top: 2, width: 150, height: 150, backgroundImage: `url(${inst.sprite})`, backgroundPosition: '50% 0' }} />
           </div>
-          <div className="f-press" style={{ position: 'absolute', left: 4, top: 34, padding: '2px 4px', background: '#101126', border: '2px solid var(--sun)', fontSize: 8, lineHeight: '10px', color: 'var(--sun)' }}>
+          <div className="f-press hud-level" style={{ position: 'absolute', left: 4, top: 34, padding: '2px 4px', background: '#101126', border: '2px solid var(--sun)', fontSize: 8, lineHeight: '10px', color: 'var(--sun)' }}>
             LV{level(run)}
           </div>
           {canUpgrade && (
@@ -41,7 +42,7 @@ export default function Hud({ center, pulse }: { center: string; pulse?: 'map' |
             </div>
           )}
         </button>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+        <div className="hud-identity" style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
           <span className="f-press" style={{ fontSize: 15, color: '#fff' }}>RIFF</span>
           <span className="f-body" style={{ fontSize: 16, color: 'var(--muted)' }}>the {inst.name}</span>
         </div>
@@ -52,11 +53,11 @@ export default function Hud({ center, pulse }: { center: string; pulse?: 'map' |
             <rect x="2" y="4" width="3" height="1" fill="#E8434F" /><rect x="3" y="5" width="1" height="1" fill="#E8434F" />
             <rect x="1" y="1" width="1" height="1" fill="#FFB3BA" />
           </svg>
-          <span key={run.hp} className="f-press" style={{ fontSize: 14, color: '#FF8A93', animation: 'popIn 300ms steps(4)' }}>{run.hp}/{maxHp}</span>
+          <span key={run.hp} className="f-press hud-value" style={{ fontSize: 14, color: '#FF8A93', animation: 'popIn 300ms steps(4)' }}>{run.hp}/{maxHp}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--sun)' }}>
           <span className="f-music" style={{ fontSize: 24, lineHeight: '24px' }}>𝄞</span>
-          <span className="f-press" style={{ fontSize: 13 }}>{inst.keyLabel}</span>
+          <span className="f-press hud-value" style={{ fontSize: 13 }}>{inst.keyLabel}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 6px', background: '#1E2140', border: '2px solid #3A3F70' }}>
           <svg width="20" height="20" viewBox="0 0 10 10" shapeRendering="crispEdges">
@@ -65,10 +66,10 @@ export default function Hud({ center, pulse }: { center: string; pulse?: 'map' |
             <rect x="2" y="9" width="6" height="1" fill="#C9901B" /><rect x="5" y="2" width="1" height="4" fill="#101126" />
             <rect x="6" y="2" width="1" height="1" fill="#101126" /><rect x="3" y="5" width="3" height="2" fill="#101126" />
           </svg>
-          <span key={run.tips} className="f-press" style={{ fontSize: 13, color: 'var(--sun)', animation: 'popIn 300ms steps(4)' }}>{run.tips}</span>
+          <span key={run.tips} className="f-press hud-value" style={{ fontSize: 13, color: 'var(--sun)', animation: 'popIn 300ms steps(4)' }}>{run.tips}</span>
         </div>
       </div>
-      <div className="f-label" style={{ fontSize: 14, color: '#C9CDE8', letterSpacing: '0.16em' }}>{center}</div>
+      <div className="f-label hud-center" style={{ fontSize: 14, color: '#C9CDE8', letterSpacing: '0.16em' }}>{center}</div>
       <div style={{ display: 'flex', gap: 10 }}>
         <HudButton label="Map (M)" onClick={() => open('mappeek')} active={pulse === 'map'}>
           <svg width="20" height="18" viewBox="0 0 10 9" shapeRendering="crispEdges">
@@ -95,7 +96,7 @@ function HudButton({ children, onClick, label, active }: { children: React.React
       title={label}
       onMouseEnter={() => sfx('hover')}
       onClick={onClick}
-      className="hoverable pressable"
+      className="hoverable pressable hud-button"
       style={{ width: 40, height: 40, display: 'grid', placeItems: 'center', background: active ? '#3A3F70' : '#2A2F55', border: `3px solid ${active ? '#FFD23F' : '#3A4070'}` }}
     >
       {children}

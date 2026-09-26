@@ -40,6 +40,7 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
     <>
       <div className="fill" style={{ zIndex: 30, background: 'rgba(12,13,30,0.72)', animation: 'fadeIn 200ms steps(3) both' }} />
       <div
+        className="performance-panel"
         style={{
           position: 'absolute', left: (1440 - width - 56) / 2, top: encore ? 96 : 150, width: width + 56, zIndex: 31,
           display: 'flex', flexDirection: 'column', background: '#14162E', border: '4px solid #2A2F55', boxShadow: '#101126 0 0 0 4px, rgba(0,0,0,0.5) 10px 10px 0',
@@ -49,16 +50,16 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 28px', borderBottom: '3px solid #2A2F55' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div className="f-press" style={{ padding: '6px 10px', background: color.body, border: '2px solid #FF4FA3', fontSize: 13, color: '#FFF6E0' }}>{encore ? 'ENCORE' : ex.type.toUpperCase()}</div>
-            <div className="f-press" style={{ fontSize: 17, color: '#fff' }}>{ex.title}</div>
-            <div className="f-body" style={{ fontSize: 16, color: 'var(--muted)' }}>concert {CONCERT_KEY_NAME} · written in {key.name} for {inst.name.toLowerCase()}</div>
+            <div className="f-press performance-tag" style={{ padding: '6px 10px', background: color.body, border: '2px solid #FF4FA3', fontSize: 13, color: '#FFF6E0' }}>{encore ? 'ENCORE' : ex.type.toUpperCase()}</div>
+            <div className="f-press performance-title" style={{ fontSize: 17, color: '#fff' }}>{ex.title}</div>
+            <div className="f-body performance-key-detail" style={{ fontSize: 16, color: 'var(--muted)' }}>concert {CONCERT_KEY_NAME} · written in {key.name} for {inst.name.toLowerCase()}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span className="f-label" style={{ fontSize: 12, color: 'var(--muted)' }}>TARGET</span>
             <div style={{ position: 'relative', width: 36, height: 36, overflow: 'hidden', background: '#2A2240', border: '2px solid #43365F' }}>
-              <div className="sprite" style={{ left: -8, top: -2, width: 52, height: 52, backgroundImage: `url(${enemy.sprite})` }} />
+              <div className="sprite" style={{ left: -8, top: -2, width: 52, height: 52, backgroundImage: `url(${enemy.sprite})`, filter: enemy.spriteFilter }} />
             </div>
-            <div className="f-press" style={{ padding: '8px 12px', background: 'var(--sun)', color: '#101126', fontSize: 13 }}>{damage} DMG</div>
+            <div className="f-press performance-tag" style={{ padding: '8px 12px', background: 'var(--sun)', color: '#101126', fontSize: 13 }}>{damage} DMG</div>
           </div>
         </div>
         {/* Progress track */}
@@ -75,14 +76,14 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, width: 170, justifyContent: 'flex-end' }}>
+          <div className="performance-note-total" style={{ display: 'flex', alignItems: 'baseline', gap: 8, width: 170, justifyContent: 'flex-end' }}>
             <span className="f-press" style={{ fontSize: 22, color: '#fff' }}>{hits}</span>
-            <span className="f-press" style={{ fontSize: 13, color: 'var(--muted)' }}>/ {ex.notes.length} NOTES</span>
+            <span className="f-press performance-tag" style={{ fontSize: 13, color: 'var(--muted)' }}>/ {ex.notes.length} NOTES</span>
           </div>
         </div>
         {/* Sheet */}
         <div style={{ position: 'relative', margin: '0 28px', background: 'var(--parchment)', borderBottom: '6px solid var(--parchment-shade)' }}>
-          <div className="f-press" style={{ position: 'absolute', left: 14, top: 10, padding: '4px 8px', background: '#101126', color: '#fff', fontSize: 11, zIndex: 2 }}>
+          <div className="f-press performance-tempo" style={{ position: 'absolute', left: 14, top: 10, padding: '4px 8px', background: '#101126', color: '#fff', fontSize: 11, zIndex: 2 }}>
             <span className="f-music" style={{ fontSize: 14 }}>♩</span> = {ex.tempo}
           </div>
           <Staff
@@ -103,7 +104,7 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
           )}
         </div>
         {/* Recording row / review */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 28, padding: '20px 28px 24px', minHeight: 116 }}>
+        <div className="performance-footer" style={{ display: 'flex', alignItems: 'center', gap: 28, padding: '20px 28px 24px', minHeight: 116 }}>
           {stage === 'review' ? (
             <>
               <div className="f-press" style={{ padding: '14px 22px', fontSize: 34, color: pass ? '#101126' : '#fff', background: pass ? 'var(--meadow)' : 'var(--hp)', border: '4px solid #101126', boxShadow: `${pass ? '#FFD23F' : '#101126'} 6px 6px 0`, animation: 'stamp 360ms steps(5) both' }}>
@@ -120,7 +121,7 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
             </>
           ) : (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, width: 280 }}>
+              <div className="performance-recording" style={{ display: 'flex', alignItems: 'center', gap: 14, width: 280 }}>
                 <div style={{ width: 48, height: 48, display: 'grid', placeItems: 'center', background: '#3A1B2E', border: '3px solid #E8434F' }}>
                   <div style={{ width: 16, height: 16, background: stage === 'recording' ? '#fff' : '#6B6F8E', animation: stage === 'recording' ? 'blink 1s steps(1) infinite' : undefined }} />
                 </div>
@@ -134,14 +135,14 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span className="f-label" style={{ fontSize: 12, color: 'var(--soft)' }}>LIVE ACCURACY</span>
-                  <span className="f-press" style={{ fontSize: 20, color: acc >= passLine ? 'var(--meadow)' : done.length ? 'var(--hp)' : 'var(--muted)' }}>{done.length ? `${Math.round(acc * 100)}%` : '—'}</span>
+                  <span className="f-press performance-value" style={{ fontSize: 20, color: acc >= passLine ? 'var(--meadow)' : done.length ? 'var(--hp)' : 'var(--muted)' }}>{done.length ? `${Math.round(acc * 100)}%` : '—'}</span>
                 </div>
                 <AccuracyBar value={acc} passLine={passLine} />
               </div>
-              <div style={{ width: 190, display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 14px', background: '#101126', border: '3px solid #3A3F70' }}>
+              <div className="performance-hearing" style={{ width: 190, display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 14px', background: '#101126', border: '3px solid #3A3F70' }}>
                 <span className="f-label" style={{ fontSize: 11, color: 'var(--muted)' }}>HEARING</span>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span className="f-press" style={{ fontSize: 18, color: hearing !== null ? 'var(--sun)' : '#3A3F70' }}>
+                  <span className="f-press performance-value" style={{ fontSize: 18, color: hearing !== null ? 'var(--sun)' : '#3A3F70' }}>
                     {hearing !== null ? noteName(Math.round(hearing) + inst.writtenOffset, key) : '—'}
                   </span>
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 20 }}>

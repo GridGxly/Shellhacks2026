@@ -57,6 +57,7 @@ export interface Enemy {
   tempo: number;
   sprite: string;
   attackSprite?: string;
+  spriteFilter?: string;
   bg: string;
   bgFilter?: string;
   size: number;
@@ -75,7 +76,7 @@ const ROSTER: Seed[][] = [
   [['metronome-knight', 'Metronome Knight', 'serpent', 330, 'goblin'], ['xylophone-skeleton', 'Xylophone Skeleton', 'goblin', 320, 'goblin'], ['organ-gargoyle', 'Organ Gargoyle', 'choir', 420, 'choir']],
   [['violin-specter', 'Violin Specter', 'choir', 320, 'choir'], ['harp-siren', 'Harp Siren', 'choir', 330, 'choir'], ['accordion-mimic', 'Accordion Mimic', 'serpent', 400, 'serpent']],
   [['kazoo-harpy', 'Kazoo Harpy', 'goblin', 320, 'goblin'], ['bagpipe-beast', 'Bagpipe Beast', 'serpent', 360, 'serpent'], ['theremin-wisp', 'Theremin Wisp', 'choir', 400, 'choir']],
-  [['autotune-android', 'Autotune Android', 'choir', 330, 'choir'], ['conductor-lich', 'Conductor Lich', 'serpent', 340, 'serpent'], ['silent-maestro', 'The Silent Maestro', 'choir', 440, 'choir']],
+  [['autotune-android', 'Autotune Android', 'choir', 330, 'choir'], ['conductor-lich', 'Conductor Lich', 'serpent', 340, 'serpent'], ['silent-maestro', 'The Choir Ascendant', 'choir', 440, 'choir']],
 ];
 
 const ACT1_BG = ['/assets/bg/drum-hollow.png', '/assets/bg/brass-canyon.png', '/assets/bg/choir-nave.png'];
@@ -96,7 +97,8 @@ export const ENEMIES: Enemy[] = ROSTER.flatMap((row, a) =>
       hp: boss ? Math.min(BOSS_HP + BOSS_HP_PER_ACT * a, BOSS_HP_CAP) : Math.min(ENEMY_HP + ENEMY_HP_PER_ACT * a, ENEMY_HP_CAP),
       damage: (boss ? BOSS_DAMAGE : ENEMY_DAMAGE) + DAMAGE_PER_ACT * a,
       tempo: TEMPO_BASE + TEMPO_PER_FIGHT * i + TEMPO_PER_ACT * a,
-      sprite: `/assets/sprites/${id}.png`,
+      sprite: id === 'silent-maestro' ? '/assets/sprites/choir.png' : `/assets/sprites/${id}.png`,
+      spriteFilter: id === 'silent-maestro' ? 'sepia(0.55) saturate(2.2) hue-rotate(300deg) brightness(1.15)' : undefined,
       attackSprite: id === 'goblin' ? '/assets/sprites/goblin-attack.png' : undefined,
       bg: act === 1 ? ACT1_BG[i] : ACTS[a].bg,
       bgFilter: act === 1 ? undefined : ACTS[a].bgFilter,
