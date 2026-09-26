@@ -1,4 +1,4 @@
-# Kill the Squire
+# Slay the Quire
 
 **Sight-Reading Spire** — a Slay-the-Spire-style browser game for ShellHacks 2026,
 where every card is a short sight-reading exercise you play on a real instrument
