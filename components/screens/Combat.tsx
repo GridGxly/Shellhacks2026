@@ -36,15 +36,13 @@ export default function Combat() {
   const [phase, setPhase] = useState<Phase>('enter');
   const [perform, setPerform] = useState<{ ex: Exercise; active: Active; stage: PerformStage; count: number; beat: number | null; results: (NoteResult | undefined)[] } | null>(null);
   const [hearing, setHearing] = useState<number | null>(null);
-  const [fx, setFx] = useState<{ riff?: 'attack' | 'hurt' | 'encore'; enemy?: 'hit' | 'attack' | 'dissolve'; pop?: { v: number; side: 'enemy' | 'riff'; key: number }; flash?: 'red' | 'white'; barrage?: number; burst?: number; flyoff?: { type: string; key: number } }>({});
+  const [fx, setFx] = useState<{ riff?: 'windup' | 'attack' | 'hurt' | 'encore'; enemy?: 'windup' | 'hit' | 'attack' | 'dissolve'; pop?: { v: number; side: 'enemy' | 'riff'; key: number }; flash?: 'red' | 'white'; barrage?: number; enemyBarrage?: number; burst?: number; riffBurst?: number; flyoff?: { type: string; key: number } }>({});
   const [taunt, setTaunt] = useState<(Taunt & { heat: number; speaking: boolean }) | null>(null);
   const [drag, setDrag] = useState<{ idx: number; x: number; y: number; ox: number; oy: number; overEnemy: boolean } | null>(null);
   const [dealKey, setDealKey] = useState(0);
   const [micReady, setMicReady] = useState(mic.status === 'on');
   const rootRef = useRef<HTMLDivElement>(null);
   const alive = useRef(true);
-  const dragRef = useRef(drag);
-  dragRef.current = drag;
   const busy = useRef(false); // one performance at a time
   const performing = useRef(false); // count-in + recording: no voice may start
 
@@ -62,15 +60,17 @@ export default function Combat() {
       setMicReady(ok);
       if (!ok) useGame.getState().setDemo(true);
     });
-    const t = window.setTimeout(() => { setPhase('player'); setDealKey((k) => k + 1); }, 1500);
-    window.setTimeout(() => sfx('stampHit'), 700);
-    [0, 1, 2].forEach((i) => window.setTimeout(() => sfx('deal'), 1500 + i * 90));
+    const entryTimers = [
+      window.setTimeout(() => { setPhase('player'); setDealKey((k) => k + 1); }, 1500),
+      window.setTimeout(() => sfx('stampHit'), 700),
+      ...[0, 1, 2].map((i) => window.setTimeout(() => sfx('deal'), 1500 + i * 90)),
+    ];
     const l = (r: { stableMidi: number | null }) => setHearing(r.stableMidi);
     mic.listeners.add(l);
     return () => {
       alive.current = false;
       performing.current = false;
-      clearTimeout(t);
+      entryTimers.forEach(clearTimeout);
       mic.listeners.delete(l);
       mic.endRecording();
       muteMusic(false);
@@ -94,6 +94,108 @@ export default function Combat() {
     },
     [enemy, inst],
   );
+
+  // ---------- M4: K.O. ----------
+  async function ko() {
+    setPhase('ko');
+    setTaunt(null);
+    stopVoices();
+    muteMusic(true);
+    setFx({ flash: 'white' });
+    await wait(100);
+    if (!alive.current) return;
+    setFx({ riff: 'hurt' });
+    await wait(600);
+    if (!alive.current) return;
+    void playFile('/audio/sfx/ko-slam.mp3');
+    if (enemy.ko) void playVoice(enemy.ko, enemy.voice === 'choir');
+    await wait(enemy.ko ? 2400 : 1600);
+    if (!alive.current) return;
+    muteMusic(false);
+    if (useGame.getState().bossDemo) return useGame.getState().endBossDemo();
+    useGame.getState().loseRun();
+    useGame.getState().go('loss', 'iris');
+  };
+
+  // ---------- win ----------
+  async function win() {
+    setPhase('win');
+    setTaunt(null);
+    setFx({ enemy: 'dissolve' });
+    if (enemy.defeat) void playVoice(enemy.defeat, enemy.voice === 'choir');
+    void playFile('/audio/sfx/victory-sting.mp3', 0.9);
+    await wait(enemy.defeat ? 2600 : 1600);
+    if (!alive.current) return;
+    if (useGame.getState().bossDemo) return useGame.getState().endBossDemo();
+    const final = useGame.getState().run.floor + 1 >= ENEMIES.length;
+    useGame.getState().winFight();
+    mapFx.reveal = true;
+    useGame.getState().go(final ? 'final' : enemy.boss ? 'actclear' : 'victory', final || enemy.boss ? 'iris' : 'wipe');
+  };
+
+  // ---------- 09a: Riff attacks ----------
+  async function attack(dmg: number, active: Active) {
+    setPhase('attack');
+    const encore = active === 'encore';
+    setFx({ riff: encore ? 'encore' : 'windup' });
+    if (encore) {
+      await wait(500);
+      if (!alive.current) return;
+      void playFile('/audio/sfx/encore-hit.mp3');
+    } else {
+      await wait(220);
+      if (!alive.current) return;
+      setFx({ riff: 'attack' });
+      sfx('zap');
+    }
+    setFx((f) => ({ ...f, barrage: Date.now() }));
+    if (typeof active === 'number') setFx((f) => ({ ...f, flyoff: { type: useGame.getState().combat!.hand[active].type, key: Date.now() } }));
+    await wait(encore ? 700 : 520);
+    if (!alive.current) return;
+    sfx('impact');
+    setFx((f) => ({ ...f, enemy: 'hit', burst: Date.now(), pop: { v: dmg, side: 'enemy', key: Date.now() }, flash: encore ? 'white' : undefined }));
+    useGame.getState().damageEnemy(dmg);
+    sfx('damage', 0.1);
+    await wait(900);
+    setFx({});
+  };
+
+  // ---------- 09b: enemy turn ----------
+  async function enemyTurn(lastPass: boolean, ex: Exercise, results: NoteResult[], failCount: number) {
+    if (!alive.current) return;
+    setPhase('enemy');
+    const c = useGame.getState().combat!;
+    // One more line if they're fired up (heat 1 after a pass, heat 3 after a miss), sometimes after a hit.
+    const wantLine = lastPass ? c.heat >= 1 || Math.random() < TAUNT_ON_HIT_CHANCE : c.heat >= 3;
+    const talking = wantLine ? say(lastPass ? (c.heat >= 1 ? 'enemyTurn' : 'hit') : 'enemyTurn', ex, results, failCount) : Promise.resolve();
+    await wait(500);
+    if (!alive.current) return;
+    setFx({ enemy: 'windup' });
+    await wait(220);
+    if (!alive.current) return;
+    const launched = Date.now();
+    setFx({ enemy: 'attack', enemyBarrage: launched });
+    void playFile(enemy.attackSfx, 0.9);
+    // The attack reaches Riff before HP drops; the projectile carries the hit.
+    await wait(520);
+    if (!alive.current) return;
+    const hp = useGame.getState().enemyHitsPlayer();
+    sfx('hurt');
+    setFx({ enemy: 'attack', enemyBarrage: launched, riffBurst: launched, riff: 'hurt', flash: 'red', pop: { v: enemy.damage, side: 'riff', key: Date.now() } });
+    await wait(800);
+    if (!alive.current) return;
+    setFx({});
+    if (hp <= 0) return ko();
+    await Promise.race([talking, wait(4500)]);
+    await wait(250);
+    if (!alive.current) return;
+    useGame.getState().nextRound();
+    busy.current = false;
+    setTaunt((t) => (t && !t.speaking ? null : t));
+    setPhase('player');
+    setDealKey((k) => k + 1);
+    [0, 1, 2].forEach((i) => window.setTimeout(() => sfx('deal'), i * 90));
+  };
 
   // ---------- one card / encore performance ----------
   const performAction = useCallback(
@@ -194,93 +296,6 @@ export default function Combat() {
     [inst, passLine, timing, cardDamage, encoreDamage, say],
   );
 
-  // ---------- 09a: Riff attacks ----------
-  const attack = async (dmg: number, active: Active) => {
-    setPhase('attack');
-    const encore = active === 'encore';
-    setFx({ riff: encore ? 'encore' : 'attack' });
-    if (encore) {
-      await wait(500);
-      void playFile('/audio/sfx/encore-hit.mp3');
-    } else sfx('zap');
-    setFx((f) => ({ ...f, barrage: Date.now() }));
-    if (typeof active === 'number') setFx((f) => ({ ...f, flyoff: { type: useGame.getState().combat!.hand[active].type, key: Date.now() } }));
-    await wait(encore ? 700 : 520);
-    if (!alive.current) return;
-    sfx('impact');
-    setFx((f) => ({ ...f, enemy: 'hit', burst: Date.now(), pop: { v: dmg, side: 'enemy', key: Date.now() }, flash: encore ? 'white' : undefined }));
-    useGame.getState().damageEnemy(dmg);
-    sfx('damage', 0.1);
-    await wait(900);
-    setFx({});
-  };
-
-  // ---------- 09b: enemy turn ----------
-  const enemyTurn = async (lastPass: boolean, ex: Exercise, results: NoteResult[], failCount: number) => {
-    if (!alive.current) return;
-    setPhase('enemy');
-    const c = useGame.getState().combat!;
-    // One more line if they're fired up (heat 1 after a pass, heat 3 after a miss), sometimes after a hit.
-    const wantLine = lastPass ? c.heat >= 1 || Math.random() < TAUNT_ON_HIT_CHANCE : c.heat >= 3;
-    const talking = wantLine ? say(lastPass ? (c.heat >= 1 ? 'enemyTurn' : 'hit') : 'enemyTurn', ex, results, failCount) : Promise.resolve();
-    await wait(500);
-    setFx({ enemy: 'attack' });
-    void playFile(enemy.attackSfx, 0.9);
-    await wait(300);
-    if (!alive.current) return;
-    const hp = useGame.getState().enemyHitsPlayer();
-    sfx('hurt');
-    setFx({ enemy: 'attack', riff: 'hurt', flash: 'red', pop: { v: enemy.damage, side: 'riff', key: Date.now() } });
-    await wait(800);
-    setFx({});
-    if (hp <= 0) return ko();
-    await Promise.race([talking, wait(4500)]);
-    await wait(250);
-    if (!alive.current) return;
-    useGame.getState().nextRound();
-    busy.current = false;
-    setTaunt((t) => (t && !t.speaking ? null : t));
-    setPhase('player');
-    setDealKey((k) => k + 1);
-    [0, 1, 2].forEach((i) => window.setTimeout(() => sfx('deal'), i * 90));
-  };
-
-  // ---------- win ----------
-  const win = async () => {
-    setPhase('win');
-    setTaunt(null);
-    setFx({ enemy: 'dissolve' });
-    if (enemy.defeat) void playVoice(enemy.defeat, enemy.voice === 'choir');
-    void playFile('/audio/sfx/victory-sting.mp3', 0.9);
-    await wait(enemy.defeat ? 2600 : 1600);
-    if (!alive.current) return;
-    if (useGame.getState().bossDemo) return useGame.getState().endBossDemo();
-    const final = useGame.getState().run.floor + 1 >= ENEMIES.length;
-    useGame.getState().winFight();
-    mapFx.reveal = true;
-    useGame.getState().go(final ? 'final' : enemy.boss ? 'actclear' : 'victory', final || enemy.boss ? 'iris' : 'wipe');
-  };
-
-  // ---------- M4: K.O. ----------
-  const ko = async () => {
-    setPhase('ko');
-    setTaunt(null);
-    stopVoices();
-    muteMusic(true);
-    setFx({ flash: 'white' });
-    await wait(120);
-    setFx({ riff: 'hurt' });
-    await wait(600);
-    void playFile('/audio/sfx/ko-slam.mp3');
-    if (enemy.ko) void playVoice(enemy.ko, enemy.voice === 'choir');
-    await wait(enemy.ko ? 2400 : 1600);
-    if (!alive.current) return;
-    muteMusic(false);
-    if (useGame.getState().bossDemo) return useGame.getState().endBossDemo();
-    useGame.getState().loseRun();
-    useGame.getState().go('loss', 'iris');
-  };
-
   // ---------- input: drag a card onto the enemy (05) ----------
   const toStage = (e: { clientX: number; clientY: number }) => {
     const r = rootRef.current!.getBoundingClientRect();
@@ -295,13 +310,13 @@ export default function Combat() {
       const p = toStage(e);
       setDrag((d) => d && { ...d, x: p.x, y: p.y, overEnemy: overEnemy(p.x, p.y) });
     };
-    const up = () => {
-      const d = dragRef.current;
+    const up = (e: PointerEvent) => {
+      const p = toStage(e);
       setDrag(null);
-      if (d?.overEnemy) {
+      if (overEnemy(p.x, p.y)) {
         sfx('drop');
-        void performAction(d.idx);
-      } else if (d) sfx('back');
+        void performAction(drag.idx);
+      } else sfx('back');
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
@@ -361,15 +376,17 @@ export default function Combat() {
           style={{
             position: 'relative',
             animation:
-              phase === 'ko' && fx.riff === 'hurt' ? 'knockback 600ms steps(5) both, dissolve 900ms 800ms steps(8) forwards'
+              phase === 'ko' && fx.riff === 'hurt' ? 'knockback 500ms steps(5) both, dissolve 600ms 1500ms steps(8) forwards'
               : fx.riff === 'hurt' ? 'knockback 500ms steps(5), hitFlash 400ms steps(2)'
               : fx.riff === 'attack' || fx.riff === 'encore' ? 'lungeRight 500ms steps(4)'
-              : 'breathe 1.2s steps(2) infinite',
+              : fx.riff === 'windup' ? undefined : 'breathe 1.2s steps(2) infinite',
+            transform: fx.riff === 'windup' ? 'translateX(-18px) rotate(-3deg)' : undefined,
             filter: fx.flash === 'white' ? 'brightness(0)' : undefined,
           }}
         />
         <HpBar hp={run.hp} max={stat(run, 'maxHp')} style={{ margin: '4px auto 0' }} />
-        {phase === 'ko' && <PixelBurst x={160} y={160} />}
+        {fx.riffBurst && <ImpactBurst key={fx.riffBurst} x={RIFF.size / 2} y={RIFF.size * .45} />}
+        {phase === 'ko' && <PixelBurst x={160} y={160} delay={1600} />}
       </div>
 
       {/* Enemy */}
@@ -398,7 +415,8 @@ export default function Combat() {
               fx.enemy === 'dissolve' ? 'hitFlash 300ms steps(2), dissolve 1200ms 300ms steps(10) forwards'
               : fx.enemy === 'hit' ? 'hitFlash 400ms steps(2), shakeSmall 300ms steps(3)'
               : fx.enemy === 'attack' ? 'lungeLeft 700ms steps(5)'
-              : 'breathe 1.4s steps(2) infinite',
+              : fx.enemy === 'windup' ? undefined : 'breathe 1.4s steps(2) infinite',
+            transform: fx.enemy === 'windup' ? 'translateX(20px) rotate(4deg)' : undefined,
             filter: fx.flash === 'white' ? 'brightness(0)' : undefined,
           }}
         />
@@ -410,6 +428,7 @@ export default function Combat() {
 
       {/* Note barrage (09a) */}
       {fx.barrage && <NoteBarrage key={`barrage-${fx.barrage}`} from={{ x: RIFF.x + 280, y: FLOOR_Y - 190 }} to={{ x: 1030, y: enemyY + size * 0.4 }} />}
+      {fx.enemyBarrage && <NoteBarrage key={`enemy-barrage-${fx.enemyBarrage}`} from={{ x: enemyX + size * .2, y: enemyY + size * .4 }} to={{ x: RIFF.x + RIFF.size / 2, y: FLOOR_Y - RIFF.size * .55 }} enemy />}
 
       {/* Damage pops */}
       {fx.pop && (
@@ -569,8 +588,8 @@ function DragArrow({ from, to, active }: { from: { x: number; y: number }; to: {
   );
 }
 
-function NoteBarrage({ from, to }: { from: { x: number; y: number }; to: { x: number; y: number } }) {
-  const colors = ['#FFD23F', '#FF4FA3', '#FFF6E0', '#FFD23F', '#9FD8FF', '#FF7DB8'];
+function NoteBarrage({ from, to, enemy }: { from: { x: number; y: number }; to: { x: number; y: number }; enemy?: boolean }) {
+  const colors = enemy ? ['#E8434F', '#FF8A93', '#FFF6E0'] : ['#FFD23F', '#FF4FA3', '#FFF6E0', '#FFD23F', '#9FD8FF', '#FF7DB8'];
   return (
     <div className="fill" style={{ zIndex: 18, pointerEvents: 'none' }}>
       {colors.map((c, i) => (
@@ -602,14 +621,14 @@ function ImpactBurst({ x, y, big }: { x: number; y: number; big?: boolean }) {
   );
 }
 
-function PixelBurst({ x, y }: { x: number; y: number }) {
+function PixelBurst({ x, y, delay = 300 }: { x: number; y: number; delay?: number }) {
   const colors = ['#FFF6E0', '#D1307E', '#1E2140', '#FFD23F', '#E8434F', '#9AA0C8'];
   return (
     <div style={{ position: 'absolute', left: x, top: y, pointerEvents: 'none' }}>
       {Array.from({ length: 22 }, (_, i) => {
         const a = (i / 22) * Math.PI * 2;
         const d = 60 + ((i * 37) % 90);
-        return <div key={i} style={{ position: 'absolute', width: 8, height: 8, background: colors[i % colors.length], ['--dx' as string]: `${Math.cos(a) * d}px`, ['--dy' as string]: `${Math.sin(a) * d - 80}px`, animation: `pixelDrift 1200ms ${300 + (i % 5) * 60}ms steps(10) both` }} />;
+        return <div key={i} style={{ position: 'absolute', width: 8, height: 8, background: colors[i % colors.length], ['--dx' as string]: `${Math.cos(a) * d}px`, ['--dy' as string]: `${Math.sin(a) * d - 80}px`, animation: `pixelDrift 1200ms ${delay + (i % 5) * 60}ms steps(10) both` }} />;
       })}
     </div>
   );
@@ -621,7 +640,7 @@ function KoOverlay() {
       <div className="fill" style={{ background: 'rgba(232,67,79,0.35)', animation: 'fadeIn 500ms 100ms steps(4) both' }} />
       <div style={{ position: 'absolute', left: 0, top: 0, width: 1440, height: 60, background: '#101126', animation: 'dropIn 300ms 700ms steps(4) both' }} />
       <div style={{ position: 'absolute', left: 0, bottom: 0, width: 1440, height: 60, background: '#101126', animation: 'riseIn 300ms 700ms steps(4) both' }} />
-      <div className="f-press" style={{ position: 'absolute', left: 0, top: 330, width: 1440, textAlign: 'center', fontSize: 180, lineHeight: '190px', color: 'var(--sun)', textShadow: '#101126 10px 10px 0, #E8434F 16px 18px 0', animation: 'slam 300ms 720ms steps(4) both' }}>
+      <div className="f-press" style={{ position: 'absolute', left: 0, top: 330, width: 1440, textAlign: 'center', fontSize: 180, lineHeight: '190px', color: 'var(--sun)', textShadow: '#101126 10px 10px 0, #E8434F 16px 18px 0', animation: 'slam 300ms 700ms steps(4) both' }}>
         K.O.
       </div>
     </div>

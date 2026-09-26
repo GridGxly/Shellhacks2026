@@ -76,15 +76,21 @@ export function Victory() {
   const xp = useCountUp(XP_PER_WIN, 1300);
   const canUpgrade = STATS.some((d) => run.tips >= d.cost);
   const actDone = run.floor % 3 === 0;
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     playMusic('encore');
-    const t = window.setTimeout(() => sfx('coin'), 900);
+    const coins = [0, 1, 2, 3, 4].map((i) => window.setTimeout(() => sfx('coin'), 900 + i * 80));
     const t2 = window.setTimeout(() => sfx('coin'), 1300);
-    return () => [t, t2].forEach(clearTimeout);
+    return () => [...coins, t2].forEach(clearTimeout);
   }, []);
 
-  const proceed = () => go('map');
+  const proceed = () => setLeaving(true);
+  useEffect(() => {
+    if (!leaving) return;
+    const wipe = window.setTimeout(() => go('map'), 350);
+    return () => clearTimeout(wipe);
+  }, [leaving, go]);
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Enter' && !useGame.getState().overlay && (sfx('click'), proceed());
     window.addEventListener('keydown', k);
@@ -98,9 +104,13 @@ export function Victory() {
       <Confetti />
       {/* Riff celebrates on the left, the beaten foe fades on the right */}
       <Sprite src={inst.id === 'trumpet' ? '/assets/sprites/riff-leap.png' : inst.sprite} x={120} y={330} size={360} style={{ animation: 'slideInLeft 400ms steps(6) both, bob 900ms 400ms steps(2) infinite' }} />
-      <Sprite src={beaten.sprite} x={1010} y={420} size={260} style={{ filter: 'grayscale(1) brightness(0.5)', opacity: 0.55, transform: 'rotate(8deg)' }} />
+      <Sprite src={beaten.sprite} x={1010} y={420} size={260} style={{ filter: 'grayscale(1) brightness(0.5)', opacity: 0.55, transform: 'rotate(8deg)', animation: 'dissolve 800ms 500ms steps(8) forwards' }} />
+      {/* The defeated foe releases tips; the count starts on the first landing. */}
+      {[0, 1, 2, 3, 4].map((i) => <div key={i} aria-hidden="true" style={{ position: 'absolute', left: 1130, top: 520 + (i % 2) * 22, zIndex: 7, ['--reward-x' as string]: `${-310 - i * 9}px`, ['--reward-y' as string]: `${-188 - (i % 2) * 22}px`, animation: `victoryReward 400ms ${500 + i * 80}ms steps(6) both` }}>
+        <svg width="26" height="26" viewBox="0 0 8 8" shapeRendering="crispEdges"><path d="M2 0H6V1H7V2H8V6H7V7H6V8H2V7H1V6H0V2H1V1H2Z" fill="#FFD23F"/><path d="M2 2H6V6H2Z" fill="#D9A21B"/><path d="M3 1H4V6H3Z" fill="#FFF6E0"/></svg>
+      </div>)}
 
-      <div style={{ position: 'absolute', left: 470, top: 110, width: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, zIndex: 5 }}>
+      <div style={{ position: 'absolute', left: 470, top: 110, width: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, zIndex: 5, animation: leaving ? 'victoryExit 500ms steps(6) forwards' : undefined }}>
         <div className="f-press" style={{ fontSize: 60, color: 'var(--sun)', textShadow: '#101126 6px 6px 0, #D1307E 10px 10px 0', animation: 'slam 450ms steps(6) both' }}>VICTORY!</div>
         <div className="f-body" style={{ fontSize: 20, color: 'var(--soft)', animation: 'fadeIn 300ms 300ms both' }}>
           {beaten.name} is out of tune for good.
@@ -126,6 +136,7 @@ export function Victory() {
         </div>
       </div>
       <Hud center={`FLOOR ${run.floor} OF 18 CLEARED`} pulse={canUpgrade ? 'face' : undefined} />
+      <style>{`@keyframes victoryReward{0%{transform:translate(0,0) scale(.4);opacity:0}15%{opacity:1}50%{transform:translate(calc(var(--reward-x)*.5),calc(var(--reward-y)*.5 - 100px)) scale(1.1);opacity:1}90%{opacity:1}100%{transform:translate(var(--reward-x),var(--reward-y)) scale(.5);opacity:0}} @keyframes victoryExit{0%{transform:translateY(0)}30%{transform:translateY(-12px) scaleY(1.02)}100%{transform:translateY(900px) scaleY(.96)}}`}</style>
     </div>
   );
 }
@@ -350,7 +361,7 @@ export function FinalVictory() {
   const t = useClock();
   const [rank, setRank] = useState<number | null>(null);
   const score = useCountUp(run.score, 4900, 1400);
-  const mins = Math.max(1, Math.round((Date.now() - run.startedAt) / 60000));
+  const [mins] = useState(() => Math.max(1, Math.round((Date.now() - run.startedAt) / 60000)));
   const ROLL = 1500; // roll call starts
   const STAMP_GAP = 85;
   const rollEnd = ROLL + 18 * STAMP_GAP + 300;
