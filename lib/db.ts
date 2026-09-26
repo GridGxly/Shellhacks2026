@@ -14,6 +14,7 @@ export interface UserDoc {
   passwordHash: string;
   createdAt: Date;
   xp: number;
+  tavernBuff?: boolean;
 }
 export interface SessionDoc {
   _id: string; // sha256(token)
@@ -110,7 +111,7 @@ export async function currentUser(): Promise<UserDoc | null> {
   return d.collection<UserDoc>('users').findOne({ _id: s.userId });
 }
 
-export const publicUser = (u: UserDoc) => ({ username: u.username, level: 1 + Math.floor(u.xp / 100) });
+export const publicUser = (u: UserDoc) => ({ username: u.username, level: 1 + Math.floor(u.xp / 100), tavernBuff: u.tavernBuff === true });
 
 export async function transaction<T>(work: (d: Db, session: ClientSession) => Promise<T>) {
   const d = await db();

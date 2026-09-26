@@ -1,13 +1,13 @@
 'use client';
 import { create } from 'zustand';
-import { ACT_BONUS_TIPS, ENCORE_TEMPO_BASE, ENCORE_TEMPO_PER_ACT, STATS, TIPS_PER_WIN, TIPS_START, XP_PER_LEVEL, XP_PER_WIN, LOW_HP_TAUNT, type StatId } from './config';
+import { ACT_BONUS_TIPS, ENCORE_TEMPO_BASE, ENCORE_TEMPO_PER_ACT, STATS, TAVERN_BUFF_TIPS, TIPS_PER_WIN, TIPS_START, XP_PER_LEVEL, XP_PER_WIN, LOW_HP_TAUNT, type StatId } from './config';
 import { ENEMIES, INSTRUMENTS, type InstrumentId } from './content';
 import { exerciseKey, makeExercise, GRAN_VALS, type CardType, type Exercise } from './music';
 import { addScore, type RunEvent } from './score';
 
 export type Screen =
   | 'title' | 'howto' | 'mic' | 'lab' | 'bossdemo' | 'credits' | 'instrument' | 'map' | 'combat'
-  | 'victory' | 'actclear' | 'loss' | 'final' | 'leaderboard' | 'profile';
+  | 'victory' | 'actclear' | 'loss' | 'final' | 'leaderboard' | 'profile' | 'tavern';
 export type Overlay = null | 'stats' | 'pause' | 'mappeek' | 'signin' | 'overwrite';
 export type Transition = null | 'wipe' | 'iris';
 
@@ -61,11 +61,13 @@ export interface User {
   username: string;
   level: number;
   rank?: number;
+  tavernBuff?: boolean;
 }
 
 const SAVE_KEY = 'stc.save.v1';
 const BEST_KEY = 'stc.best.v1';
 const PENDING_KEY = 'stc.pending.v1'; // a finished run the server hasn't acknowledged yet
+let tavernClaiming = false;
 
 const freshLevels = (): Record<StatId, number> => ({ maxHp: 0, cardDamage: 0, encoreDamage: 0, timingWindow: 0, passLine: 0 });
 
@@ -178,6 +180,7 @@ interface GameState {
   saved: Run | null;
   best: { score: number; floor: number } | null;
   user: User | null;
+  tavernBuff: boolean; // guests keep this only in memory; accounts claim the server's boolean
   toast: string | null;
   combatLocked: boolean; // a performance/attack/enemy turn is running: no pause overlays
   // Set during a Boss Demo fight: the real run + checkpoint to hand back after.
@@ -219,13 +222,14 @@ export const useGame = create<GameState>((set, get) => ({
   saved: null,
   best: null,
   user: null,
+  tavernBuff: false,
   toast: null,
   combatLocked: false,
   bossDemo: null,
 
   hydrate: () => set({ saved: migrateRun(readJSON<Run>(SAVE_KEY)), best: readJSON(BEST_KEY) }),
   setUser: (user) => {
-    set({ user });
+    set((previous) => ({ user, tavernBuff: user ? user.tavernBuff === true : previous.user ? false : previous.tavernBuff }));
     if (user) void flushPending();
   },
 
@@ -240,9 +244,31 @@ export const useGame = create<GameState>((set, get) => ({
   chooseInstrument: (id) => set((s) => ({ run: { ...s.run, instrument: id } })),
 
   newRun: () => {
+    if (tavernClaiming) return;
+    const { user, tavernBuff } = get();
+    const run = freshRun(get().run.instrument);
+    if (!user && tavernBuff) run.tips += TAVERN_BUFF_TIPS;
     writeJSON(SAVE_KEY, null);
-    if (get().user) void syncSave(null);
-    set((s) => ({ run: freshRun(s.run.instrument), combat: null, lossBy: null, saved: null }));
+    if (user) void syncSave(null);
+    set({ run, combat: null, lossBy: null, saved: null, ...(!user ? { tavernBuff: false } : {}) });
+    if (!user && tavernBuff) get().showToast(`Tavern tips: +${TAVERN_BUFF_TIPS} to spend at the start of your climb`);
+    if (user) {
+      tavernClaiming = true;
+      void (async () => {
+        try {
+          const response = await fetch('/api/tavern/buff', { method: 'POST', signal: AbortSignal.timeout(8000) });
+          if (!response.ok) throw new Error('Claim unavailable');
+          const { claimed } = await response.json() as { claimed: boolean };
+          if (get().user?.username !== user.username) return;
+          set((s) => ({ tavernBuff: false, user: s.user ? { ...s.user, tavernBuff: false } : null,
+            ...(claimed && s.run.id === run.id ? { run: { ...s.run, tips: s.run.tips + TAVERN_BUFF_TIPS } } : {}),
+          }));
+          if (claimed && get().run.id === run.id) get().showToast(`Tavern tips: +${TAVERN_BUFF_TIPS} to spend at the start of your climb`);
+        } catch {
+          if (tavernBuff) get().showToast('Could not confirm tavern tips. Reconnect to check your reward.');
+        } finally { tavernClaiming = false; }
+      })();
+    }
   },
   continueRun: () => {
     const saved = migrateRun(get().saved);

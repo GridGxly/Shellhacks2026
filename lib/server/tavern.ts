@@ -5,7 +5,7 @@ import {
   TAVERN_PASS, TAVERN_PLAYBACK_DELAY_MS, TAVERN_RESULT_MAX_BYTES, TAVERN_ROOM_TTL_MS,
   TAVERN_STALE_MS, TAVERN_START_DELAY_MS,
 } from '@/lib/config';
-import { currentUser, db, dbConfigured, offline, transaction } from '@/lib/db';
+import { currentUser, db, dbConfigured, offline, transaction, type UserDoc } from '@/lib/db';
 import { DUET_A, DUET_B } from '@/lib/music';
 import type { PublicTavernPlayer, PublicTavernRoom, TavernPart, TavernPhase, TavernResultInput } from '@/lib/tavern-types';
 import { duplicate, handled, int, mutation, readJson } from './http';
@@ -184,7 +184,12 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
           const a = room.host.result, b = room.guest.result;
           room.pass = (a.hits + b.hits) / (a.total + b.total) >= TAVERN_PASS;
           room.phase = 'results'; room.playbackAt = new Date(now + TAVERN_PLAYBACK_DELAY_MS);
-
+          // The room transition and grants commit together. Immutable result retries
+          // return above, so claiming a buff then retrying cannot grant it again.
+          if (room.pass) {
+            const ids = [room.host.userId, room.guest.userId].filter((id): id is string => id !== null);
+            if (ids.length) await d.collection<UserDoc>('users').updateMany({ _id: { $in: ids } }, { $set: { tavernBuff: true } }, { session });
+          }
         }
       } else if (action === 'done') {
         if (!finished(room)) return error('The duet is not ready yet.', 409);
