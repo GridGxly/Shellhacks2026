@@ -74,3 +74,29 @@ export interface PerformanceInput {
   notes: NoteResult[];
   simulated: boolean;
 }
+
+/** Accuracy for one mode over the recent window (non-simulated takes only). */
+export interface SourceStats { attempts: number; hits: number; notes: number }
+/**
+ * The mentor's player file (signed-in players; guests keep weaknesses in memory).
+ * Assembled from practiceProfiles, performanceEvents, runs and trainingDaily.
+ */
+export interface MentorProfile {
+  username: string;
+  weaknesses: WeaknessSummary; // long-term, every mode
+  recent: { days: number; bySource: Record<PerformanceSource, SourceStats> };
+  climbs: {
+    total: number;
+    victories: number;
+    deepest: number;
+    best: { score: number; floor: number } | null;
+    favoriteInstrument: InstrumentId | null;
+    recent: { floor: number; accuracy: number; instrument: InstrumentId; endedBy: 'loss' | 'victory'; at: number }[];
+  };
+  training: {
+    daysCompleted: number; // within the history window
+    streak: number; // consecutive completed UTC days, ending today or yesterday
+    today: { status: TrainingState['status']; claimed: boolean; exercisesDone: number } | null;
+  };
+  generatedAt: number;
+}

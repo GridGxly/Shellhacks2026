@@ -1,13 +1,14 @@
-import { createHash, randomBytes, randomInt } from 'node:crypto';
-import type { ClientSession, Db } from 'mongodb';
+import { randomBytes, randomInt } from 'node:crypto';
+import { Binary, type ClientSession, type Db } from 'mongodb';
 import {
   RECORD_TAIL_MS, TAVERN_AUDIO_MAX_BYTES, TAVERN_DONE_TTL_MS, TAVERN_MAX_RECORD_OFFSET_MS,
   TAVERN_PASS, TAVERN_PLAYBACK_DELAY_MS, TAVERN_RESULT_MAX_BYTES, TAVERN_ROOM_TTL_MS,
-  TAVERN_STALE_MS, TAVERN_START_DELAY_MS,
+  TAVERN_HEARTBEAT_MS, TAVERN_STALE_MS, TAVERN_START_DELAY_MS,
 } from '@/lib/config';
 import { currentUser, db, dbConfigured, offline, transaction, type UserDoc } from '@/lib/db';
 import { validateTrainingResults } from '@/lib/training-core';
 import { recordPerformance } from './performance';
+import { sha256Hex } from './hash';
 import { tavernExercise } from '@/lib/tavern-exercise';
 import { getTavernCharacter, isTavernCharacterId, type TavernCharacterId } from '@/lib/tavern-characters';
 import type { PublicTavernPlayer, PublicTavernRoom, TavernMode, TavernPart, TavernPhase, TavernResultInput } from '@/lib/tavern-types';
@@ -15,6 +16,11 @@ import { duplicate, handled, int, mutation, readJson } from './http';
 import { clientIp, limit } from './ratelimit';
 import { instrument } from './validation';
 
+/** A scored take as kept on the room. The clip itself lives in tavernTakes. */
+interface StoredResult extends Omit<TavernResultInput, 'audio'> {
+  hasAudio: boolean;
+  audioDigest?: string; // sha256 of the base64 clip, so a retried submission can be recognised
+}
 interface Player extends Omit<PublicTavernPlayer, 'result' | 'characterId'> {
   characterId?: TavernCharacterId;
   tokenHash: string;
@@ -22,7 +28,7 @@ interface Player extends Omit<PublicTavernPlayer, 'result' | 'characterId'> {
   seenAt: Date;
   leftAt?: Date;
   doneAt?: Date;
-  result?: TavernResultInput;
+  result?: StoredResult;
 }
 interface TavernRoomDoc {
   _id: string;
@@ -38,11 +44,26 @@ interface TavernRoomDoc {
   createdAt: Date;
   expiresAt: Date;
 }
+/**
+ * One recorded take, stored as binary apart from the room: polls never read or
+ * rewrite clips, and each clip expires on its own (TTL on expiresAt).
+ */
+interface TavernTakeDoc {
+  _id: string; // `${code}:${nonce}:${part}`
+  room: string;
+  nonce: string;
+  part: TavernPart;
+  audio: Binary;
+  mime: string;
+  expiresAt: Date;
+}
 type Side = 'host' | 'guest';
 type Action = 'host' | 'join' | 'poll' | 'start' | 'result' | 'audio' | 'leave' | 'done';
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const hash = (token: string) => createHash('sha256').update(token).digest('hex');
+const hash = sha256Hex;
 const rooms = (d: Db) => d.collection<TavernRoomDoc>('tavernRooms');
+const takes = (d: Db) => d.collection<TavernTakeDoc>('tavernTakes');
+const takeId = (code: string, nonce: string, part: TavernPart) => `${code}:${nonce}:${part}`;
 const expiry = (now: number) => new Date(now + TAVERN_ROOM_TTL_MS);
 const finished = (room: TavernRoomDoc) => room.phase === 'results' || room.phase === 'done';
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } });
@@ -54,7 +75,7 @@ function publicPlayer(player: Player): PublicTavernPlayer {
   const { name, instrument, part, result } = player;
   return { name, instrument, part, characterId: getTavernCharacter(player.characterId).id, ...(result ? { result: {
     hits: result.hits, total: result.total, offsetMs: result.offsetMs,
-    hasAudio: !!result.audio, ...(result.mime ? { mime: result.mime } : {}),
+    hasAudio: result.hasAudio, ...(result.mime ? { mime: result.mime } : {}),
     ...(result.hitIndices ? { hitIndices: result.hitIndices } : {}),
   } } : {}) };
 }
@@ -160,9 +181,33 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
       const who = new URL(request.url).searchParams.get('who') ?? 'partner';
       if (who !== 'self' && who !== 'partner') return error('Choose self or partner audio.');
       if (!finished(room)) return error('The show is not ready yet.', 409);
-      const take = (who === 'self' ? room[side] : partner(room, side))?.result;
-      if (!take?.audio || !take.mime) return new Response(null, { status: 204, headers: { 'Cache-Control': 'private, no-store' } });
-      return new Response(new Uint8Array(Buffer.from(take.audio, 'base64')), { headers: { 'Content-Type': take.mime, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
+      const owner = who === 'self' ? room[side] : partner(room, side);
+      const clip = owner?.result?.hasAudio && room.nonce ? await takes(await db()).findOne({ _id: takeId(code, room.nonce, owner.part), expiresAt: { $gt: new Date() } }) : null;
+      if (!clip) return new Response(null, { status: 204, headers: { 'Cache-Control': 'private, no-store' } });
+      return new Response(new Uint8Array(clip.audio.buffer), { headers: { 'Content-Type': clip.mime, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
+    }
+
+    // Polls are the hot path (every ~0.7 s per player): at most one small update, no
+    // transaction and no full-document rewrite.
+    if (action === 'poll') {
+      const d = await db();
+      const room = await load(d, code);
+      if (!room) return error('No show with that code.', 404);
+      const side = own(room, tokenHash); if (!side) return error('You are not in this show.', 403);
+      const now = Date.now();
+      if (room.phase === 'gone') return json(snapshot(room, side, now));
+      if (room[side]!.leftAt) return error('You have left this show.', 410);
+      // Heartbeat: write only every TAVERN_HEARTBEAT_MS, never once the show is done.
+      // The filter pins the phase that was read, so a stale poll can't undo a
+      // concurrent done/leave (their short expiry wins); $max never moves time back.
+      if (room.phase !== 'done' && now - room[side]!.seenAt.getTime() >= TAVERN_HEARTBEAT_MS) {
+        await rooms(d).updateOne(
+          { _id: code, phase: room.phase, [`${side}.tokenHash`]: tokenHash, [`${side}.leftAt`]: { $exists: false } },
+          { $max: { [`${side}.seenAt`]: new Date(now), expiresAt: expiry(now) } },
+        );
+        room[side]!.seenAt = new Date(now);
+      }
+      return json(snapshot(room, side, now));
     }
 
     return transaction(async (d, session) => {
@@ -184,8 +229,10 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
       } else if (action === 'result') {
         const take = resultInput(body, player, room.mode ?? 'duet');
         if (!take) return error('That take has invalid notes, timing or audio.');
+        const { audio, ...scored } = take;
+        const stored: StoredResult = { ...scored, hasAudio: !!audio, ...(audio ? { audioDigest: sha256Hex(audio) } : {}) };
         if (player.result) {
-          if (JSON.stringify(player.result) !== JSON.stringify(take)) return error('Your take was already submitted.', 409);
+          if (JSON.stringify(player.result) !== JSON.stringify(stored)) return error('Your take was already submitted.', 409);
           return json(snapshot(room, side, now));
         }
         if (room.phase !== 'countdown' || !room.startAt || !room.guest) return error('The show has not started.', 409);
@@ -197,7 +244,14 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
         // to one show. Learning and the accepted result commit atomically.
         room.nonce ??= randomBytes(16).toString('hex');
         if (player.userId) await recordPerformance(d, session, player.userId, 'tavern', `${room.nonce}:${player.part}`, player.instrument, ex, take.notes, take.simulated);
-        player.result = take;
+        if (audio) {
+          await takes(d).replaceOne(
+            { _id: takeId(code, room.nonce, player.part) },
+            { room: code, nonce: room.nonce, part: player.part, audio: new Binary(Buffer.from(audio, 'base64')), mime: take.mime!, expiresAt: expiry(now) },
+            { upsert: true, session },
+          );
+        }
+        player.result = stored;
         if (room.host.result && room.guest.result) {
           const a = room.host.result, b = room.guest.result;
           const pvp = room.mode === 'pvp';
@@ -219,11 +273,15 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
         if (!finished(room)) return error('The show is not ready yet.', 409);
         if (room.phase === 'done') return json(snapshot(room, side, now));
         player.doneAt ??= new Date(now);
-        if (room.host.doneAt && room.guest?.doneAt) { room.phase = 'done'; room.expiresAt = new Date(now + TAVERN_DONE_TTL_MS); }
+        if (room.host.doneAt && room.guest?.doneAt) {
+          room.phase = 'done'; room.expiresAt = new Date(now + TAVERN_DONE_TTL_MS);
+          if (room.nonce) await takes(d).updateMany({ room: code, nonce: room.nonce }, { $set: { expiresAt: room.expiresAt } }, { session });
+        }
       } else if (action === 'leave') {
         player.leftAt ??= new Date(now);
         if (!room.guest || (room.host.leftAt && room.guest.leftAt)) {
           await rooms(d).deleteOne({ _id: code }, { session });
+          if (room.nonce) await takes(d).deleteMany({ room: code, nonce: room.nonce }, { session });
           return json({ ...snapshot(room, side, now), phase: 'gone' });
         }
         if (!finished(room)) room.phase = 'gone';
@@ -231,7 +289,10 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
 
       player.seenAt = new Date(now);
       // Once done/gone, polling cannot keep audio alive indefinitely.
-      if (room.phase === 'gone') room.expiresAt = new Date(now + TAVERN_DONE_TTL_MS);
+      if (room.phase === 'gone') {
+        room.expiresAt = new Date(now + TAVERN_DONE_TTL_MS);
+        if (room.nonce) await takes(d).updateMany({ room: code, nonce: room.nonce }, { $set: { expiresAt: room.expiresAt } }, { session });
+      }
       else if (room.phase !== 'done') room.expiresAt = expiry(now);
       await rooms(d).replaceOne({ _id: code }, room, { session });
       return json(snapshot(room, side, now));

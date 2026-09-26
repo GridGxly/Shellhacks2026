@@ -5,7 +5,6 @@ import { emptyWeaknesses, mergePerformance, validateWeaknesses } from './trainin
 let guestSummary = emptyWeaknesses();
 const guestReceipts = new Set<string>();
 export const guestWeaknesses = (): WeaknessSummary => structuredClone(guestSummary);
-export const getGuestWeaknesses = guestWeaknesses;
 export function setGuestWeaknesses(summary: WeaknessSummary) {
   guestSummary = validateWeaknesses(summary) ?? emptyWeaknesses();
 }

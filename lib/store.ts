@@ -70,7 +70,7 @@ export interface User {
 
 const SAVE_KEY = 'stc.save.v1';
 const BEST_KEY = 'stc.best.v1';
-const PENDING_KEY = 'stc.pending.v1'; // a finished run the server hasn't acknowledged yet
+const PENDING_KEY = 'stc.pending.v2'; // finished runs the server hasn't acknowledged yet, per account
 const REWARD_KEY = 'stc.reward-start.v1';
 let rewardStarting = false;
 interface PendingRewardStart { username: string; run: Run }
@@ -534,6 +534,7 @@ function logFight(s: GameState, won: boolean) {
 }
 
 interface PendingRun {
+  owner: string; // lowercased username the run was played under; only that account may post it
   runId: string;
   events: RunEvent[];
   endedBy: 'loss' | 'victory';
@@ -541,23 +542,38 @@ interface PendingRun {
   durationMs: number;
 }
 
+const MAX_PENDING_RUNS = 10;
+const pendingRuns = () => {
+  const q = readJSON<PendingRun[]>(PENDING_KEY);
+  return Array.isArray(q) ? q : [];
+};
+/** Drop one acknowledged run, re-reading the queue so entries added meanwhile survive. */
+const settlePending = (runId: string) => writeJSON(PENDING_KEY, pendingRuns().filter((p) => p.runId !== runId));
+
 /**
- * Posts the queued finished run. It stays queued until the server answers:
- * a 2xx or 4xx (rejected, retrying won't help) clears it; 429 (cooldown),
- * network errors and 5xx keep it for a retry. The server dedupes by runId.
+ * Posts the signed-in account's queued runs, oldest first. An entry stays queued
+ * until the server answers: 2xx or 4xx (rejected, retrying won't help) settles it;
+ * 429 (cooldown), network errors and 5xx keep it for a retry. The server dedupes by runId.
  */
 async function flushPending() {
-  const p = readJSON<PendingRun>(PENDING_KEY);
-  if (!p || !useGame.getState().user) return;
-  try {
-    const res = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
-    if (res.status === 429) {
-      // Submission cooldown: try once more after the server's Retry-After.
-      const wait = Math.min(120, Number(res.headers.get('Retry-After')) || 60);
-      window.setTimeout(() => void flushPending(), wait * 1000);
-    } else if (res.status < 500) writeJSON(PENDING_KEY, null);
-  } catch {
-    /* offline: try again later */
+  const user = useGame.getState().user;
+  if (!user) return;
+  const owner = user.username.toLowerCase();
+  for (const p of pendingRuns().filter((q) => q.owner === owner)) {
+    if (useGame.getState().user?.username.toLowerCase() !== owner) return; // signed out/switched mid-flush
+    try {
+      const { owner: _owner, ...body } = p;
+      const res = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (res.status === 429) {
+        // Submission cooldown: try again after the server's Retry-After.
+        const wait = Math.min(120, Number(res.headers.get('Retry-After')) || 60);
+        window.setTimeout(() => void flushPending(), wait * 1000);
+        return;
+      }
+      if (res.status < 500) settlePending(p.runId);
+    } catch {
+      return; /* offline: try again later */
+    }
   }
 }
 
@@ -566,16 +582,15 @@ function finishRun(run: Run, endedBy: 'loss' | 'victory') {
   const best = readJSON<{ score: number; floor: number }>(BEST_KEY);
   if (!best || run.score > best.score) writeJSON(BEST_KEY, { score: run.score, floor: run.floor });
   useGame.setState({ saved: null, best: readJSON(BEST_KEY) });
-  if (!run.demo && run.log.length) {
-    writeJSON(PENDING_KEY, { runId: run.id, events: run.log, endedBy, instrument: run.instrument, durationMs: Date.now() - run.startedAt } satisfies PendingRun);
+  const user = useGame.getState().user;
+  if (user && !run.demo && run.log.length) {
+    const entry: PendingRun = { owner: user.username.toLowerCase(), runId: run.id, events: run.log, endedBy, instrument: run.instrument, durationMs: Date.now() - run.startedAt };
+    writeJSON(PENDING_KEY, [...pendingRuns().filter((p) => p.runId !== run.id), entry].slice(-MAX_PENDING_RUNS));
   }
-  if (useGame.getState().user) {
+  if (user) {
     void syncSave(null);
     void flushPending();
   }
 }
-
-/** Retry a queued run submission (e.g. after a reload while signed in). */
-export const retryPendingRun = () => void flushPending();
 
 export const instrumentOf = (run: Run) => INSTRUMENTS.find((i) => i.id === run.instrument)!;

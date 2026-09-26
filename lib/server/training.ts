@@ -8,9 +8,11 @@ import { handled, int, mutation, object, readJson } from './http';
 import { clientIp, limit } from './ratelimit';
 import { performanceDigest, readWeaknesses, recordPerformance } from './performance';
 import { createTrainingFeedback, createTrainingPlan, readVoiceTicket, trainingVoice, voiceTicket } from './training-provider';
+import { readMentorProfile } from './mentor';
 
-export interface TrainingDailyDoc { _id: string; userId: string; day: string; state: TrainingState; createdAt: Date; updatedAt: Date; expiresAt: Date }
-type Action = 'state' | 'plan' | 'begin' | 'result' | 'pause' | 'claim' | 'feedback' | 'voice';
+/** completedAt is set once, when the day's first set is finished, and survives ending/replacing sets (mentor streaks). */
+export interface TrainingDailyDoc { _id: string; userId: string; day: string; state: TrainingState; completedAt?: Date; createdAt: Date; updatedAt: Date; expiresAt: Date }
+type Action = 'state' | 'profile' | 'plan' | 'begin' | 'result' | 'pause' | 'claim' | 'feedback' | 'voice';
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers: { 'Cache-Control': 'private, no-store' } });
 class Problem extends Error { constructor(message: string, readonly status = 400, readonly code = 'invalid_request') { super(message); } }
 const clean = (state: TrainingState): TrainingState => JSON.parse(JSON.stringify(state));
@@ -61,6 +63,12 @@ export async function trainingRequest(request: Request, action: Action) {
       const body = request.method === 'GET' ? {} : await readJson(request, 48 * 1024); if (body instanceof Response) return body;
       const user = await currentUser();
       if (action === 'state') return json(user ? await transaction(async (d, s) => snapshot(d, await daily(d, user._id, s), s)) : newGuestTraining());
+      if (action === 'profile') {
+        // The mentor's player file. Guests have none on the server: theirs lives in the tab's memory.
+        if (!user) return json({ error: 'Guests keep their practice file in memory.', code: 'guest' }, 401);
+        const blocked = await limit(`training-profile:${user._id}`, 60, 600000); if (blocked) return blocked;
+        return json(await readMentorProfile(await db(), user));
+      }
       if (['plan', 'feedback', 'voice'].includes(action)) {
         const blocked = await limit(`training-${action}:${user?._id ?? clientIp(request)}`, action === 'voice' ? 40 : 20, 600000); if (blocked) return blocked;
         const global = await limit(`training-${action}:global`, action === 'voice' ? 160 : 100, 60000); if (global) return global;
@@ -145,6 +153,7 @@ export async function trainingRequest(request: Request, action: Action) {
           const notes = validateTrainingResults(ex.music, state.plan!.regiment.instrument, raw.notes); if (!notes) throw new Problem('Invalid note results.');
           const result: TrainingResult = { exerciseId: raw.exerciseId, attemptId: raw.attemptId, notes, simulated: raw.simulated };
           row.state = guestSubmit(state, result);
+          if (row.state.status === 'complete') row.completedAt ??= new Date();
           row.state.weaknesses = await recordPerformance(d, session, user._id, 'training', raw.attemptId, state.plan!.regiment.instrument, ex.music, notes, raw.simulated);
           return save(d, row, session);
         }

@@ -1,15 +1,16 @@
 import { IGNORE_OCTAVE } from './config';
+import { isInt, isObject } from './validation';
 import { INSTRUMENTS, type InstrumentId } from './content';
 import type { NoteResult } from './mic';
 import type { Exercise, Note } from './music';
 import type { PerformanceSource, TrainingFeedback, TrainingPlan, TrainingRegiment, TrainingResult, TrainingState, WeaknessSummary } from './training-types';
 
-export const TRAINING_BUFF_TIPS = 120;
+export { TRAINING_BUFF_TIPS } from './config'; // kept here for existing imports
 export const TRAINING_START_DELAY_MS = 4000;
 export const utcDay = (now = Date.now()) => new Date(now).toISOString().slice(0, 10);
 export const nextUtcMidnight = (now = Date.now()) => (Math.floor(now / 86400000) + 1) * 86400000;
-const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-const integer = (v: unknown, lo: number, hi: number): v is number => Number.isSafeInteger(v) && Number(v) >= lo && Number(v) <= hi;
+const object = isObject;
+const integer = (v: unknown, lo: number, hi: number) => isInt(v, lo, hi);
 const plain = (v: unknown, max: number): v is string => typeof v === 'string' && v.length > 0 && v.length <= max && !/[<>\u0000-\u001f]/.test(v);
 const pc = (m: number) => ((m % 12) + 12) % 12;
 const id = () => globalThis.crypto.randomUUID();

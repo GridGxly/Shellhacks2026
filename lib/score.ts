@@ -8,6 +8,7 @@ import {
   ULTIMATE_PASS_THRESHOLD, XP_PER_WIN,
 } from './config';
 import { ENEMIES, FINAL_FLOOR } from './content';
+import { isInt } from './validation';
 
 /** floor = the fight's floor number (1..18). pass is 0/1. */
 export type RunEvent =
@@ -15,7 +16,7 @@ export type RunEvent =
   | ['e', floor: number, pass: 0 | 1, hits: number, total: number] // encore
   | ['w', floor: number, hpLeft: number]; // enemy beaten, HP before the heal
 
-export function eventScore(ev: RunEvent): number {
+function eventScore(ev: RunEvent): number {
   if (ev[0] === 'w') {
     const [, floor, hp] = ev;
     return SCORE_PER_FLOOR * floor + SCORE_PER_HP * hp + (ENEMIES[floor - 1]?.boss ? ACT_BONUS_SCORE : 0);
@@ -48,7 +49,6 @@ const statMax = (id: string) => {
   const d = STATS.find((s) => s.id === id)!;
   return d.max;
 };
-const isInt = (v: unknown, lo: number, hi: number): v is number => Number.isInteger(v) && (v as number) >= lo && (v as number) <= hi;
 
 /**
  * Replays a submitted log. Returns the verified run, or an error string when the
@@ -64,6 +64,8 @@ export function verifyRun(events: unknown, endedBy: unknown): VerifiedRun | stri
   const maxCardLine = STATS.find((s) => s.id === 'passLine')!.base / 100;
   const maxCardDmg = statMax('cardDamage');
   const maxEncoreDmg = statMax('encoreDamage');
+  const minCardDmg = STATS.find((s) => s.id === 'cardDamage')!.base;
+  const minEncoreDmg = STATS.find((s) => s.id === 'encoreDamage')!.base;
   const maxHp = statMax('maxHp');
 
   const r: VerifiedRun = { floor: 0, victory: false, score: 0, xp: 0, accuracy: 0, notesHit: 0, notesTotal: 0, cardsLanded: 0, cardsFailed: 0, encoresLanded: 0, rounds: 0 };
@@ -88,6 +90,8 @@ export function verifyRun(events: unknown, endedBy: unknown): VerifiedRun | stri
       const [kind, , pass, hits, total] = ev;
       if (ev.length !== 5 || (pass !== 0 && pass !== 1) || !isInt(total, 1, MAX_NOTES_PER_EXERCISE) || !isInt(hits, 0, total)) return 'Bad action.';
       if (++fight.actions > MAX_ACTIONS_PER_FIGHT) return 'Too many actions in one fight.';
+      // Even at base (lowest) damage the enemy would already be dead: no action can follow.
+      if (fight.cards * minCardDmg + fight.encores * minEncoreDmg >= enemy.hp) return 'Action after the enemy was already beaten.';
       const ratio = hits / total;
       if (kind === 'c') {
         if (pass ? ratio < minCardLine : ratio >= maxCardLine) return 'Card result does not match its notes.';
