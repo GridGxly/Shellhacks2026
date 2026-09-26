@@ -4,8 +4,7 @@ import { playFile, playMusic, sfx } from '@/lib/audio';
 import { instrumentOf, useGame, type Screen } from '@/lib/store';
 import { Arrow, Bg, FloatingNotes, Sprite, Stars } from '../ui';
 import IntroMontage from './IntroMontage';
-import { MobileSurface, useTouchLayout } from '../MobileSurface';
-import { enterFullscreen, useFullscreenOffer } from '@/lib/viewport';
+import { enterFullscreen, useFullscreenOffer, useViewport } from '@/lib/viewport';
 import { art } from '@/lib/art';
 
 let introSeen = false;
@@ -13,7 +12,7 @@ let introSeen = false;
 type Item = { label: string; act: () => void; primary?: boolean; mode?: boolean };
 
 export default function Title() {
-  const touch = useTouchLayout();
+  const { handheld } = useViewport();
   const fullscreen = useFullscreenOffer();
   const [shot, setShot] = useState(introSeen ? 5 : 0);
   const saved = useGame((s) => s.saved);
@@ -87,74 +86,94 @@ export default function Title() {
 
   if (shot < 4) return <IntroMontage onLand={land} />;
 
-  const primary = items.filter((i) => i.primary || i.mode);
-  const secondary = items.filter((i) => !i.primary && !i.mode);
-  const rowSize = secondary.length > 4 ? Math.ceil(secondary.length / 2) : secondary.length;
-  const secondaryRows = [secondary.slice(0, rowSize), secondary.slice(rowSize)].filter((row) => row.length);
-
-  if (touch && shot >= 5) return <MobileSurface className="mobile-home">
-    <div className="mobile-home-art"><img src={art('/assets/logo.png')} alt="Slay the Choir" /><div className="mobile-home-performer" style={{ backgroundImage: `url(${art(instrumentOf(useGame.getState().run).sprite)})` }} /></div>
-    <div className="mobile-home-content"><AccountChip /><nav aria-label="Main menu">
-      <div className="mobile-home-modes">{primary.map(it => <button key={it.label} disabled={startingRun || Boolean(transition)} onClick={() => { sfx('click'); it.act(); }}>{it.label}{it.label === 'GEMS AND I' && <small>TRAINING</small>}</button>)}</div>
-      <div className="mobile-home-links">
-        {secondary.map(it => <button key={it.label} disabled={startingRun || Boolean(transition)} onClick={() => { sfx('click'); it.act(); }}>{it.label}</button>)}
-        {fullscreen && <button onClick={() => { sfx('click'); void enterFullscreen(); }}>FULL SCREEN</button>}
-      </div>
-    </nav></div>
-  </MobileSurface>;
+  const busy = startingRun || Boolean(transition);
+  const lead = items.filter((i) => i.primary || i.mode);
+  const links = items.filter((i) => !i.primary && !i.mode);
+  const pick = (it: Item) => { if (!busy) { sfx('click'); it.act(); } };
 
   return (
-    <div className="fill" style={{ background: '#1B1D3A' }}>
+    <div className="fill screen-clip" style={{ background: '#1B1D3A' }}>
       <Bg src="/assets/bg/summit.png" />
       <Stars />
       {/* Villain silhouettes (10 Second Ninja X idea) */}
       <Sprite src="/assets/sprites/choir.png" x={-150} y={150} size={720} style={{ opacity: 0.55, filter: 'brightness(0)', animation: 'bob 6s steps(4) infinite' }} />
       <Sprite src="/assets/sprites/serpent.png" x={1130} y={60} size={420} style={{ opacity: 0.45, filter: 'brightness(0)', animation: 'bob 5s 1s steps(4) infinite' }} />
       <div className="fill" style={{ backgroundImage: 'linear-gradient(180deg, rgba(16,17,38,0) 55%, rgba(16,17,38,0.9) 100%)' }} />
+      {/* 01 Title: Riff stands on the summit's flat stone, feet on its front edge. */}
       <div style={{ position: 'absolute', left: 575, top: 366, width: 280, height: 320, backgroundImage: 'radial-gradient(ellipse 50% 50% at 50% 50%, rgba(255,240,190,0.45) 0%, rgba(255,230,140,0.12) 55%, rgba(255,230,140,0) 75%)', animation: 'glow 3s steps(4) infinite' }} />
-      <Sprite src={instrumentOf(useGame.getState().run).sprite} x={545} y={314} size={310} style={{ animation: shot === 4 ? 'slam 500ms steps(6) both' : 'breathe 1.2s steps(2) infinite' }} />
+      <Sprite src={instrumentOf(useGame.getState().run).sprite} x={545} y={356} size={340} style={{ animation: shot === 4 ? 'slam 500ms steps(6) both' : 'breathe 1.2s steps(2) infinite' }} />
       <img
         src={art('/assets/logo.png')}
         alt="Slay the Choir"
-        style={{ position: 'absolute', left: 430, top: -38, width: 580, animation: shot === 4 ? 'slam 600ms 200ms steps(8) both' : undefined }}
+        style={{ position: 'absolute', left: 430, top: 18, width: 580, animation: shot === 4 ? 'slam 600ms 200ms steps(8) both' : undefined }}
       />
       <FloatingNotes count={8} />
-      {shot === 4 && <div style={{ position: 'absolute', left: 570, top: 665, width: 300, height: 22, background: '#FFF6E0', animation: 'burst 400ms steps(5) forwards', pointerEvents: 'none' }} />}
+      {shot === 4 && <div style={{ position: 'absolute', left: 570, top: 677, width: 300, height: 22, background: '#FFF6E0', animation: 'burst 400ms steps(5) forwards', pointerEvents: 'none' }} />}
 
-      {shot >= 5 && (
-        <div style={{ position: 'absolute', left: 0, top: 606, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 17 }}>
-          <div style={{ position: 'absolute', top: -16, bottom: -18, left: 150, right: 150, background: 'rgba(16,17,38,.93)', border: '3px solid #3A3F70', pointerEvents: 'none' }} />
-          {primary.map((it) => {
-            const i = items.indexOf(it);
-            return (
-              <MenuButton key={it.label} big disabled={startingRun || Boolean(transition)} active={sel === i} onHover={() => setSel(i)} onClick={it.act} delay={0}>
-                {it.label}{it.label === 'GEMS AND I' && <span className="f-label" style={{ fontSize: 15, color: '#9FD8FF', marginLeft: 20 }}>TRAINING</span>}
-              </MenuButton>
-            );
-          })}
+      {/* Desktop: the menu sits below the summit so the stone Riff stands on stays in view. */}
+      {shot >= 5 && !handheld && (
+        <nav aria-label="Main menu" style={{ position: 'absolute', left: 0, top: 716, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 124 }}>
+            {lead.map((it) => {
+              const i = items.indexOf(it);
+              return (
+                <MenuButton key={it.label} big disabled={busy} active={sel === i} onHover={() => setSel(i)} onClick={it.act} delay={i * 60}>
+                  {it.label === 'TAVERN MODE' ? 'TAVERN' : it.label}{it.label === 'GEMS AND I' && <span className="f-label" style={{ fontSize: 15, color: '#9FD8FF', marginLeft: 20 }}>TRAINING</span>}
+                </MenuButton>
+              );
+            })}
+          </div>
           {saved && (
-            <div className="f-label" style={{ position: 'relative', fontSize: 13, color: 'var(--sun)', animation: 'fadeIn 400ms 120ms both' }}>
+            <div className="f-label" style={{ fontSize: 13, color: 'var(--sun)', textShadow: '#101126 2px 2px 0', animation: 'fadeIn 400ms 120ms both' }}>
               {saved.score.toLocaleString()} PTS · {saved.tips} TIPS · HP {saved.hp}
             </div>
           )}
-          {secondaryRows.map((row, rowIndex) => (
-          <div key={rowIndex} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 44, marginTop: 4 }}>
-            {row.map((it, n) => {
+          <div style={{ display: 'flex', alignItems: 'center', gap: 28, marginTop: 4 }}>
+            {links.map((it, n) => {
               const i = items.indexOf(it);
               return (
-                <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 44 }}>
+                <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
                   {n > 0 && <div style={{ width: 6, height: 6, background: 'var(--magenta)' }} />}
-                  <MenuButton disabled={startingRun || Boolean(transition)} active={sel === i} onHover={() => setSel(i)} onClick={it.act} delay={80 + n * 60}>
-                    {it.label === 'TAVERN MODE' && <MugIcon />} {it.label}
-                  </MenuButton>
+                  <MenuButton disabled={busy} active={sel === i} onHover={() => setSel(i)} onClick={it.act} delay={180 + n * 40}>{it.label}</MenuButton>
                 </div>
               );
             })}
           </div>
-          ))}
-        </div>
+        </nav>
       )}
-      {shot >= 5 && <AccountChip />}
+
+      {/* Handhelds: the same scene. The three modes ride the left rail at thumb
+          height and the smaller links the right rail, both clear of the summit. */}
+      {shot >= 5 && handheld && (
+        <>
+          <nav aria-label="Game modes" className="ui-l" style={{ position: 'absolute', left: 'calc(36px - var(--rail-l))', top: 470, translate: '0 -50%', width: 236, display: 'flex', flexDirection: 'column', gap: 10, padding: 14, background: '#11162DEB', border: '4px solid #343852', boxShadow: '#101126 6px 6px 0', animation: 'fadeIn 300ms steps(4) both' }}>
+            {lead.map((it) => it.primary ? (
+              <button key={it.label} className="f-press pressable" disabled={busy} onClick={() => pick(it)} style={{ minHeight: 58, padding: '10px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 14, lineHeight: '16px', color: '#101126', background: 'var(--sun)', border: '4px solid #101126', boxShadow: 'inset -4px -4px 0 #D9A21B, #D1307E 5px 5px 0' }}>
+                {saved ? 'CONTINUE' : it.label}
+                {saved && <span className="f-label" style={{ fontSize: 10, letterSpacing: '0.08em' }}>FLOOR {saved.floor + 1} · {saved.score.toLocaleString()} PTS</span>}
+              </button>
+            ) : (
+              <button key={it.label} className="f-press pressable tap" disabled={busy} onClick={() => pick(it)} style={{ minHeight: 46, padding: '8px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 12, lineHeight: '14px', color: '#fff', background: '#1E2140', border: '3px solid #3A3F70' }}>
+                {it.label}
+                {it.label === 'GEMS AND I' && <span className="f-label" style={{ fontSize: 10, color: '#9FD8FF' }}>TRAINING</span>}
+              </button>
+            ))}
+          </nav>
+          <nav aria-label="More" className="ui-br" style={{ position: 'absolute', right: 'calc(40px - var(--rail-r))', bottom: 'calc(28px - var(--rail-b))', display: 'flex', flexDirection: 'column', gap: 2, animation: 'fadeIn 300ms 120ms steps(4) both' }}>
+            {links.map((it) => (
+              <button key={it.label} className="f-label tap" disabled={busy} onClick={() => pick(it)} style={{ minHeight: 30, display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, letterSpacing: '0.12em', color: '#C9B8E8', textShadow: '#101126 2px 2px 0', whiteSpace: 'nowrap' }}>
+                <span style={{ width: 6, height: 6, flexShrink: 0, background: 'var(--magenta)', boxShadow: '#101126 2px 2px 0' }} />{it.label}
+              </button>
+            ))}
+            {fullscreen && (
+              <button className="f-label tap" onClick={() => { sfx('click'); void enterFullscreen(); }} style={{ minHeight: 30, display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, letterSpacing: '0.12em', color: 'var(--sun)', textShadow: '#101126 2px 2px 0', whiteSpace: 'nowrap' }}>
+                <span style={{ width: 6, height: 6, flexShrink: 0, background: 'var(--sun)', boxShadow: '#101126 2px 2px 0' }} />FULL SCREEN
+              </button>
+            )}
+          </nav>
+        </>
+      )}
+      {shot >= 5 && <AccountChip compact={handheld} />}
     </div>
   );
 }
@@ -181,12 +200,13 @@ function MenuButton({ children, active, big, disabled, onClick, onHover, delay }
   );
 }
 
-function AccountChip() {
+/** Top-right account chip. Handhelds anchor it to the right rail and drop the pitch line. */
+function AccountChip({ compact }: { compact?: boolean }) {
   const user = useGame((s) => s.user);
   const setOverlay = useGame((s) => s.setOverlay);
   if (user) {
     return (
-      <div className="title-account" style={{ position: 'absolute', right: 40, top: 28, display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px 8px 8px', background: 'rgba(16,17,38,0.85)', border: '3px solid #3A3F70', animation: 'dropIn 300ms steps(5) both' }}>
+      <div className="title-account ui-tr" style={{ position: 'absolute', right: 'calc(40px - var(--rail-r))', top: 28, display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px 8px 8px', background: 'rgba(16,17,38,0.85)', border: '3px solid #3A3F70', animation: 'dropIn 300ms steps(5) both' }}>
         <div style={{ position: 'relative', width: 44, height: 44, overflow: 'hidden', background: '#2A2F55', border: '3px solid var(--sun)' }}>
           <div className="sprite" style={{ left: -68, top: 2, width: 150, height: 150, backgroundImage: `url(${art('/assets/sprites/riff-trumpet.png')})`, backgroundPosition: '50% 0' }} />
         </div>
@@ -196,7 +216,7 @@ function AccountChip() {
         </div>
         <div style={{ width: 2, height: 32, background: '#3A3F70', margin: '0 4px' }} />
         <button
-          className="f-label"
+          className="f-label tap"
           style={{ fontSize: 11, color: 'var(--muted)' }}
           onClick={async () => {
             sfx('back');
@@ -210,11 +230,11 @@ function AccountChip() {
     );
   }
   return (
-    <div className="title-account" style={{ position: 'absolute', right: 40, top: 32, display: 'flex', alignItems: 'center', gap: 14, animation: 'dropIn 300ms steps(5) both' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+    <div className="title-account ui-tr" style={{ position: 'absolute', right: 'calc(40px - var(--rail-r))', top: 32, display: 'flex', alignItems: 'center', gap: 14, animation: 'dropIn 300ms steps(5) both' }}>
+      {!compact && <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
         <div className="f-label" style={{ fontSize: 12, color: 'var(--muted)' }}>PLAYING AS GUEST</div>
         <div className="f-body" style={{ fontSize: 14, color: 'var(--soft)' }}>Sign in to save runs + get ranked</div>
-      </div>
+      </div>}
       <button
         className="f-press hoverable pressable"
         onMouseEnter={() => sfx('hover')}
@@ -226,8 +246,4 @@ function AccountChip() {
       </button>
     </div>
   );
-}
-
-function MugIcon() {
-  return <svg aria-hidden="true" width="20" height="20" viewBox="0 0 10 10" shapeRendering="crispEdges" style={{ marginRight: 10 }}><path d="M1 2H7V9H1Z" fill="#FFD23F"/><path d="M7 3H9V7H7" fill="none" stroke="#FFD23F"/><path d="M1 1H7V3H1Z" fill="#FFF6E0"/><path d="M2 4H3V8H2Z" fill="#E8A93A"/></svg>;
 }

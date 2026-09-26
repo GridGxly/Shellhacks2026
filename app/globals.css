@@ -194,23 +194,6 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 /* Native-sized phone controls: never scale a form down with the game artwork. */
 .mobile-surface { position:fixed; inset-inline:0; top:var(--visual-top,0px); height:var(--visual-height,100dvh); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; z-index:50; padding:12px max(16px,env(safe-area-inset-right)) 16px max(16px,env(safe-area-inset-left)); background:#101126; }
 .mobile-surface button { min-height:44px; touch-action:manipulation; }
-.mobile-home { z-index:20; display:grid; grid-template-columns:minmax(160px,35%) minmax(0,1fr); gap:20px; background:linear-gradient(90deg,#10112622,#101126ba),url('/assets/bg/m/summit.webp') center/cover; }
-.mobile-home-art { position:relative; min-height:286px; }
-.mobile-home-art>img { width:100%; max-width:310px; display:block; margin:-18px auto 0; }
-.mobile-home-performer { position:absolute; inset:34% 0 0; background-size:contain; background-repeat:no-repeat; background-position:center bottom; image-rendering:pixelated; animation:breathe 1.2s steps(2) infinite; }
-.mobile-home-content { min-width:0; display:flex; flex-direction:column; gap:10px; }
-.mobile-home .title-account { position:relative!important; inset:auto!important; justify-content:flex-end; align-self:stretch; gap:10px!important; padding:0!important; border:0!important; box-shadow:none!important; animation:none!important; }
-.mobile-home .title-account .f-body { display:none; }
-.mobile-home .title-account button { padding:8px 12px!important; font-size:11px!important; }
-.mobile-home .title-account .f-label { font-size:11px!important; letter-spacing:.05em; }
-.mobile-home .title-account .f-press { font-size:12px!important; }
-.mobile-home nav { display:flex; flex-direction:column; gap:10px; padding:12px; background:#101126eb; border:2px solid #55577d; }
-.mobile-home-modes { display:grid; gap:8px; }
-.mobile-home-modes button { width:100%; padding:12px 8px; font:13px/1.45 var(--press); background:#ffd23f; color:#101126; border:2px solid #f0ddb4; box-shadow:3px 3px #a82762; }
-.mobile-home-modes small { display:inline-block; margin-left:10px; font:12px var(--label); }
-.mobile-home-links { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
-.mobile-home-links button { font:11px/1.5 var(--label); padding:5px; color:#fff6e0; border:1px solid #55577d; background:#232541; }
-.mobile-home button:disabled { opacity:.55; }
 .account-mobile { z-index:600; background:#080914ed; padding-top:12px; }
 .account-mobile .account-modal { position:relative; inset:auto; min-height:100%; }
 .account-mobile .account-modal>.fill { position:fixed; }
@@ -263,4 +246,3 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
   .mobile-performer-select .tavern-character-actions button { height:auto; min-height:48px; font:13px/1.4 var(--label); padding:8px; }
   .mobile-performer-select .tavern-character-back { flex:0 0 100px; }
 }
-@media (prefers-reduced-motion:reduce) { .mobile-home-performer { animation:none; } }
