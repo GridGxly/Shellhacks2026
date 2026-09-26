@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pitch Detection Validation</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Pitch Detection Validation</h1>
+
+      <section class="panel">
+        <div class="controls">
+          <button id="toggle" class="primary">Start Listening</button>
+          <label>
+            FFT size
+            <select id="fftSize">
+              <option value="1024">1024</option>
+              <option value="2048" selected>2048</option>
+              <option value="4096">4096</option>
+              <option value="8192">8192</option>
+            </select>
+          </label>
+          <label>
+            Clarity threshold
+            <input id="clarity" type="range" min="0.5" max="0.99" step="0.01" value="0.85" />
+            <span id="clarityValue" class="mono">0.85</span>
+          </label>
+          <label class="checkbox">
+            <input id="stabilize" type="checkbox" checked />
+            Stabilize (median filter)
+          </label>
+        </div>
+        <p id="status" class="status">Idle. Click “Start Listening” and play a sustained note.</p>
+      </section>
+
+      <section class="readout">
+        <div class="note-display">
+          <div id="note" class="note silent">—</div>
+          <div id="cents" class="cents">&nbsp;</div>
+          <div id="tuner" class="tuner"><div id="tunerNeedle" class="needle"></div></div>
+        </div>
+        <dl class="stats">
+          <div><dt>Frequency</dt><dd id="freq" class="mono">—</dd></div>
+          <div><dt>Clarity</dt><dd id="clarityOut" class="mono">—</dd></div>
+          <div><dt>Level (RMS)</dt><dd id="rms" class="mono">—</dd></div>
+          <div><dt>Frames/sec</dt><dd id="fps" class="mono">—</dd></div>
+        </dl>
+      </section>
+
+      <section class="panel">
+        <h2>Recorded file (repeatable test)</h2>
+        <div class="controls">
+          <input id="file" type="file" accept="audio/*,.wav" />
+          <button id="analyzeFile">Analyze file</button>
+        </div>
+        <p id="fileStatus" class="status">Load a .wav to run the same pipeline offline.</p>
+        <div id="fileResult"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Live log</h2>
+        <div class="controls">
+          <label class="checkbox"><input id="logToConsole" type="checkbox" checked /> Also log to console</label>
+          <button id="clearLog">Clear</button>
+        </div>
+        <pre id="log" class="log"></pre>
+      </section>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "name": "pitch-detection-validation",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "gen-wavs": "node scripts/gen-test-wavs.mjs",
+    "validate": "node scripts/validate.mjs"
+  },
+  "dependencies": {
+    "pitchy": "^4.1.0",
+    "tonal": "^6.4.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0",
+    "vite": "^7.1.5"
+  }
+}
