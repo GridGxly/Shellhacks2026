@@ -221,6 +221,34 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 :root[data-handheld] .victory-group { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 :root[data-handheld] .loss-col { left: 250px !important; width: 940px !important; }
 
+/* Handheld menus: the title rises, BACK sits on the bottom rail, and each page
+   trades the frame's spare height for the glass's spare width with larger type. */
+:root[data-handheld] .menu-head { top: 34px !important; }
+:root[data-handheld] .menu-back { top: auto !important; bottom: calc(52px - var(--rail-b)); }
+:root[data-handheld] .menu-demo { font-size: 18px !important; }
+:root[data-handheld] .howto-steps { top: 206px !important; gap: 36px !important; }
+:root[data-handheld] .howto-step { width: 440px !important; gap: 14px !important; }
+:root[data-handheld] .howto-art { align-self: center; }
+:root[data-handheld] .howto-step .f-press { font-size: 20px !important; }
+:root[data-handheld] .howto-step .f-body { font-size: 27px !important; line-height: 32px !important; }
+:root[data-handheld] .howto-rules { left: 100px !important; width: 1240px !important; top: 640px !important; padding: 16px 28px !important; }
+:root[data-handheld] .howto-rules .f-label { font-size: 17px !important; }
+:root[data-handheld] .howto-rules .f-body { font-size: 24px !important; }
+:root[data-handheld] .credits-rows { top: 200px !important; gap: 18px !important; }
+:root[data-handheld] .credits-rows .f-label { font-size: 19px !important; }
+:root[data-handheld] .credits-rows .f-body { font-size: 30px !important; max-width: 1320px !important; }
+:root[data-handheld] .credits-rows .f-press { font-size: 24px !important; }
+:root[data-handheld] .mic-panel { left: 250px !important; width: 940px !important; top: 196px !important; gap: 14px !important; padding: 24px 36px !important; }
+:root[data-handheld] .mic-panel .f-label { font-size: 18px !important; }
+:root[data-handheld] .mic-panel .f-body { font-size: 24px !important; }
+:root[data-handheld] .boss-intro { top: 186px !important; font-size: 24px !important; padding: 0 120px; }
+:root[data-handheld] .boss-grid { left: 60px !important; width: 1320px !important; top: 262px !important; }
+:root[data-handheld] .boss-grid > button { height: 200px !important; }
+:root[data-handheld] .boss-card-text { width: 250px !important; }
+:root[data-handheld] .boss-grid .f-label { font-size: 16px !important; }
+:root[data-handheld] .boss-grid .f-press { font-size: 22px !important; line-height: 26px !important; }
+:root[data-handheld] .boss-grid .f-body { font-size: 19px !important; }
+
 /* Native-sized phone controls: never scale a form down with the game artwork. */
 .mobile-surface { position:fixed; inset-inline:0; top:var(--visual-top,0px); height:var(--visual-height,100dvh); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; z-index:50; padding:12px max(16px,env(safe-area-inset-right)) 16px max(16px,env(safe-area-inset-left)); background:#101126; }
 .mobile-surface button { min-height:44px; touch-action:manipulation; }

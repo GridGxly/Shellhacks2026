@@ -25,7 +25,7 @@ export function BossDemo() {
 
   return (
     <MenuShell title="BOSS DEMO">
-      <div className="f-body" style={{ position: 'absolute', left: 0, top: 168, width: 1440, textAlign: 'center', fontSize: 17, color: 'var(--soft)' }}>
+      <div className="f-body boss-intro" style={{ position: 'absolute', left: 0, top: 168, width: 1440, textAlign: 'center', fontSize: 17, color: 'var(--soft)' }}>
         Pick a boss to fight right now. Nothing here is saved; your climb stays untouched. Reading as{' '}
         <button onClick={cycleInstrument} style={{ color: 'var(--sun)', textDecoration: 'underline', font: 'inherit' }}>
           {inst.name.toLowerCase()} ({inst.keyLabel})
@@ -33,7 +33,7 @@ export function BossDemo() {
         .
       </div>
 
-      <div style={{ position: 'absolute', left: 150, top: 215, width: 1140, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+      <div className="boss-grid" style={{ position: 'absolute', left: 150, top: 215, width: 1140, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
         {BOSSES.map(({ e, idx }) => (
           <button
             key={e.id}
@@ -44,7 +44,7 @@ export function BossDemo() {
           >
             <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${art(e.bg)})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: `${e.bgFilter ?? ''} brightness(0.45)` }} />
             <Sprite src={e.sprite} x={190} y={40} size={170} style={{ filter: e.spriteFilter }} />
-            <div style={{ position: 'absolute', left: 16, top: 14, display: 'flex', flexDirection: 'column', gap: 8, width: 190 }}>
+            <div className="boss-card-text" style={{ position: 'absolute', left: 16, top: 14, display: 'flex', flexDirection: 'column', gap: 8, width: 190 }}>
               <span className="f-label" style={{ fontSize: 11, color: 'var(--sun)' }}>ACT {e.act} · FLOOR {e.floor}</span>
               <span className="f-press" style={{ fontSize: 15, lineHeight: '20px', color: 'var(--parchment)', textShadow: '#101126 3px 3px 0' }}>{e.name.toUpperCase()}</span>
               <span className="f-body" style={{ fontSize: 14, color: 'var(--soft)' }}>{e.place}</span>
@@ -60,7 +60,7 @@ export function BossDemo() {
 
       <button
         onClick={() => { sfx('click'); useGame.getState().setDemo(!demo); }}
-        className="f-label"
+        className="f-label menu-demo tap"
         style={{ position: 'absolute', left: 0, top: 740, width: 1440, textAlign: 'center', fontSize: 12, color: demo ? 'var(--sun)' : 'var(--muted)' }}
       >
         {demo ? '■ DEMO MODE ON: NOTES ARE SIMULATED, NO INSTRUMENT NEEDED' : '□ NO INSTRUMENT? TURN ON DEMO MODE'}
