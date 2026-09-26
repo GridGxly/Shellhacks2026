@@ -44,6 +44,9 @@ class Mic {
   status: 'off' | 'on' | 'denied' | 'unsupported' = 'off';
   deviceLabel = '';
 
+  // Reuse the same permission and input for ephemeral tavern takes.
+  get mediaStream(): MediaStream | null { return this.stream; }
+
   async start(): Promise<boolean> {
     if (this.status === 'on') return true;
     if (!navigator.mediaDevices?.getUserMedia) {

@@ -1,0 +1,57 @@
+.tavern-heading { position:absolute; top:48px; left:120px; width:1200px; text-align:center; text-shadow:4px 4px #101126; }
+.tavern-heading h1 { margin:0 0 20px; font:32px/1.4 var(--press); color:#FFD23F; }
+.tavern-heading svg { margin:auto; }
+.tavern-heading p { margin:18px 0 0; font:24px/1.4 var(--body); color:#FFF6E0; }
+.tavern-lobby-cards { position:absolute; top:274px; left:240px; display:flex; gap:120px; }
+.tavern-board { width:420px; height:320px; padding:28px; background:#211C29F5; border:6px solid #AC7544; box-shadow:inset 0 0 0 3px #513728,8px 8px #101126; text-align:center; position:relative; }
+.tavern-board-number { font:14px var(--label); color:#C9B8E8; }
+.tavern-board h2 { margin:18px 0; font:20px/1.4 var(--press); color:#FFD23F; }
+.tavern-board p { font:24px/1.35 var(--body); margin:0 0 22px; min-height:84px; }
+.tavern-board label { display:block; font:14px var(--label); color:#C9B8E8; }
+.tavern-board input { display:block; width:232px; height:68px; margin:12px auto 16px; padding:8px; border:3px solid #A98A82; background:#101126; color:#FFF6E0; text-align:center; font:30px var(--press); letter-spacing:10px; }
+.tavern-action,.tavern-outline { cursor:pointer; font:15px/1.3 var(--press); padding:18px 22px; border:3px solid #101126; color:#101126; background:#FFD23F; box-shadow:4px 4px #D1307E; }
+.tavern-action:hover:not(:disabled),.tavern-outline:hover:not(:disabled) { translate:0 -4px; }
+.tavern-action:active:not(:disabled),.tavern-outline:active:not(:disabled) { translate:0 4px; box-shadow:0 0 #D1307E; }
+.tavern-action:disabled,.tavern-outline:disabled { cursor:wait; opacity:.55; }
+.tavern-outline { background:#101126; color:#FFF6E0; border-color:#AC7544; box-shadow:3px 3px #101126; font-size:12px; }
+.tavern-outline.selected { color:#FFD23F; border-color:#FFD23F; }
+.tavern-setup { position:absolute; top:622px; left:170px; width:1100px; display:flex; gap:22px; justify-content:center; align-items:end; }
+.tavern-setup label { display:flex; flex-direction:column; gap:8px; font:14px var(--label); }
+.tavern-setup select { height:50px; border:3px solid #AC7544; background:#101126; color:#FFF6E0; padding:10px; font:20px var(--body); }
+.tavern-note { position:absolute; top:706px; left:150px; width:1140px; text-align:center; font:20px/1.6 var(--body); color:#FFF6E0; text-shadow:2px 2px #101126; }
+.tavern-leave { position:absolute; bottom:26px; left:36px; padding:16px; color:#FFF6E0; background:#101126DA; border:2px solid #8A5A33; font:13px var(--press); }
+.tavern-room-code { position:absolute; top:38px; left:450px; width:540px; padding:22px; display:flex; flex-direction:column; gap:16px; align-items:center; background:#101126F0; border:4px solid #AC7544; box-shadow:6px 6px #211A18; }
+.tavern-room-code > span { font-size:14px; color:#C9B8E8; }
+.tavern-room-code > strong { font:52px var(--press); letter-spacing:12px; color:#FFD23F; }
+.tavern-room-code button { padding:10px 20px; }
+.tavern-bottom-status { position:absolute; top:752px; width:1060px; left:190px; text-align:center; background:#101126DB; padding:12px 20px; border:3px solid #8A5A33; display:flex; flex-wrap:wrap; justify-content:center; gap:10px 30px; align-items:center; }
+.tavern-bottom-status h2 { font:16px var(--press); color:#FFD23F; margin:0; }
+.tavern-bottom-status p { font:20px var(--body); margin:0; }
+.tavern-bottom-status button { padding:12px 20px; }
+.tavern-sheet { position:absolute; left:160px; top:32px; width:1120px; padding:16px; background:#FFF6E0; border:4px solid #101126; color:#101126; box-shadow:6px 6px #D1307E; animation:slideInTop 300ms steps(5) both; }
+.tavern-sheet header,.tavern-sheet footer { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:4px 12px 12px; font:14px/1.5 var(--label); }
+.tavern-sheet header strong { font:15px var(--press); }
+.tavern-sheet header strong span { color:#A62763; font:14px var(--label); }
+.tavern-sheet footer { padding:12px 12px 0; border-top:2px solid #BDAF97; }
+.tavern-sheet footer strong { color:#A62763; }
+.tavern-count { position:absolute; left:650px; top:318px; width:140px; text-align:center; font:82px var(--press); color:#FFD23F; text-shadow:6px 6px #101126; animation:popIn 250ms steps(3) both; }
+.tavern-partner-status { position:absolute; left:1040px; top:737px; width:330px; padding:16px; background:#101126ED; border:3px solid #8A5A33; }
+.tavern-partner-status .f-label { font-size:14px; color:#9FD8FF; }
+.tavern-partner-status p { font:19px var(--body); margin:12px 0 0; }
+.tavern-progress { height:18px; background:#292845; border:3px solid #101126; margin-top:14px; }
+.tavern-progress i { display:block; height:100%; background:#FFD23F; }
+.tavern-playback { position:absolute; left:260px; top:762px; width:920px; padding:18px; background:#101126EA; border:3px solid #8A5A33; text-align:center; font-size:14px; }
+.tavern-verdict h1 { animation:popIn 240ms steps(3) both; font-size:50px; }
+.tavern-verdict p { font-size:22px; }
+.tavern-tip-award { position:absolute; left:340px; top:752px; width:760px; background:#101126EF; border:3px solid #FFD23F; padding:14px; text-align:center; display:flex; flex-direction:column; gap:8px; }
+.tavern-tip-award strong { color:#FFD23F; font:16px var(--press); }
+.tavern-tip-award span { font:19px var(--body); }
+.tavern-tip-coin { position:absolute; top:-30px; color:#FFD23F; font:28px var(--press); opacity:0; animation:tavern-tip-flight 450ms steps(6) both; }
+.tavern-continue { position:absolute; right:44px; bottom:28px; }
+.tavern-error { position:absolute; top:812px; left:280px; width:880px; padding:12px 18px; text-align:center; background:#361B26F5; border:3px solid #FF8A93; font:19px var(--body); color:#FFF6E0; animation:shakeSmall 180ms steps(2) 2; }
+.tavern-disconnected { position:absolute; inset:0; background:#101126DE; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px; text-align:center; }
+.tavern-disconnected h1 { color:#FF8A93; font:30px var(--press); }
+.tavern-disconnected p { font:28px/1.5 var(--body); }
+@keyframes tavern-tip-flight { 0%{opacity:1;transform:translate(0,90px)} 50%{opacity:1;transform:translate(100px,-70px)} 100%{opacity:0;left:350px;transform:translate(0,10px)} }
+
+.tavern-heading p { background:#101126D9; padding:8px 18px; width:fit-content; max-width:1160px; margin:12px auto 0; border:2px solid #8A5A33; }
