@@ -41,18 +41,18 @@ function sequence(pitches: number[], durs: number[]): Note[] {
 // this piece is in A major rather than this file's B♭ — see note above
 // makeExercise if adding more absolute-pitch content like this.
 const GRAN_VALS_PHRASE: { midi: number; durBeats: number }[] = [
-  { midi: 80, durBeats: 0.5 }, // G#5
   { midi: 76, durBeats: 0.5 }, // E5
-  { midi: 69, durBeats: 1 }, // A4
-  { midi: 73, durBeats: 1 }, // C#5
   { midi: 74, durBeats: 0.5 }, // D5
-  { midi: 73, durBeats: 0.5 }, // C#5
-  { midi: 64, durBeats: 1 }, // E4
+  { midi: 66, durBeats: 1 }, // F#4
   { midi: 68, durBeats: 1 }, // G#4
   { midi: 73, durBeats: 0.5 }, // C#5
   { midi: 71, durBeats: 0.5 }, // B4
   { midi: 62, durBeats: 1 }, // D4
-  { midi: 66, durBeats: 1 }, // F#4
+  { midi: 64, durBeats: 1 }, // E4
+  { midi: 71, durBeats: 0.5 }, // B4
+  { midi: 69, durBeats: 0.5 }, // A4
+  { midi: 61, durBeats: 1 }, // C#4
+  { midi: 64, durBeats: 1 }, // E4
   { midi: 69, durBeats: 2 }, // A4, half note + fermata (beat 3 is rest)
 ];
 /**
@@ -75,6 +75,15 @@ function granValsNotes(repeats: number): Note[] {
   return out;
 }
 
+// Harmony implied by the melody notes in each bar (V-I-I-I): E (V) resolves
+// into A (I) for the rest of the phrase, matching the piece's actual cadence.
+const GRAN_VALS_CHORDS: { bar: number; label: string }[] = [
+  { bar: 0, label: 'E' },
+  { bar: 1, label: 'A' },
+  { bar: 2, label: 'A' },
+  { bar: 3, label: 'A' },
+];
+
 export const GRAN_VALS: Exercise = {
   id: 'ode-encore',
   type: 'encore',
@@ -83,6 +92,7 @@ export const GRAN_VALS: Exercise = {
   beatsPerBar: 3,
   bars: 4,
   notes: granValsNotes(1),
+  chordLabels: GRAN_VALS_CHORDS,
 };
 
 export const DUET_A: Exercise = { ...GRAN_VALS, id: 'duet-a', title: 'Duet · Part A (melody)' };
@@ -99,13 +109,14 @@ let uid = 0;
 
 /**
  * Chord card: the song's harmony as arpeggios, one note per beat in 3/4.
- * A · A · D · E — the progression Gran Vals moves through.
+ * E · A · A · A — matches GRAN_VALS_CHORDS, the harmony implied by the
+ * encore's melody notes (V resolving into I for the rest of the phrase).
  */
 const CHORD_BARS: { label: string; midi: number[] }[] = [
+  { label: 'E', midi: [64, 68, 71] }, // E4 G♯4 B4
   { label: 'A', midi: [69, 73, 76] }, // A4 C♯5 E5
   { label: 'A', midi: [69, 73, 76] }, // A4 C♯5 E5
-  { label: 'D', midi: [66, 69, 74] }, // F♯4 A4 D5
-  { label: 'E', midi: [68, 71, 76] }, // G♯4 B4 E5
+  { label: 'A', midi: [69, 73, 76] }, // A4 C♯5 E5
 ];
 
 /**
