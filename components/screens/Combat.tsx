@@ -20,6 +20,8 @@ type Active = number | 'encore';
 const wait = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 const clock = () => performance.now();
 const FLOOR_Y = 590; // fighters stand on this line
+// Safety net for a voice clip that never reports its end; real lines finish well before.
+const LINE_LIMIT_MS = 12000;
 const RIFF = { x: 210, size: 320 };
 
 export default function Combat() {
@@ -51,6 +53,7 @@ export default function Combat() {
   useLayoutEffect(() => { dragRef.current = drag; pickedRef.current = picked; }, [drag, picked]);
   const busy = useRef(false); // one performance at a time
   const performing = useRef(false); // count-in + recording: no voice may start
+  const voiceLine = useRef<Promise<void>>(Promise.resolve()); // the heckle currently being spoken
 
   const size = enemy.size;
   const enemyX = 1030 - size / 2;
@@ -91,12 +94,24 @@ export default function Combat() {
       const c = s.combat!;
       const facts = buildFacts(ex, results, inst.shift, inst.writtenOffset, s.run.hp, failCount);
       const t = await fetchTaunt(enemy, c.heat, moment, facts, c.used);
-      // A slow reply must not start talking once the next performance is under way (it would leak into the mic).
-      if (!t || !alive.current || performing.current) return;
-      s.noteTaunt(t.id);
-      setTaunt({ ...t, heat: c.heat, speaking: true });
-      await Promise.race([speak(t, enemy), wait(5000)]);
-      if (alive.current) setTaunt((cur) => (cur && cur.id === t.id ? { ...cur, speaking: false } : cur));
+      if (!t) return;
+      // One heckle at a time: a new line waits for the current one to finish
+      // instead of cutting it off mid-sentence.
+      const previous = voiceLine.current;
+      let release = () => {};
+      voiceLine.current = previous.then(() => new Promise<void>((r) => (release = r)));
+      await previous;
+      try {
+        // A slow reply must not start talking once the next performance is under way (it would leak into the mic).
+        if (!alive.current || performing.current) return;
+        s.noteTaunt(t.id);
+        setTaunt({ ...t, heat: c.heat, speaking: true });
+        await Promise.race([speak(t, enemy), wait(LINE_LIMIT_MS)]);
+        if (alive.current) setTaunt((cur) => (cur && cur.id === t.id ? { ...cur, speaking: false } : cur));
+      } finally {
+        if (t.audio) URL.revokeObjectURL(t.audio);
+        release();
+      }
     },
     [enemy, inst],
   );
@@ -192,7 +207,8 @@ export default function Combat() {
     if (!alive.current) return;
     setFx({});
     if (hp <= 0) return ko();
-    await Promise.race([talking, wait(4500)]);
+    // The turn comes back once the enemy has finished its line.
+    await Promise.race([talking, wait(LINE_LIMIT_MS)]);
     await wait(250);
     if (!alive.current) return;
     useGame.getState().nextRound();
