@@ -27,12 +27,16 @@ export const COUNT_IN_BEATS = 4;
 export const PITCH_TOLERANCE_CENTS = 50;
 export const MIN_PITCH_COVERAGE = 0.5;
 export const TIMING_WINDOW_MS = 150;
+export const PERFECT_MS = 50; // onset within this of the beat = PERFECT; beyond it EARLY / LATE
 export const INPUT_LATENCY_MS = 80;
 export const RECORD_TAIL_MS = 300;
 export const PASS_THRESHOLD = 0.8;
 export const ULTIMATE_PASS_THRESHOLD = 0.8;
 export const REVIEW_DURATION_MS = 2200;
 export const ONSET_RISE_DB = 6;
+export const SKIP_ATTACK = 0.2; // ignore this share of each note's window when judging pitch (previous note still ringing)
+export const MIN_READINGS = 2; // fewer pitched frames than this in a note's window = silent
+export const IGNORE_OCTAVE = true; // grade the note name only: a C in any octave counts as C
 
 // Score (PRD §7b). lib/score.ts applies these on both the client and the server.
 export const SCORE_PER_FLOOR = 1000; // x floor number, per enemy beaten

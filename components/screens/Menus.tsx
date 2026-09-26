@@ -2,6 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { sfx } from '@/lib/audio';
 import { mic, type Reading } from '@/lib/mic';
+import { INSTRUMENTS } from '@/lib/content';
 import { instrumentOf, useGame } from '@/lib/store';
 import { noteName, writtenKey } from '@/lib/music';
 import { Arrow, Bg, FloatingNotes, Ornament, Sprite } from '../ui';
@@ -125,7 +126,7 @@ export function MicCheck() {
     };
   }, []);
 
-  const written = reading?.midi != null ? reading.midi + inst.writtenOffset : null;
+  const written = reading?.stableMidi != null ? reading.stableMidi + inst.writtenOffset : null;
   const nearest = written != null ? Math.round(written) : null;
   const cents = written != null ? Math.round((written - nearest!) * 100) : 0;
   const level = reading ? Math.max(0, Math.min(10, Math.round((reading.rmsDb + 60) / 5))) : 0;
@@ -141,7 +142,19 @@ export function MicCheck() {
           </div>
         </div>
         <div className="f-body" style={{ fontSize: 19, color: 'var(--soft)' }}>
-          Hold a long written C on your {inst.name.toLowerCase()}.
+          Hold a long written C on your{' '}
+          {/* Readout is in this instrument's written key; click to cycle (Flute = concert pitch). */}
+          <button
+            onClick={() => {
+              sfx('click');
+              const i = INSTRUMENTS.findIndex((x) => x.id === inst.id);
+              useGame.getState().chooseInstrument(INSTRUMENTS[(i + 1) % INSTRUMENTS.length].id);
+            }}
+            style={{ color: 'var(--sun)', textDecoration: 'underline', font: 'inherit' }}
+          >
+            {inst.name.toLowerCase()} ({inst.keyLabel})
+          </button>
+          .
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, height: 80 }}>
           <div key={nearest ?? 'x'} className="f-press" style={{ fontSize: 72, lineHeight: '76px', color: nearest == null ? '#3A3F70' : inTune ? 'var(--meadow)' : 'var(--sun)', textShadow: '#101126 5px 5px 0', animation: 'popIn 200ms steps(3)' }}>
@@ -149,6 +162,11 @@ export function MicCheck() {
           </div>
           <div className="f-press" style={{ fontSize: 24, color: 'var(--muted)' }}>{nearest != null ? Math.floor(nearest / 12) - 1 : ''}</div>
         </div>
+        {inst.writtenOffset !== 0 && (
+          <div className="f-label" style={{ marginTop: -16, fontSize: 12, color: 'var(--muted)' }}>
+            {nearest != null ? `WRITTEN FOR ${inst.keyLabel} · CONCERT ${noteName(nearest - inst.writtenOffset, writtenKey(0))}` : `WRITTEN FOR ${inst.keyLabel}`}
+          </div>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div style={{ position: 'relative', width: 520, height: 28, display: 'flex', gap: 4 }}>
             {['#3A1B2E', '#3A1B2E', '#3A3020', '#1E3A28', '#4CC26B', '#4CC26B', '#1E3A28', '#3A3020', '#3A1B2E', '#3A1B2E'].map((c, i) => <div key={i} style={{ flex: 1, background: c }} />)}

@@ -6,7 +6,7 @@ import { exerciseKey, makeExercise, GRAN_VALS, type CardType, type Exercise } fr
 import { addScore, type RunEvent } from './score';
 
 export type Screen =
-  | 'title' | 'howto' | 'mic' | 'credits' | 'instrument' | 'map' | 'combat'
+  | 'title' | 'howto' | 'mic' | 'lab' | 'bossdemo' | 'credits' | 'instrument' | 'map' | 'combat'
   | 'victory' | 'actclear' | 'loss' | 'final' | 'leaderboard' | 'profile';
 export type Overlay = null | 'stats' | 'pause' | 'mappeek' | 'signin' | 'overwrite';
 export type Transition = null | 'wipe' | 'iris';
@@ -180,6 +180,8 @@ interface GameState {
   user: User | null;
   toast: string | null;
   combatLocked: boolean; // a performance/attack/enemy turn is running: no pause overlays
+  // Set during a Boss Demo fight: the real run + checkpoint to hand back after.
+  bossDemo: { run: Run; saved: Run | null } | null;
 
   hydrate: () => void;
   setUser: (u: User | null) => void;
@@ -191,6 +193,8 @@ interface GameState {
   continueRun: () => void;
   adoptSave: (run: Run) => void;
   startFight: () => void;
+  startBossDemo: (enemyIdx: number) => void;
+  endBossDemo: () => void;
   buy: (id: StatId) => boolean;
   showToast: (t: string) => void;
 
@@ -217,6 +221,7 @@ export const useGame = create<GameState>((set, get) => ({
   user: null,
   toast: null,
   combatLocked: false,
+  bossDemo: null,
 
   hydrate: () => set({ saved: migrateRun(readJSON<Run>(SAVE_KEY)), best: readJSON(BEST_KEY) }),
   setUser: (user) => {
@@ -254,6 +259,28 @@ export const useGame = create<GameState>((set, get) => ({
   startFight: () => set((s) => ({ combat: newCombat(s.run.floor) })),
 
   // Upgrades only between fights, so the checkpoint never holds a mid-fight snapshot.
+  // Boss Demo: a throwaway run parked on the boss's floor. Nothing it does is
+  // saved, logged or sent to the leaderboard (see winFight / loseRun).
+  startBossDemo: (enemyIdx) => {
+    const s = get();
+    set({
+      bossDemo: s.bossDemo ?? { run: s.run, saved: s.saved },
+      run: { ...freshRun(s.run.instrument), floor: enemyIdx },
+      combat: newCombat(enemyIdx),
+      lossBy: null,
+    });
+    get().go('combat', 'iris');
+  },
+  endBossDemo: () => {
+    const backup = get().bossDemo;
+    get().go('title', 'iris');
+    // Restore once the iris has covered the fight (screen swaps at 520 ms), so
+    // Combat never re-renders against the real run's HP/stats.
+    window.setTimeout(() => {
+      if (backup) set({ run: backup.run, saved: backup.saved, combat: null, bossDemo: null });
+    }, 600);
+  },
+
   buy: (id) => {
     const { run, screen, user } = get();
     if (screen === 'combat') return false;
@@ -262,6 +289,10 @@ export const useGame = create<GameState>((set, get) => ({
     const levels = { ...run.levels, [id]: run.levels[id] + 1 };
     const next: Run = { ...run, tips: run.tips - cost, levels };
     if (id === 'maxHp') next.hp = stat(next, 'maxHp');
+    if (get().bossDemo) {
+      set({ run: next }); // demo purchases are throwaway
+      return true;
+    }
     set({ run: next, saved: next });
     writeJSON(SAVE_KEY, next);
     if (user) void syncSave(next);
@@ -366,6 +397,7 @@ export const useGame = create<GameState>((set, get) => ({
 
   winFight: () => {
     const s = get();
+    if (s.bossDemo) return;
     logFight(s, true);
     const floor = fightFloor(s.run);
     const boss = ENEMIES[floor - 1].boss;
@@ -391,6 +423,7 @@ export const useGame = create<GameState>((set, get) => ({
 
   loseRun: () => {
     const s = get();
+    if (s.bossDemo) return;
     logFight(s, false);
     set({ lossBy: s.combat?.enemyIdx ?? 0 });
     finishRun(s.run, 'loss');

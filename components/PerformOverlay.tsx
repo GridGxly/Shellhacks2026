@@ -1,4 +1,5 @@
 'use client';
+import { settings } from '@/lib/audio';
 import type { Exercise } from '@/lib/music';
 import type { NoteResult } from '@/lib/mic';
 import type { Enemy, Instrument } from '@/lib/content';
@@ -89,7 +90,8 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
             shift={inst.shift}
             writtenOffset={inst.writtenOffset}
             width={width}
-            beat={stage === 'recording' ? beat : null}
+            beat={stage === 'recording' || (stage === 'countin' && settings.approach === 'on') ? beat : null}
+            approach={settings.approach === 'on'}
             results={results}
             barsPerLine={encore ? 4 : Math.min(ex.bars, 4)}
             revealUpTo={stage === 'unfold' ? -1 : Infinity}

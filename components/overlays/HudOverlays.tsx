@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, type ReactNode } from 'react';
-import { applySettings, duck, settings, sfx, type AudioSettings } from '@/lib/audio';
+import { duck, saveSettings, settings, sfx, type AudioSettings } from '@/lib/audio';
 import { STATS, XP_PER_LEVEL, type StatId } from '@/lib/config';
 import { ACTS, ENEMIES } from '@/lib/content';
 import { mic } from '@/lib/mic';
@@ -158,12 +158,12 @@ export function Pause() {
   const [s, setS] = useState<AudioSettings>({ ...settings });
   const [confirmQuit, setConfirmQuit] = useState(false);
   const set = <K extends keyof AudioSettings>(k: K, v: AudioSettings[K]) => {
-    applySettings({ [k]: v } as Partial<AudioSettings>);
+    saveSettings({ [k]: v } as Partial<AudioSettings>);
     setS({ ...settings });
-    try { localStorage.setItem('stc.settings.v1', JSON.stringify(settings)); } catch { /* ignore */ }
   };
   const quit = () => {
     sfx('click');
+    if (useGame.getState().bossDemo) return useGame.getState().endBossDemo(); // hand the real run back
     useGame.getState().go('title');
   };
 
@@ -180,6 +180,7 @@ export function Pause() {
           <Slider label="VOICES" value={s.voice} onChange={(v) => set('voice', v)} />
           <Choice label="TRASH TALK" value={s.trashTalk} options={[['spicy', 'SPICY'], ['mild', 'MILD'], ['off', 'OFF']]} onChange={(v) => set('trashTalk', v)} hint="Enemies roast your wrong notes. Voices never play while you record." />
           <Choice label="METRONOME" value={s.metronome} options={[['click', 'CLICK'], ['flash', 'FLASH'], ['off', 'OFF']]} onChange={(v) => set('metronome', v)} />
+          <Choice label="FOLLOW ALONG" value={s.approach} options={[['on', 'CIRCLES'], ['off', 'BAR']]} onChange={(v) => set('approach', v)} hint="Circles close in on each note right on its beat. BAR is the classic sweeping line." />
           <Choice label="COUNT-IN" value={String(s.countIn)} options={[['4', '4 BEATS'], ['2', '2 BEATS']]} onChange={(v) => set('countIn', Number(v) as 2 | 4)} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#1B1E3B', border: '3px solid #2A2F55' }}>
             <span className="f-label" style={{ fontSize: 13, color: 'var(--muted)' }}>MICROPHONE</span>
