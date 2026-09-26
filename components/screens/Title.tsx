@@ -81,7 +81,7 @@ export default function Title() {
       <img
         src="/assets/logo.png"
         alt="Slay the Choir"
-        style={{ position: 'absolute', left: 380, top: 18, width: 680, animation: shot === 4 ? 'slam 600ms 200ms steps(8) both' : undefined }}
+        style={{ position: 'absolute', left: 410, top: -24, width: 620, animation: shot === 4 ? 'slam 600ms 200ms steps(8) both' : undefined }}
       />
       <FloatingNotes count={8} />
       {shot === 4 && <div className="fill" style={{ background: '#FFF6E0', animation: 'fadeOut 500ms steps(5) forwards', pointerEvents: 'none' }} />}
@@ -101,11 +101,11 @@ export default function Title() {
               {saved.score.toLocaleString()} PTS · {saved.tips} TIPS · HP {saved.hp}
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginTop: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 44, marginTop: 4 }}>
             {secondary.map((it, n) => {
               const i = items.indexOf(it);
               return (
-                <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+                <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 44 }}>
                   {n > 0 && <div style={{ width: 6, height: 6, background: 'var(--magenta)' }} />}
                   <MenuButton active={sel === i} onHover={() => setSel(i)} onClick={it.act} delay={80 + n * 60}>
                     {it.label}
@@ -129,15 +129,16 @@ function MenuButton({ children, active, big, onClick, onHover, delay }: { childr
       onMouseEnter={() => { onHover(); sfx('hover'); }}
       onClick={() => { sfx('click'); onClick(); }}
       style={{
-        display: 'flex', alignItems: 'center', gap: 18, fontSize: big ? 24 : 14, lineHeight: big ? '28px' : '18px',
+        position: 'relative', display: 'flex', alignItems: 'center', fontSize: big ? 24 : 14, lineHeight: big ? '28px' : '18px', whiteSpace: 'nowrap',
         color: active ? '#fff' : big ? '#fff' : '#C9B8E8',
         textShadow: active ? `rgba(255,210,63,0.8) 0 0 12px, #101126 3px 3px 0` : '#101126 2px 2px 0',
         animation: `riseIn 300ms ${delay}ms steps(5) both`,
       }}
     >
-      <span style={{ opacity: active ? 1 : 0, animation: active ? 'shakeSmall 700ms steps(2) infinite' : undefined }}><Arrow size={big ? 40 : 24} /></span>
+      {/* Arrows float outside the label so hidden ones don't take up row width. */}
+      <span style={{ position: 'absolute', right: '100%', marginRight: big ? 18 : 10, display: 'flex', opacity: active ? 1 : 0, animation: active ? 'shakeSmall 700ms steps(2) infinite' : undefined }}><Arrow size={big ? 40 : 24} /></span>
       {children}
-      <span style={{ opacity: active ? 1 : 0, animation: active ? 'shakeSmall 700ms steps(2) infinite' : undefined }}><Arrow dir="left" size={big ? 40 : 24} /></span>
+      <span style={{ position: 'absolute', left: '100%', marginLeft: big ? 18 : 10, display: 'flex', opacity: active ? 1 : 0, animation: active ? 'shakeSmall 700ms steps(2) infinite' : undefined }}><Arrow dir="left" size={big ? 40 : 24} /></span>
     </button>
   );
 }
