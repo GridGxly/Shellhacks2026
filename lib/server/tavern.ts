@@ -1,3 +1,4 @@
+import { guarded } from '@/lib/server/api-guard';
 import { createHash, randomBytes, randomInt } from 'node:crypto';
 import type { ClientSession, Db } from 'mongodb';
 import {
@@ -11,7 +12,7 @@ import { recordPerformance } from './performance';
 import { tavernExercise } from '@/lib/tavern-exercise';
 import { getTavernCharacter, isTavernCharacterId, type TavernCharacterId } from '@/lib/tavern-characters';
 import type { PublicTavernPlayer, PublicTavernRoom, TavernMode, TavernPart, TavernPhase, TavernResultInput } from '@/lib/tavern-types';
-import { duplicate, handled, int, mutation, readJson } from './http';
+import { duplicate, int, mutation, readJson } from './http';
 import { clientIp, limit } from './ratelimit';
 import { instrument } from './validation';
 
@@ -104,7 +105,7 @@ function resultInput(body: Record<string, unknown>, player: Player, mode: Tavern
 
 /** Shared route boundary: tokens stay out of public snapshots and normal URLs. */
 export async function tavernRequest(request: Request, action: Action, rawCode?: string) {
-  return handled(async () => {
+  return guarded(request, async () => {
     const mutating = request.method !== 'GET';
     if (mutating) { const guard = mutation(request, action !== 'leave'); if (guard) return guard; }
     const body = mutating ? await readJson(request, action === 'result' ? TAVERN_RESULT_MAX_BYTES : 2048) : {};

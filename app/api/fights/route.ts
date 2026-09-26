@@ -1,6 +1,7 @@
+import { guarded } from '@/lib/server/api-guard';
 import { currentUser, db, dbConfigured, offline } from '@/lib/db';
 import { ENEMIES } from '@/lib/content';
-import { bad, handled, int, mutation, readJson } from '@/lib/server/http';
+import { bad, int, mutation, readJson } from '@/lib/server/http';
 import { clientIp, limit } from '@/lib/server/ratelimit';
 import { instrument } from '@/lib/server/validation';
 
@@ -16,7 +17,7 @@ interface FightDoc {
 }
 
 export async function POST(request: Request) {
-  return handled(async () => {
+  return guarded(request, async () => {
     const guard = mutation(request); if (guard) return guard;
     const b = await readJson(request, 2048); if (b instanceof Response) return b;
     if (b.demo === true) return new Response(null, { status: 204 });
@@ -30,8 +31,8 @@ export async function POST(request: Request) {
 }
 
 /** Per-enemy danger: attempts, how many climbers fell, average accuracy. */
-export async function GET() {
-  return handled(async () => {
+export async function GET(request: Request) {
+  return guarded(request, async () => {
     if (!dbConfigured()) return offline();
     const rows = await (await db())
       .collection<FightDoc>('fights')

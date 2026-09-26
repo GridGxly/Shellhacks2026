@@ -1,8 +1,9 @@
+import { guarded } from '@/lib/server/api-guard';
 import { currentUser, db, dbConfigured, offline, unauthorized, type UserDoc } from '@/lib/db';
-import { handled, mutation } from '@/lib/server/http';
+import { mutation } from '@/lib/server/http';
 
 export async function POST(request: Request) {
-  return handled(async () => {
+  return guarded(request, async () => {
     const guard = mutation(request, false); if (guard) return guard;
     if (!dbConfigured()) return offline();
     const user = await currentUser(); if (!user) return unauthorized();

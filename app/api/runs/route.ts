@@ -1,12 +1,13 @@
+import { guarded } from '@/lib/server/api-guard';
 import { currentUser, db, dbConfigured, offline, transaction, unauthorized, type RunDoc, type UserDoc } from '@/lib/db';
 import { RUN_SUBMIT_COOLDOWN_MS } from '@/lib/config';
 import { verifyRun } from '@/lib/score';
-import { bad, duplicate, handled, mutation, readJson } from '@/lib/server/http';
+import { bad, duplicate, mutation, readJson } from '@/lib/server/http';
 import { instrument, runId } from '@/lib/server/validation';
 import { weekKey } from '@/lib/server/ranking';
 
 export async function POST(request: Request) {
-  return handled(async () => {
+  return guarded(request, async () => {
     const guard = mutation(request); if (guard) return guard;
     const b = await readJson(request); if (b instanceof Response) return b;
     if (b.demo === true) return bad("Practice runs aren't ranked.");

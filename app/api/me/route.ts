@@ -1,8 +1,8 @@
+import { guarded } from '@/lib/server/api-guard';
 import { currentUser, publicUser } from '@/lib/db';
-import { handled } from '@/lib/server/http';
 
-export async function GET() {
-  return handled(async () => {
+export async function GET(request: Request) {
+  return guarded(request, async () => {
     const u = await currentUser();
     return Response.json(u ? publicUser(u) : null);
   });

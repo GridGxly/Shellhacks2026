@@ -51,7 +51,7 @@ export function dbConfigured() {
 
 export function db(): Promise<Db> {
   if (!g._stcMongo) {
-    const client = new MongoClient(process.env.MONGODB_URI!);
+    const client = new MongoClient(process.env.MONGODB_URI!, { maxPoolSize: 10, minPoolSize: 0, maxIdleTimeMS: 60_000, serverSelectionTimeoutMS: 5000, waitQueueTimeoutMS: 3000 });
     g._stcClient = client;
     g._stcMongo = client.connect().then(async (c) => {
       const d = c.db(process.env.MONGODB_DB ?? 'slay-the-choir');
@@ -72,7 +72,11 @@ export function db(): Promise<Db> {
       ]);
       return d;
     });
-    g._stcMongo.catch(() => (g._stcMongo = undefined));
+    const pending = g._stcMongo;
+    void pending.catch(async () => {
+      if (g._stcMongo === pending) g._stcMongo = undefined;
+      await client.close().catch(() => {});
+    });
   }
   return g._stcMongo;
 }

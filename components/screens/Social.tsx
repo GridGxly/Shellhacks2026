@@ -53,17 +53,32 @@ export function Leaderboard() {
         if (mounted && !current.signal.aborted) setData((last) => last ?? 'offline');
       }
     };
-    void refresh();
-    const source = new EventSource('/api/leaderboard/live');
-    source.addEventListener('ready', () => { setConnected(true); void refresh(); });
-    source.addEventListener('run', (event) => {
-      try {
-        const run = JSON.parse(event.data) as { weekKey: string };
-        if (range === 'all' || run.weekKey === weekKey()) void refresh();
-      } catch { /* Ignore an incomplete event; reconnect refreshes the board. */ }
-    });
-    source.onerror = () => setConnected(false);
-    return () => { mounted = false; request?.abort(); source.close(); };
+    let source: EventSource | null = null;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleRefresh = () => {
+      if (refreshTimer) return;
+      refreshTimer = setTimeout(() => { refreshTimer = undefined; void refresh(); }, 1000);
+    };
+    const connect = () => {
+      if (document.hidden || source) return;
+      source = new EventSource('/api/leaderboard/live');
+      source.addEventListener('ready', () => { if (mounted) setConnected(true); scheduleRefresh(); });
+      source.addEventListener('run', (event) => {
+        try {
+          const run = JSON.parse(event.data) as { weekKey: string };
+          if (range === 'all' || run.weekKey === weekKey()) scheduleRefresh();
+        } catch { /* Reconnecting refreshes the board. */ }
+      });
+      source.onerror = () => { if (mounted) setConnected(false); };
+    };
+    const visibility = () => {
+      if (document.hidden) {
+        source?.close(); source = null; request?.abort(); clearTimeout(refreshTimer); refreshTimer = undefined; setConnected(false);
+      } else { void refresh(); connect(); }
+    };
+    void refresh(); connect();
+    document.addEventListener('visibilitychange', visibility);
+    return () => { mounted = false; request?.abort(); source?.close(); clearTimeout(refreshTimer); document.removeEventListener('visibilitychange', visibility); };
   }, [range]);
 
   const rows = data && data !== 'offline' ? data.rows : [];

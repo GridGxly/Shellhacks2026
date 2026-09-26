@@ -59,7 +59,7 @@ export default function Title() {
       list.push({ label: startingRun ? 'PREPARING CLIMB…' : 'CAMPAIGN', primary: true, act: () => { void useGame.getState().newRun().then(started => { if (started) go('instrument'); }); } });
     }
     list.splice(1, 0, { label: 'TAVERN MODE', mode: true, act: () => go('tavern', 'iris') }, { label: 'GEMS AND I', mode: true, act: () => go('training', 'iris') });
-    list.push({ label: 'HOW TO PLAY', act: nav('howto') }, { label: 'MIC CHECK', act: nav('mic') }, { label: 'PITCH LAB', act: nav('lab') }, { label: 'BOSS DEMO', act: nav('bossdemo') }, { label: 'LEADERBOARD', act: nav('leaderboard') });
+    list.push({ label: 'HOW TO PLAY', act: nav('howto') }, { label: 'MIC CHECK', act: nav('mic') }, { label: 'BOSS DEMO', act: nav('bossdemo') }, { label: 'LEADERBOARD', act: nav('leaderboard') });
     if (user) list.push({ label: 'PROFILE', act: nav('profile') });
     list.push({ label: 'CREDITS', act: nav('credits') });
     return list;
@@ -139,7 +139,6 @@ export default function Title() {
         </div>
       )}
       {shot >= 5 && <AccountChip />}
-      <div className="f-label" style={{ position: 'absolute', left: 40, bottom: 28, fontSize: 12, color: '#9AA0C8' }}>SHELLHACKS 2026 · v1.0</div>
     </div>
   );
 }

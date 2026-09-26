@@ -1,12 +1,13 @@
+import { guarded } from '@/lib/server/api-guard';
 import bcrypt from 'bcryptjs';
 import { createSession, db, dbConfigured, offline, publicUser, type UserDoc } from '@/lib/db';
-import { bad, handled, mutation, readJson } from '@/lib/server/http';
+import { bad, mutation, readJson } from '@/lib/server/http';
 import { limit } from '@/lib/server/ratelimit';
 import { credentials } from '@/lib/server/validation';
 
 const DUMMY = '$2b$12$.fQAPdB0RHiRCYe81H3iiOCLTszHpZtgpM91MAkYK2DP/Yls5Bq4e';
 export async function POST(request: Request) {
-  return handled(async () => {
+  return guarded(request, async () => {
     const guard = mutation(request); if (guard) return guard;
     const b = await readJson(request, 2048); if (b instanceof Response) return b;
     // Sign-in accepts accounts made under the older 6-character rule; the 8+ policy applies at signup.
