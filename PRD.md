@@ -1,6 +1,7 @@
 # Sight-Reading Spire — PRD (ShellHacks 2026)
 
-_Last updated: 2026-09-26 (v2: added boss ultimate ability, loss screen, heal after victory, changing card music)_
+_Last updated: 2026-09-26 (v3: added enemy trash talk with ElevenLabs, §7a)_
+_v2: added boss ultimate ability, loss screen, heal after victory, changing card music_
 
 > **For AI assistants (Claude / Claude Code):** This file is the source of truth for the project.
 > - All tunable numbers live in **§9 Config**. Never hard-code them elsewhere; import from `src/config.ts`.
@@ -27,6 +28,7 @@ A browser game, inspired by Slay the Spire 2, where every card is a short sight-
 - Branching maps, loot, shops, rest sites, deck building.
 - True chords (notes played together). Chord cards are a melodic progression, one note at a time.
 - AI-generated music, voice commands, accounts, saved progress.
+- Voice is used only for enemy trash talk (§7a). No narrator, no AI companion, no voice reading the UI.
 
 ---
 
@@ -176,6 +178,64 @@ Each note is simply **correct** or **wrong**:
 
 ---
 
+## 7a. Enemy trash talk (ElevenLabs)
+
+Enemies hear how you played and heckle you for it. Each line is built from the grading result (`NoteResult[]`) and spoken with an ElevenLabs voice for that enemy. The worse you play, the more they talk and the meaner it gets. It has no effect on combat numbers. [Decided]
+
+**Why it fits:** the final boss is a choir, and enemies are supposed to visibly fight back. Voice turns the grader's facts (wrong note, accuracy, timing) into a character reacting, and the player hears the feedback without looking away from the sheet.
+
+### When enemies talk [Decided]
+| Moment | Screen | What they say |
+|---|---|---|
+| Card missed | Review · Miss | Names your actual mistakes ("That was an E. The chart said G.") |
+| Enemy turn | Enemy Turn (during the attack) | Jab based on your last card and your HP |
+| Card landed | Review · Hit | Grudging line, **only** at heat 0 or 1 and 1 in 3 times (mostly silent) |
+| Fight intro | Versus slam | One fixed intro line per enemy |
+| Player K.O. | K.O. | One fixed finisher line per enemy |
+| Encore lands | Encore | Boss's last words (fixed) |
+
+**Never while the mic is recording.** Lines only play in review, enemy turn, and transitions, never during count-in or recording, so the speakers can't leak into pitch detection. If a line is still playing when the next recording would start, it is cut. [Decided]
+
+### Heat: bad play means more trash talk [Decided]
+A per-fight `heat` value from 0 to 3 picks how much and how mean the enemy talks.
+
+| Heat | Trigger | Lines per turn | Tone |
+|---|---|---|---|
+| 0 | Last card ≥ 90% | 0–1 | Grudging respect |
+| 1 | Last card passed (80–89%) | 1 | Light jab |
+| 2 | Last card failed | 1–2 | Roast that names the wrong notes / rushing / dragging |
+| 3 | 2+ fails in a row, **or** player HP ≤ `LOW_HP_TAUNT` | 2 | Full roast, calls back earlier mistakes this fight |
+
+- Heat goes up 1 on each fail, down 1 on each pass, and resets to 0 at the start of each fight.
+- Taunts reference real data only: the wrong note names (in the player's **written** key), how many notes were missed, early/late, silent notes, HP left, and how many times this card has failed.
+- Rating: PG-13, no slurs, no profanity past "damn". Mean about the playing, never about the person. [Decided]
+
+### Voices [Default]
+| Enemy | Voice direction |
+|---|---|
+| Snare Goblin | Raspy, fast, cackling street heckler |
+| Brass Serpent | Slow, smug, hissing jazz critic |
+| The Hollow Choir | One line spoken by 3 voices at once, slightly detuned and offset, so it sounds like a choir |
+
+### How it works
+1. When grading finishes, the client sends `{ enemyId, heat, facts }` to `/api/taunt` (Vercel serverless function; the ElevenLabs API key never reaches the browser).
+2. The function picks a line from **per-enemy templates** and fills in the facts (no LLM; fast and always in character). It avoids repeating a template within the same fight.
+3. It calls ElevenLabs text-to-speech with that enemy's voice (low-latency model) and streams the audio back.
+4. The request starts the moment grading ends, so the review stamp and card animation (~1 s) hide the latency.
+5. Fixed lines (intros, K.O. finishers, Encore last words) are generated **at build time** and shipped as audio files.
+6. If the request fails or takes longer than `TAUNT_TIMEOUT_MS`, show the subtitle only and keep going. Gameplay never waits on audio. [Decided]
+
+### UI [Decided]
+- **Speech bubble** over the enemy's head with the line as subtitles (always shown, even with voice off), plus a small voice waveform while it plays.
+- At heat 3 the bubble shakes and the enemy does its attack pose while talking.
+- **Settings:** `Voice` volume slider and `Trash talk: Spicy / Mild / Off`. Mild caps heat at 1; Off shows no bubbles.
+
+### Content
+- `src/content/taunts.ts`: templates per enemy, per heat, per moment. Aim for 8+ templates per enemy per heat so a run doesn't repeat.
+- Template slots: `{wrongNote}`, `{expectedNote}`, `{missCount}`, `{totalNotes}`, `{accuracy}`, `{hp}`, `{failCount}`, `{timing}` (rushed/dragged).
+
+---
+
 ## 8. Architecture
 
 ### State (Zustand)
@@ -199,7 +259,11 @@ interface GameState {
     ultimate: { enabled: boolean; charged: boolean; failedOnce: boolean } | null; // null for regular enemies
     activeAction: { kind: 'card'; index: number } | { kind: 'ultimate' } | null;
     phase: 'playerTurn' | 'recording' | 'review' | 'enemyTurn' | 'over';
+    heat: 0 | 1 | 2 | 3;          // trash-talk level, §7a; resets each fight
+    failStreak: number;           // consecutive failed cards, feeds heat
+    usedTaunts: string[];         // template ids already spoken this fight
   } | null;
+  taunt: { text: string; audioUrl: string | null; heat: number } | null; // current speech bubble
   lastResult: NoteResult[] | null;
   resetRun(): void;            // used by "Continue" (loss) and "Start New Adventure"
 }
@@ -248,6 +312,11 @@ src/
   config.ts          # all tunable numbers (§9)
   store.ts           # Zustand store
   content/           # levels, exercise pools, main song excerpt (note lists)
+    taunts.ts        # trash-talk templates per enemy / heat / moment (§7a)
+  voice/
+    taunt.ts         # builds facts from NoteResult[], calls /api/taunt, plays audio (ducks + cuts before recording)
+api/
+  taunt.ts           # Vercel function: template -> ElevenLabs TTS, holds the API key
   audio/
     clock.ts         # Tone.js transport, count-in, shared time
     pitch.ts         # mic + Pitchy polling
@@ -294,6 +363,11 @@ Put these in `src/config.ts`. Change numbers **here only**.
 | `ULTIMATE_PASS_THRESHOLD` | 0.8 | [Default] |
 | `REVIEW_DURATION_MS` | 1500 | [Default] |
 | `INSTRUMENT_KEYS` | C (0), B♭ (+2), E♭ (+9), F (+7) | [Open] which to offer; value = `writtenOffset` in semitones |
+| `TAUNT_TIMEOUT_MS` | 1200 | [Default] past this, show subtitle only |
+| `TAUNT_MAX_SECONDS` | 3 | [Default] max length of one spoken line |
+| `LOW_HP_TAUNT` | 8 | [Default] player HP at or below this forces heat 3 |
+| `TAUNT_ON_HIT_CHANCE` | 0.33 | [Default] chance an enemy talks after you land a card |
+| `VOICE_DUCK_DB` | -12 | [Default] music volume while an enemy talks |
 
 ---
 
@@ -310,7 +384,8 @@ Put these in `src/config.ts`. Change numbers **here only**.
 | Styling | Plain retro CSS, single palette file, pixel fonts | [Decided] | Fast, consistent look | — |
 | Animation | CSS transitions (Framer Motion if needed) | [Default] | Card drag, shrink, fly-off, loss fall + red fade | — |
 | Hosting | Vercel | [Decided] | Static site; free HTTPS (required for mic access) | Netlify works the same |
-| Backend | None in MVP | [Decided] | Everything runs in the browser | Vercel serverless functions when AI is added |
+| Backend | One Vercel function (`api/taunt.ts`) | [Decided] | Keeps the ElevenLabs key off the client; everything else runs in the browser | Any serverless host |
+| Voice | ElevenLabs text-to-speech | [Decided] | Enemy trash talk (§7a); designed voice per enemy | Subtitles only (feature still works) |
 
 ---
 
@@ -333,6 +408,9 @@ Put these in `src/config.ts`. Change numbers **here only**.
 - Everything in §2–§7 marked [Decided] or [Default].
 - Fixed latency offset, hand-written exercise pools and one main song.
 
+**Prize track (ElevenLabs), after MVP combat works**
+- Enemy trash talk per §7a: speech bubble + subtitles first, then `/api/taunt` with live TTS, then build-time fixed lines, then the 3-voice Choir.
+
 **Stretch**
 - Latency calibration (tap along to clicks).
 - Live pitch indicator (how sharp/flat right now).
@@ -342,8 +420,7 @@ Put these in `src/config.ts`. Change numbers **here only**.
 
 **Later (AI)**
 - Gemini: generate songs and exercise pools so every run is new.
-- ElevenLabs: voice commands to play cards (hands stay on instrument), spoken boss count-ins, a mentor at rest sites.
-- Vercel serverless functions to protect API keys.
+- ElevenLabs beyond trash talk: spoken boss count-ins.
 
 ---
 
@@ -355,6 +432,7 @@ Put these in `src/config.ts`. Change numbers **here only**.
 - [ ] Which main song?
 - [ ] Which instrument keys to offer?
 - [ ] `ONSET_RMS_RISE` value — needs testing with a real instrument.
+- [ ] Trash talk: which ElevenLabs voices per enemy, and who writes the taunt templates?
 
 ## 14. Risks
 
@@ -362,3 +440,5 @@ Put these in `src/config.ts`. Change numbers **here only**.
 - **Content volume**: new music every round needs several exercises per card type per level. Mitigation: keep exercises short (3 bars); write them as note lists; AI generation is the later fix.
 - **Mic latency varies by device.** Mitigation: fixed offset now, calibration as Stretch.
 - **Room noise / quiet instruments.** Mitigation: `MIN_CLARITY` cutoff; test in a noisy room before demo.
+- **Enemy voice leaking into the mic.** Mitigation: never play voice during count-in or recording; cut any line still playing when recording starts.
+- **TTS latency or quota on demo day.** Mitigation: start the request as soon as grading ends, `TAUNT_TIMEOUT_MS` fallback to subtitles, fixed lines pre-generated.
