@@ -216,6 +216,11 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 :root[data-handheld] .peek-act { width: 290px !important; font-size: 13px !important; line-height: 18px; }
 :root[data-handheld] .peek-panel .f-label { font-size: 15px !important; }
 
+.victory-group { display: contents; }
+:root[data-handheld] .victory-col { left: 150px !important; width: 1140px !important; flex-direction: row !important; align-items: center !important; justify-content: center; gap: 72px !important; }
+:root[data-handheld] .victory-group { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+:root[data-handheld] .loss-col { left: 250px !important; width: 940px !important; }
+
 /* Native-sized phone controls: never scale a form down with the game artwork. */
 .mobile-surface { position:fixed; inset-inline:0; top:var(--visual-top,0px); height:var(--visual-height,100dvh); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; z-index:50; padding:12px max(16px,env(safe-area-inset-right)) 16px max(16px,env(safe-area-inset-left)); background:#101126; }
 .mobile-surface button { min-height:44px; touch-action:manipulation; }

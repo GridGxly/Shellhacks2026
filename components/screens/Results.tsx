@@ -4,6 +4,7 @@ import { playMusic, sfx } from '@/lib/audio';
 import { ACT_BONUS_SCORE, ACT_BONUS_TIPS, STATS, TIPS_PER_WIN, XP_PER_WIN } from '@/lib/config';
 import { ACTS, ENEMIES } from '@/lib/content';
 import { accuracy, instrumentOf, stat, useGame } from '@/lib/store';
+import { useStageFit } from '@/lib/viewport';
 import Hud from '../Hud';
 import { Bg, FloatingNotes, Octagon, Ornament, Sprite, Stars, YellowButton } from '../ui';
 import { art } from '@/lib/art';
@@ -72,12 +73,13 @@ export function Victory() {
   const go = useGame((s) => s.go);
   const beaten = ENEMIES[run.floor - 1];
   const next = ENEMIES[run.floor];
-  const inst = instrumentOf(run);
   const tips = useCountUp(TIPS_PER_WIN, 900);
   const xp = useCountUp(XP_PER_WIN, 1300);
   const canUpgrade = STATS.some((d) => run.tips >= d.cost);
   const actDone = run.floor % 3 === 0;
   const [leaving, setLeaving] = useState(false);
+  const column = useRef<HTMLDivElement>(null);
+  const fit = useStageFit(column, 110, { underHud: true });
 
   useEffect(() => {
     playMusic('encore');
@@ -103,20 +105,23 @@ export function Victory() {
       <Bg src={beaten.bg} style={{ filter: `${beaten.bgFilter ?? ''} brightness(0.45) saturate(0.8)` }} />
       <div className="fill" style={{ background: 'radial-gradient(ellipse 50% 60% at 50% 40%, rgba(255,210,63,0.18), rgba(16,17,38,0.85) 80%)' }} />
       <Confetti />
-      {/* Riff celebrates on the left, the beaten foe fades on the right */}
-      <Sprite src={inst.id === 'trumpet' ? '/assets/sprites/riff-leap.png' : inst.sprite} x={120} y={330} size={360} style={{ animation: 'slideInLeft 400ms var(--ease-out) both, bob 900ms 400ms steps(2) infinite' }} />
+      {/* 10 Victory: no Riff here; the beaten foe fades on the right */}
       <Sprite src={beaten.sprite} x={1010} y={420} size={260} style={{ filter: `${beaten.spriteFilter ?? ''} grayscale(1) brightness(0.5)`, opacity: 0.55, transform: 'rotate(8deg)', animation: 'dissolve 800ms 500ms steps(8) forwards' }} />
       {/* The defeated foe releases tips; the count starts on the first landing. */}
       {[0, 1, 2, 3, 4].map((i) => <div key={i} aria-hidden="true" style={{ position: 'absolute', left: 1130, top: 520 + (i % 2) * 22, zIndex: 7, ['--reward-x' as string]: `${-310 - i * 9}px`, ['--reward-y' as string]: `${-188 - (i % 2) * 22}px`, animation: `victoryReward 400ms ${500 + i * 80}ms var(--ease-out) both` }}>
         <svg width="26" height="26" viewBox="0 0 8 8" shapeRendering="crispEdges"><path d="M2 0H6V1H7V2H8V6H7V7H6V8H2V7H1V6H0V2H1V1H2Z" fill="#FFD23F"/><path d="M2 2H6V6H2Z" fill="#D9A21B"/><path d="M3 1H4V6H3Z" fill="#FFF6E0"/></svg>
       </div>)}
 
-      <div style={{ position: 'absolute', left: 470, top: 110, width: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, zIndex: 5, animation: leaving ? 'victoryExit 500ms var(--ease-out) forwards' : undefined }}>
+      {/* Handhelds lay the headline beside the results so both can be drawn larger. */}
+      <div ref={column} className="victory-col" style={{ position: 'absolute', left: 470, top: fit.top, scale: fit.k === 1 ? undefined : fit.k, transformOrigin: '50% 0', width: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, zIndex: 5, animation: leaving ? 'victoryExit 500ms var(--ease-out) forwards' : undefined }}>
+        <div className="victory-group">
         <div className="f-press" style={{ fontSize: 60, color: 'var(--sun)', textShadow: '#101126 6px 6px 0, #D1307E 10px 10px 0', animation: 'slam 450ms var(--ease-out) both' }}>VICTORY!</div>
         <div className="f-body" style={{ fontSize: 20, color: 'var(--soft)', animation: 'fadeIn 300ms 300ms both' }}>
           {beaten.name} is out of tune for good.
         </div>
         <Ornament width={420} />
+        </div>
+        <div className="victory-group">
         <div style={{ width: 500, padding: '18px 26px', background: 'rgba(16,17,38,0.9)', border: '4px solid #3A3F70', boxShadow: '#101126 8px 8px 0', animation: 'panelIn 400ms 400ms var(--ease-out) both' }}>
           <StatLine label="HP RESTORED" value={`${run.hp}/${stat(run, 'maxHp')}`} color="#FF8A93" delay={600} />
           <StatLine label="TIPS" value={<>+{tips} <span style={{ color: 'var(--muted)', fontSize: 12 }}>· {run.tips} total</span></>} color="var(--sun)" delay={800} />
@@ -126,7 +131,7 @@ export function Victory() {
         </div>
         {canUpgrade && (
           <div className="f-body" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', background: 'rgba(76,194,107,0.15)', border: '2px solid var(--meadow)', fontSize: 16, color: 'var(--parchment)', animation: 'popIn 300ms 2000ms var(--ease-out) both' }}>
-            <span style={{ width: 10, height: 10, background: 'var(--meadow)' }} /> You can afford an upgrade. Click Riff&apos;s face, top left.
+            <span style={{ width: 10, height: 10, background: 'var(--meadow)' }} /> You can afford an upgrade. <span className="kbd-only">Click</span><span className="touch-only">Tap</span> Riff&apos;s face, top left.
           </div>
         )}
         <div style={{ marginTop: 10, animation: 'riseIn 300ms 2100ms var(--ease-out) both' }}>
@@ -134,6 +139,7 @@ export function Victory() {
         </div>
         <div className="f-label" style={{ fontSize: 12, color: 'var(--muted)', animation: 'fadeIn 300ms 2300ms both' }}>
           {actDone ? `ACT ${run.floor / 3} CLEARED · ` : ''}NEXT: {next?.name.toUpperCase()} · CHECKPOINT SAVED
+        </div>
         </div>
       </div>
       <Hud center={`FLOOR ${run.floor} OF 18 CLEARED`} pulse={canUpgrade ? 'face' : undefined} />
@@ -154,6 +160,8 @@ export function Loss() {
   const newBest = best && best.score === run.score && run.score > 0;
 
   const startingRun = useGame((s) => s.startingRun || Boolean(s.transition));
+  const column = useRef<HTMLDivElement>(null);
+  const fit = useStageFit(column, 130);
   useEffect(() => playMusic('none'), []);
   // Straight back to the climb with the same instrument; the title is one pause-menu tap away.
   const again = async () => {
@@ -165,7 +173,7 @@ export function Loss() {
       <Bg src={foe.bg} style={{ filter: `${foe.bgFilter ?? ''} grayscale(1) brightness(0.25)` }} />
       <div className="fill" style={{ background: 'radial-gradient(ellipse 60% 60% at 50% 45%, rgba(232,67,79,0.18), rgba(11,11,24,0.95) 80%)' }} />
       <Sprite src={foe.sprite} x={1000} y={300} size={foe.size} style={{ opacity: 0.35, filter: `${foe.spriteFilter ?? ''} brightness(0.4)`, animation: 'breathe 1.4s steps(2) infinite' }} />
-      <div style={{ position: 'absolute', left: 0, top: 130, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+      <div ref={column} className="loss-col" style={{ position: 'absolute', left: 0, top: fit.top, scale: fit.k === 1 ? undefined : fit.k, transformOrigin: '50% 0', width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
         <div className="f-press" style={{ fontSize: 80, color: 'var(--hp)', textShadow: '#101126 8px 8px 0', animation: 'slam 450ms var(--ease-out) both' }}>DEFEAT</div>
         <div className="f-body" style={{ fontSize: 22, color: 'var(--soft)', animation: 'fadeIn 300ms 400ms both' }}>
           {foe.name} drowned you out on floor {foe.floor}.
