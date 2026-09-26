@@ -63,7 +63,7 @@ Add `ELEVENLABS_API_KEY` and `MONGODB_URI` to `.env.local` for trash talk and ac
 
 ---
 
-<img src="docs/readme/team.webp" alt="Meet the team: Tarun (backend + UX), Ralph (UI), Vepaul (backend), Josh (backend)" width="100%">
+<img src="docs/readme/team.webp" alt="Meet the team: Tarun (backend + UX), Ralph (UI + deployment), Vepaul (backend), Josh (backend)" width="100%">
 
 ---
 
