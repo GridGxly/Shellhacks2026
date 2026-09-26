@@ -80,7 +80,11 @@ class Mic {
     this.status = 'on';
     const loop = () => {
       this.raf = requestAnimationFrame(loop);
-      this.analyser!.getFloatTimeDomainData(this.buf);
+      // A stop() from a superseded start() can null the analyser (or swap in
+      // a new one) while this frame was already queued; bail rather than
+      // read through a stale/missing node.
+      if (!this.analyser) return;
+      this.analyser.getFloatTimeDomainData(this.buf);
       const r = this.analyze();
       this.recording?.push(r);
       this.listeners.forEach((l) => l(r));
