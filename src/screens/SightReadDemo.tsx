@@ -1,44 +1,46 @@
 /**
  * SightReadDemo.tsx — a standalone "read the sheet music" demo (concept preview).
  *
- * This is NOT the real combat screen. It's a focused sandbox to feel the core
- * loop: real sheet music, a cursor that sweeps in tempo, and each note flashing
- * green/red as it's "played". The grading here is FAKE (a coin flip per note) so
- * we can see the whole experience before the mic/pitch backend is wired in.
+ * Two grading modes:
+ *   - Simulated (default): a coin flip per note, so you can see the loop with no mic.
+ *   - Live mic: uses the pitch-detection backend (audio/pitch.ts -> mic.js). The
+ *     ghost note lands on the pitch you ACTUALLY play into the mic.
  *
- * When the backend is ready, the only change is the `gradeNote` prop below:
- * swap the coin flip for "did the player actually hit note N?".
+ * The grading seam is `getPlayed(index)`: return the concert-pitch MIDI the player
+ * played for that note (or null for silence). Live mode reads the mic; sim fakes it.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Staff } from '../notation/Staff';
-import type { Exercise } from '../types';
+import {
+  COUNT_IN_BEATS,
+  INSTRUMENT_KEYS,
+  MIN_PITCH_COVERAGE,
+  PASS_THRESHOLD,
+  PITCH_TOLERANCE_CENTS,
+} from '../config';
 import type { KeyId } from '../config';
-import { COUNT_IN_BEATS, INSTRUMENT_KEYS, PASS_THRESHOLD } from '../config';
+import { GRAN_VALS_ULTIMATE } from '../content/levels';
+import { startMic } from '../audio/pitch';
+import type { MicHandle, PitchReading } from '../audio/pitch';
 
-// A short 3-bar melody in C major, stored in CONCERT pitch (PRD §5).
-// Try editing these numbers — the staff, cursor, and grading all follow.
-const DEMO_EXERCISE: Exercise = {
-  id: 'demo-1',
-  tempo: 90,
-  timeSig: [4, 4],
-  notes: [
-    { midi: 60, startBeat: 0, durBeats: 1 }, // C
-    { midi: 62, startBeat: 1, durBeats: 1 }, // D
-    { midi: 64, startBeat: 2, durBeats: 1 }, // E
-    { midi: 65, startBeat: 3, durBeats: 1 }, // F
-    { midi: 67, startBeat: 4, durBeats: 1 }, // G
-    { midi: 69, startBeat: 5, durBeats: 1 }, // A
-    { midi: 67, startBeat: 6, durBeats: 1 }, // G
-    { midi: 65, startBeat: 7, durBeats: 1 }, // F
-    { midi: 64, startBeat: 8, durBeats: 1 }, // E
-    { midi: 62, startBeat: 9, durBeats: 1 }, // D
-    { midi: 60, startBeat: 10, durBeats: 2 }, // C (half note)
-  ],
-};
+// The real main song (Gran Vals / Nokia tune) from the merged content — concert
+// pitch, A major, 3/4, 200 BPM, 12 bars. Transposed for display per instrument.
+const SONG = GRAN_VALS_ULTIMATE;
 
-// How often the fake player "hits" a note. Lower it to see more red.
+// How often the fake player "hits" a note (simulated mode). Lower = more red.
 const FAKE_ACCURACY = 0.82;
+
+// Ignore the first part of each note's window: that's where the previous note
+// is still ringing / the new one is still attacking.
+const SKIP_ATTACK = 0.2;
+// Need at least this many mic readings in a note's window, or it counts as silent.
+const MIN_READINGS = 2;
+
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+function midiName(m: number): string {
+  return `${NOTE_NAMES[((m % 12) + 12) % 12]}${Math.floor(m / 12) - 1}`;
+}
 
 type Phase = 'idle' | 'countIn' | 'playing' | 'done';
 
@@ -46,6 +48,9 @@ export function SightReadDemo() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [countLabel, setCountLabel] = useState('');
   const [instrumentKey, setInstrumentKey] = useState<KeyId>('C');
+  const [liveMic, setLiveMic] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
+  const [heard, setHeard] = useState<number | null>(null); // latest detected MIDI, for the readout
 
   // Live tallies for the HUD.
   const [correct, setCorrect] = useState(0);
@@ -53,8 +58,25 @@ export function SightReadDemo() {
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
 
-  const totalNotes = DEMO_EXERCISE.notes.length;
-  const msPerBeat = 60000 / DEMO_EXERCISE.tempo;
+  // Mic state kept in refs so getPlayed can read it synchronously.
+  const micHandleRef = useRef<MicHandle | null>(null);
+  // Recent detected pitches. midi is FRACTIONAL (69.3 = A4, 30 cents sharp) so we
+  // can measure how close a note was, not just which semitone it rounds to.
+  const readingsRef = useRef<{ midi: number; time: number }[]>([]);
+
+  const totalNotes = SONG.notes.length;
+  const msPerBeat = 60000 / SONG.tempo;
+
+  // Continuously record what the mic hears.
+  function handleReading(r: PitchReading) {
+    if (r.midi == null) return;
+    const m = Math.round(r.midi);
+    const buf = readingsRef.current;
+    buf.push({ midi: r.midi, time: r.timeMs }); // keep the exact pitch for tolerance checks
+    // Keep only the last few seconds — plenty for any note window.
+    while (buf.length > 0 && r.timeMs - buf[0].time > 4000) buf.shift();
+    setHeard((prev) => (prev === m ? prev : m)); // re-render only when the note changes
+  }
 
   // Count-in: tick COUNT_IN_BEATS times, then start the cursor.
   useEffect(() => {
@@ -74,23 +96,78 @@ export function SightReadDemo() {
     return () => clearInterval(id);
   }, [phase, msPerBeat]);
 
-  function start() {
+  // Stop the mic once a run ends.
+  useEffect(() => {
+    if (phase === 'done' || phase === 'idle') {
+      micHandleRef.current?.stop();
+      micHandleRef.current = null;
+    }
+  }, [phase]);
+
+  // Safety: stop the mic if the component unmounts mid-run.
+  useEffect(() => () => void micHandleRef.current?.stop(), []);
+
+  async function start() {
     setCorrect(0);
     setGraded(0);
     setCombo(0);
     setMaxCombo(0);
+    setMicError(null);
+    readingsRef.current = [];
+
+    if (liveMic) {
+      try {
+        micHandleRef.current = await startMic(handleReading); // needs the click gesture
+      } catch {
+        setMicError('Could not start the mic — check permissions, then try again.');
+        return;
+      }
+    }
     setPhase('countIn');
   }
 
-  // The grading seam. The real mic/pitch backend replaces this: return the MIDI
-  // pitch the player ACTUALLY played (or null for silence). For now we fake it —
-  // usually the right note, sometimes a nearby wrong pitch so you can see the
-  // ghost land on the actual wrong note.
-  function getPlayed(index: number): number | null {
-    const expected = DEMO_EXERCISE.notes[index]?.midi ?? null;
+  // The grading seam: what pitch did the player play for note `index`, whose
+  // sound arrived between fromMs and toMs? Sim mode fakes an answer.
+  // Live mode (PRD §6 "right pitch"):
+  //   1. Take the readings in the window (skipping the attack).
+  //   2. If at least MIN_PITCH_COVERAGE of them are within PITCH_TOLERANCE_CENTS
+  //      of the target, it's a hit — even if a bit sharp/flat. Return the target.
+  //   3. Otherwise return the most common semitone heard, which becomes the ghost.
+  function getPlayed(index: number, fromMs: number, toMs: number): number | null {
+    if (liveMic) {
+      const expected = SONG.notes[index]?.midi;
+      if (expected == null) return null;
+      const start = fromMs + (toMs - fromMs) * SKIP_ATTACK;
+      const window = readingsRef.current.filter((r) => r.time >= start && r.time <= toMs);
+      if (window.length < MIN_READINGS) return null; // too little sound -> silent
+
+      const close = window.filter(
+        (r) => Math.abs(r.midi - expected) * 100 <= PITCH_TOLERANCE_CENTS,
+      ).length;
+      if (close / window.length >= MIN_PITCH_COVERAGE) return expected; // close enough
+
+      // A real miss: report the semitone they mostly played.
+      const counts = new Map<number, number>();
+      for (const r of window) {
+        const m = Math.round(r.midi);
+        counts.set(m, (counts.get(m) ?? 0) + 1);
+      }
+      let best: number | null = null;
+      let bestCount = 0;
+      for (const [m, c] of counts) {
+        if (c > bestCount) {
+          best = m;
+          bestCount = c;
+        }
+      }
+      // If the mode rounds to the target (e.g. very wobbly but centered), the
+      // Staff would count it correct — so it's effectively a pass. Fine.
+      return best;
+    }
+    // Simulated: usually the right note, sometimes a nearby wrong pitch.
+    const expected = SONG.notes[index]?.midi ?? null;
     if (expected == null) return null;
-    if (Math.random() < FAKE_ACCURACY) return expected; // hit
-    // Miss: play a nearby wrong pitch, 1–4 semitones off (never 0).
+    if (Math.random() < FAKE_ACCURACY) return expected;
     const off = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 4));
     return expected + off;
   }
@@ -112,13 +189,14 @@ export function SightReadDemo() {
 
   const accuracy = graded === 0 ? 0 : correct / graded;
   const passed = graded === totalNotes && accuracy >= PASS_THRESHOLD;
+  const busy = phase === 'countIn' || phase === 'playing';
 
   return (
     <div className="demo-screen">
       <header className="demo-head">
         <h1>Sight-Reading Spire — reading demo</h1>
         <p className="demo-sub">
-          {DEMO_EXERCISE.tempo} BPM · reading in {INSTRUMENT_KEYS[instrumentKey].label}
+          {SONG.tempo} BPM · reading in {INSTRUMENT_KEYS[instrumentKey].label}
         </p>
       </header>
 
@@ -129,13 +207,28 @@ export function SightReadDemo() {
           <button
             key={k}
             className={k === instrumentKey ? 'key-btn active' : 'key-btn'}
-            disabled={phase === 'countIn' || phase === 'playing'}
+            disabled={busy}
             onClick={() => setInstrumentKey(k)}
           >
             {k}
           </button>
         ))}
+        <label className="mic-toggle">
+          <input
+            type="checkbox"
+            checked={liveMic}
+            disabled={busy}
+            onChange={(e) => setLiveMic(e.target.checked)}
+          />
+          🎤 Live mic
+        </label>
+        {liveMic && busy && (
+          <span className="mic-heard">
+            hearing: {heard == null ? '—' : midiName(heard)}
+          </span>
+        )}
       </div>
+      {micError && <p className="mic-error">{micError}</p>}
 
       {/* HUD: the rhythm-game feedback. */}
       <div className="demo-hud">
@@ -171,7 +264,7 @@ export function SightReadDemo() {
       {/* The staff, with the count-in / result overlay on top. */}
       <div className="demo-stage">
         <Staff
-          exercise={DEMO_EXERCISE}
+          exercise={SONG}
           instrumentKey={instrumentKey}
           playing={phase === 'playing'}
           getPlayed={getPlayed}
@@ -192,7 +285,7 @@ export function SightReadDemo() {
       </div>
 
       <div className="demo-controls">
-        <button onClick={start} disabled={phase === 'countIn' || phase === 'playing'}>
+        <button onClick={start} disabled={busy}>
           {phase === 'idle' ? 'Play ▶' : 'Play again ▶'}
         </button>
       </div>

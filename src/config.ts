@@ -34,7 +34,7 @@ export const RECORD_TAIL_MS = 300; // [Default] keep recording after the last no
 // --- Pitch detection & grading ---
 export const PITCH_POLL_MS = 25; // [Default] how often to read the mic
 export const MIN_CLARITY = 0.9; // [Default] Pitchy clarity cutoff (ignore noisier readings)
-export const PITCH_TOLERANCE_CENTS = 50; // [Default] half a semitone
+export const PITCH_TOLERANCE_CENTS = 75; // [Default] how far off-pitch still counts (100 = a full semitone)
 export const MIN_PITCH_COVERAGE = 0.6; // [Default] share of a note's readings that must be right
 export const TIMING_WINDOW_MS = 150; // [Default] ± allowed onset error
 export const ONSET_RMS_RISE = 0.05; // [Open] volume jump that counts as a new note — TUNE ON REAL INSTRUMENT

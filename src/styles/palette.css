@@ -63,6 +63,141 @@ button:disabled {
   text-align: center;
 }
 
+/* ---------- Dev nav ---------- */
+.dev-nav {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: var(--bg-panel);
+  border-bottom: 1px solid #3a2f47;
+}
+.dev-nav button {
+  background: transparent;
+  color: var(--ink-dim);
+  border: 1px solid #3a2f47;
+  padding: 0.35rem 0.9rem;
+}
+.dev-nav button.active {
+  background: var(--accent);
+  color: #1a1420;
+}
+
+/* ---------- Pitch tester (tuner) ---------- */
+.tuner-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+.tuner-sub {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+}
+/* Live staff showing the detected note (abcjs places it). */
+.tuner-staff {
+  background: var(--bg-panel);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  min-height: 90px;
+}
+.tuner-staff svg path,
+.tuner-staff svg text {
+  fill: var(--ink);
+}
+
+.tuner-note {
+  font-size: 6rem;
+  font-weight: bold;
+  line-height: 1;
+  min-height: 6rem;
+  color: var(--ink-dim);
+}
+.tuner-note.in {
+  color: var(--correct);
+}
+.tuner-note.near {
+  color: var(--accent);
+}
+.tuner-note.off {
+  color: var(--ink-dim);
+}
+
+.cents-bar {
+  position: relative;
+  width: min(520px, 92vw);
+  height: 40px;
+  background: var(--hp-back);
+  border-radius: 6px;
+}
+.cents-center {
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ink-dim);
+}
+.cents-needle {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  width: 4px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: left 0.06s linear;
+}
+.cents-needle.in {
+  background: var(--correct);
+  box-shadow: 0 0 8px 2px var(--correct);
+}
+.cents-label {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  color: var(--ink-dim);
+}
+.cents-label.left {
+  left: 8px;
+}
+.cents-label.right {
+  right: 8px;
+}
+.tuner-cents {
+  font-size: 1rem;
+  color: var(--ink);
+  min-height: 1.2rem;
+}
+
+.tuner-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 0.5rem;
+}
+.tuner-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 100px;
+}
+.tuner-field-val {
+  font-size: 1.2rem;
+  color: var(--accent);
+}
+.tuner-field-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--ink-dim);
+  margin-top: 0.2rem;
+}
+
 /* ---------- Sight-reading demo (concept preview) ---------- */
 
 .demo-screen {
@@ -104,6 +239,26 @@ button:disabled {
 .key-btn.active {
   background: var(--accent);
   color: #1a1420;
+}
+.mic-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+.mic-heard {
+  font-size: 0.85rem;
+  color: var(--correct);
+  min-width: 90px;
+  text-align: left;
+}
+.mic-error {
+  margin: 0;
+  color: var(--wrong);
+  font-size: 0.85rem;
 }
 
 .demo-hud {
@@ -198,18 +353,11 @@ button:disabled {
   pointer-events: none;
 }
 
-/* Ghost notes are real SVG note-head glyphs cloned into the staff (see Staff.tsx),
-   so they need no CSS shape. This just fades them in. */
-.ghost-clone {
-  animation: ghost-pop 0.2s ease-out;
-}
-@keyframes ghost-pop {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 0.6;
-  }
+/* Ghost notes = what the player actually played on a miss. They're a second
+   abcjs voice (.abcjs-v1) placed by abcjs itself (see toAbc.ts / Staff.tsx).
+   More specific than the ink rule above, so they win. */
+.staff-render .abcjs-v1 path {
+  fill: #ff2d55;
 }
 
 /* Count-in number and pass/fail banner sit centered over the staff. */

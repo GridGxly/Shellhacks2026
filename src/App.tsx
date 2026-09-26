@@ -6,8 +6,10 @@
  * no react-router, just a switch on `screen`.
  */
 
+import { useState } from 'react';
 import { useGame } from './store';
 import { SightReadDemo } from './screens/SightReadDemo';
+import { PitchTester } from './screens/PitchTester';
 import { Title } from './screens/Title';
 import { KeySelect } from './screens/KeySelect';
 import { GameMap } from './screens/Map';
@@ -16,14 +18,35 @@ import { Victory } from './screens/Victory';
 import { FinalVictory } from './screens/FinalVictory';
 import { Loss } from './screens/Loss';
 
-// TEMP: while building the sight-reading concept, show the demo instead of the
-// normal game flow. Set to false to get the real title -> map -> combat router back.
+// TEMP: while building the concept, show the dev demos instead of the real game
+// flow. Set to false to get the title -> map -> combat router back.
 const SHOW_DEMO = true;
 
 export default function App() {
   const screen = useGame((s) => s.screen);
+  const [devPage, setDevPage] = useState<'pitch' | 'read'>('pitch');
 
-  if (SHOW_DEMO) return <SightReadDemo />;
+  if (SHOW_DEMO) {
+    return (
+      <div>
+        <nav className="dev-nav">
+          <button
+            className={devPage === 'pitch' ? 'active' : ''}
+            onClick={() => setDevPage('pitch')}
+          >
+            Pitch tester
+          </button>
+          <button
+            className={devPage === 'read' ? 'active' : ''}
+            onClick={() => setDevPage('read')}
+          >
+            Reading demo
+          </button>
+        </nav>
+        {devPage === 'pitch' ? <PitchTester /> : <SightReadDemo />}
+      </div>
+    );
+  }
 
   switch (screen) {
     case 'title':

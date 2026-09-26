@@ -32,7 +32,7 @@ import { INSTRUMENT_KEYS } from '../config';
 const PITCH_CLASSES = ['C', '^C', 'D', '^D', 'E', 'F', '^F', 'G', '^G', 'A', '^A', 'B'];
 
 /** MIDI number -> one ABC note token, e.g. 60 -> "C", 72 -> "c", 61 -> "^C". */
-function midiToAbcPitch(midi: number): string {
+export function midiToAbcPitch(midi: number): string {
   const pitchClass = PITCH_CLASSES[midi % 12]; // letter (+ possible "^")
   const octave = Math.floor(midi / 12) - 1; // MIDI 60 is C, which is octave 4
 
@@ -47,40 +47,86 @@ function midiToAbcPitch(midi: number): string {
   return pitchClass + ','.repeat(4 - octave);
 }
 
+// Bars per staff line, so long pieces wrap instead of squeezing onto one line.
+const MEASURES_PER_LINE = 4;
+
+/**
+ * The exercise's rhythm as ABC lines (MEASURES_PER_LINE bars each). `pitchAt(i)`
+ * gives the CONCERT MIDI to print for note i, or null to print an invisible rest
+ * ("x") of the same length — so every voice built this way lines up
+ * note-for-note and line-for-line.
+ */
+function buildVoiceLines(
+  exercise: Exercise,
+  writtenOffset: number,
+  pitchAt: (i: number) => number | null,
+): string[] {
+  const beatsPerBar = exercise.timeSig[0];
+  // Our unit note length is an eighth note (L:1/8). With quarter-note beats,
+  // one beat = 2 eighths, so lengthInUnits = durBeats * 2.
+  const measures: string[][] = [[]];
+  let barBoundary = beatsPerBar; // beat count where the next measure starts
+
+  exercise.notes.forEach((note, i) => {
+    while (note.startBeat >= barBoundary) {
+      measures.push([]);
+      barBoundary += beatsPerBar;
+    }
+    const midi = pitchAt(i);
+    const token = midi == null ? 'x' : midiToAbcPitch(midi + writtenOffset);
+    const units = Math.round(note.durBeats * 2); // eighth-note units
+    // "1" is redundant in ABC (a bare letter is already one unit), so omit it.
+    measures[measures.length - 1].push(units === 1 ? token : `${token}${units}`);
+  });
+
+  // Close each measure with a bar line; the last gets the final "|]".
+  const bars = measures.map((m, idx) => `${m.join(' ')} ${idx === measures.length - 1 ? '|]' : '|'}`);
+  const lines: string[] = [];
+  for (let k = 0; k < bars.length; k += MEASURES_PER_LINE) {
+    lines.push(bars.slice(k, k + MEASURES_PER_LINE).join(' '));
+  }
+  return lines;
+}
+
 /**
  * Build the ABC string for one exercise, transposed to the instrument's written
  * pitch. Assumes quarter-note beats (time-signature denominator 4), which covers
  * all our MVP content.
+ *
+ * Pass `ghosts` (one entry per note: the concert MIDI actually played, or null)
+ * to add a SECOND VOICE on the same staff showing what the player really played.
+ * abcjs positions those ghost notes itself — line/space, accidentals, ledger
+ * lines — so no pixel math is needed anywhere. In the SVG, the written notes are
+ * `.abcjs-v0` and the ghosts are `.abcjs-v1`.
  */
-export function exerciseToAbc(exercise: Exercise, key: KeyId): string {
+export function exerciseToAbc(
+  exercise: Exercise,
+  key: KeyId,
+  ghosts?: (number | null)[],
+): string {
   const writtenOffset = INSTRUMENT_KEYS[key].writtenOffset;
   const [beatsPerBar, beatUnit] = exercise.timeSig;
+  const main = buildVoiceLines(exercise, writtenOffset, (i) => exercise.notes[i].midi);
 
-  // Our unit note length is an eighth note (L:1/8). With quarter-note beats,
-  // one beat = 2 eighths, so lengthInUnits = durBeats * 2.
-  const body: string[] = [];
-  let barBoundary = beatsPerBar; // next beat count where a bar line goes
-
-  for (const note of exercise.notes) {
-    // Insert a bar line once we've passed into a new measure.
-    if (note.startBeat >= barBoundary) {
-      body.push('|');
-      barBoundary += beatsPerBar;
-    }
-
-    const pitch = midiToAbcPitch(note.midi + writtenOffset);
-    const units = Math.round(note.durBeats * 2); // eighth-note units
-    // "1" is redundant in ABC (a bare letter is already one unit), so omit it.
-    body.push(units === 1 ? pitch : `${pitch}${units}`);
-  }
-  body.push('|]'); // final (thin-thick) bar line
-
-  return [
+  const header = [
     'X:1',
     `M:${beatsPerBar}/${beatUnit}`,
     'L:1/8',
     `Q:1/4=${exercise.tempo}`,
+  ];
+
+  if (!ghosts) return [...header, 'K:C', ...main].join('\n');
+
+  // Interleave the voices line by line ([V:1] line, [V:2] line, ...) — the
+  // standard ABC layout that keeps both voices on the same staff systems.
+  const ghostLines = buildVoiceLines(exercise, writtenOffset, (i) => ghosts[i] ?? null);
+  const body = main.flatMap((line, k) => [`[V:1] ${line}`, `[V:2] ${ghostLines[k]}`]);
+  return [
+    ...header,
+    '%%score (1 2)', // both voices share one staff
+    'V:1',
+    'V:2',
     'K:C',
-    body.join(' '),
+    ...body,
   ].join('\n');
 }
