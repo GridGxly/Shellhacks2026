@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ac, clickAt, muteMusic, playFile, playMusic, playVoice, settings, sfx, stopVoices } from '@/lib/audio';
 import { COUNT_IN_BEATS, RECORD_TAIL_MS, REVIEW_DURATION_MS, TAUNT_ON_HIT_CHANCE, ULTIMATE_PASS_THRESHOLD } from '@/lib/config';
 import { ENEMIES } from '@/lib/content';
@@ -46,9 +46,8 @@ export default function Combat() {
   const rootRef = useRef<HTMLDivElement>(null);
   const alive = useRef(true);
   const dragRef = useRef(drag);
-  dragRef.current = drag;
   const pickedRef = useRef(picked);
-  pickedRef.current = picked;
+  useLayoutEffect(() => { dragRef.current = drag; pickedRef.current = picked; }, [drag, picked]);
   const busy = useRef(false); // one performance at a time
   const performing = useRef(false); // count-in + recording: no voice may start
 
@@ -357,6 +356,8 @@ export default function Combat() {
   useEffect(() => {
     if (!canAct) {
       dragRef.current = null;
+      // An overlay cancels the external pointer gesture before controls can re-open.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDrag(null);
       setPicked(null);
     }
@@ -393,7 +394,7 @@ export default function Combat() {
   const enemySprite = fx.enemy === 'attack' && enemy.attackSprite ? enemy.attackSprite : enemy.sprite;
   const banner =
     phase === 'enemy' ? { k: 'ENEMY TURN', t: `${enemy.name} hits Riff for ${enemy.damage}`, c: '#FF6B76' }
-    : phase === 'player' ? (combat.encore?.charged ? { k: 'BOSS FIGHT', t: 'Encore is charged. Play the song to end it.', c: 'var(--sun)' } : { k: 'YOUR TURN', t: picked !== null ? `Tap ${enemy.name} to play it` : `Drag a card onto ${enemy.name}`, c: 'var(--sun)' })
+    : phase === 'player' ? (combat.encore?.charged ? { k: 'BOSS FIGHT', t: 'Encore is charged. Play the song to end it.', c: 'var(--sun)' } : { k: 'YOUR TURN', t: picked !== null ? `Tap ${enemy.name} to play it` : <><span className="kbd-only">Drag a card onto {enemy.name}</span><span className="touch-only">Tap a card, then tap {enemy.name}</span></>, c: 'var(--sun)' })
     : phase === 'attack' ? { k: 'CARD LANDS!', t: `${enemy.name} takes the hit`, c: 'var(--sun)' }
     : null;
   const dark = fx.riff === 'encore';
@@ -489,7 +490,7 @@ export default function Combat() {
 
       {/* Turn banner */}
       {banner && (
-        <div key={banner.k} style={{ position: 'absolute', left: 0, top: 92, width: 1440, display: 'flex', justifyContent: 'center', zIndex: 8, animation: 'dropIn 260ms steps(4) both' }}>
+        <div key={banner.k} className="combat-turn-banner" style={{ position: 'absolute', left: 0, top: 92, width: 1440, display: 'flex', justifyContent: 'center', zIndex: 8, animation: 'dropIn 260ms steps(4) both' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 28px', backgroundImage: 'linear-gradient(90deg, rgba(27,29,58,0), rgba(27,29,58,0.85) 18%, rgba(27,29,58,0.85) 82%, rgba(27,29,58,0))' }}>
             <span className="f-press" style={{ fontSize: 16, color: banner.c }}>{banner.k}</span>
             <span style={{ width: 6, height: 6, background: 'var(--muted)' }} />
