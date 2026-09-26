@@ -353,11 +353,12 @@ export function ActClear() {
       </div>
 
       {/* Call to action */}
-      <div style={{ position: 'absolute', left: 120, top: 790, width: 900, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, opacity: ready ? 1 : 0, transform: `translateY(${ready ? 0 : 20}px)` }}>
+      <div className="ui-b ui-soft" style={{ position: 'absolute', left: 120, top: 790, width: 900, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, opacity: ready ? 1 : 0, transform: `translateY(${ready ? 0 : 20}px)` }}>
         <YellowButton onClick={proceed}>CLIMB TO ACT {actIdx + 2} ▸</YellowButton>
-        <span className="f-label" style={{ fontSize: 11, color: 'var(--muted)' }}>{next ? `${next.name.toUpperCase()} · UNSEALED` : ''}{canUpgrade ? ' · SPEND TIPS: CLICK RIFF, TOP LEFT' : ''} · CHECKPOINT SAVED</span>
+        <span className="f-label" style={{ fontSize: 11, color: 'var(--muted)' }}>{next ? `${next.name.toUpperCase()} · UNSEALED` : ''}<span className="desk-only">{canUpgrade ? ' · SPEND TIPS: CLICK RIFF, TOP LEFT' : ''}</span> · CHECKPOINT SAVED</span>
       </div>
-      <Hud center={`ACT ${actIdx + 1} CLEARED`} pulse={ready && canUpgrade ? 'face' : undefined} />
+      {/* Phones: the taller HUD would crowd the headline; the rewards panel already shows tips and HP. */}
+      <div className="desk-only"><Hud center={`ACT ${actIdx + 1} CLEARED`} pulse={ready && canUpgrade ? 'face' : undefined} /></div>
     </div>
   );
 }
@@ -451,7 +452,7 @@ export function FinalVictory() {
               {rank ? `#${rank} ON THE BOARD` : user ? 'SCORE POSTED' : 'SIGN IN TO RANK'}
             </div>
           )}
-          <div style={{ position: 'absolute', left: 0, top: 790, width: 1440, display: 'flex', justifyContent: 'center', gap: 18, zIndex: 6, opacity: t > 7000 ? 1 : 0 }}>
+          <div className="ui-b ui-soft" style={{ position: 'absolute', left: 0, bottom: 'calc(48px - var(--rail-b))', width: 1440, display: 'flex', justifyContent: 'center', gap: 18, zIndex: 6, opacity: t > 7000 ? 1 : 0 }}>
             <YellowButton onClick={again}>START NEW ADVENTURE</YellowButton>
             <YellowButton small onClick={() => useGame.getState().go('leaderboard')} style={{ background: '#2A2F55', color: '#fff', boxShadow: '#101126 6px 6px 0' }}>LEADERBOARD</YellowButton>
           </div>
