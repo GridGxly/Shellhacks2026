@@ -178,6 +178,7 @@ interface GameState {
   saved: Run | null;
   best: { score: number; floor: number } | null;
   user: User | null;
+  viewProfile: string | null;
   toast: string | null;
   combatLocked: boolean; // a performance/attack/enemy turn is running: no pause overlays
   // Set during a Boss Demo fight: the real run + checkpoint to hand back after.
@@ -219,6 +220,7 @@ export const useGame = create<GameState>((set, get) => ({
   saved: null,
   best: null,
   user: null,
+  viewProfile: null,
   toast: null,
   combatLocked: false,
   bossDemo: null,
@@ -230,6 +232,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   go: (screen, transition = 'wipe') => {
+    if (screen !== 'profile') set({ viewProfile: null });
     if (!transition) return set({ screen, overlay: null });
     set({ transition });
     window.setTimeout(() => set({ screen, overlay: null }), transition === 'iris' ? 520 : 380);
