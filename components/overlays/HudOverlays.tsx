@@ -5,6 +5,7 @@ import { STATS, XP_PER_LEVEL, type StatId } from '@/lib/config';
 import { ACTS, ENEMIES } from '@/lib/content';
 import { mic } from '@/lib/mic';
 import { canAfford, instrumentOf, level, stat, useGame } from '@/lib/store';
+import { enterFullscreen, useFullscreenOffer } from '@/lib/viewport';
 import { Sprite, YellowButton } from '../ui';
 
 /** M5: dim fades in, panel pops from the HUD button it came from. */
@@ -157,7 +158,8 @@ export function Pause() {
   const screen = useGame((s) => s.screen);
   const [s, setS] = useState<AudioSettings>({ ...settings });
   const [confirmQuit, setConfirmQuit] = useState(false);
-  const set = <K extends keyof AudioSettings>(k: K, v: AudioSettings[K]) => {
+  const fullscreen = useFullscreenOffer();
+  const set =<K extends keyof AudioSettings>(k: K, v: AudioSettings[K]) => {
     saveSettings({ [k]: v } as Partial<AudioSettings>);
     setS({ ...settings });
   };
@@ -197,9 +199,12 @@ export function Pause() {
               <button className="f-press" onClick={() => { sfx('back'); setConfirmQuit(false); }} style={{ padding: '10px 14px', fontSize: 12, background: '#2A2F55', border: '3px solid #101126' }}>STAY</button>
             </div>
           ) : (
-            <button className="f-press hoverable" onMouseEnter={() => sfx('hover')} onClick={() => { sfx('click'); setConfirmQuit(true); }} style={{ padding: '12px 16px', fontSize: 12, color: 'var(--hp)', border: '3px solid var(--hp)' }}>
-              QUIT TO TITLE
-            </button>
+            <div style={{ display: 'flex', gap: 14 }}>
+              <button className="f-press hoverable" onMouseEnter={() => sfx('hover')} onClick={() => { sfx('click'); setConfirmQuit(true); }} style={{ padding: '12px 16px', fontSize: 12, color: 'var(--hp)', border: '3px solid var(--hp)' }}>
+                QUIT TO TITLE
+              </button>
+              {fullscreen && <button className="f-press" onClick={() => { sfx('click'); void enterFullscreen(); }} style={{ padding: '12px 16px', fontSize: 12, color: 'var(--sun)', border: '3px solid #3A3F70' }}>FULL SCREEN</button>}
+            </div>
           )}
           <YellowButton small onClick={() => closeRef()}>RESUME</YellowButton>
         </div>

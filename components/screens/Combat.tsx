@@ -406,7 +406,7 @@ export default function Combat() {
   const dark = fx.riff === 'encore';
 
   return (
-    <div ref={rootRef} className="fill" style={{ background: '#101126', overflow: 'hidden', animation: fx.flash === 'red' || phase === 'ko' ? 'shake 300ms steps(4)' : undefined }}>
+    <div ref={rootRef} className="fill screen-clip" style={{ background: '#101126', animation: fx.flash === 'red' || phase === 'ko' ? 'shake 300ms steps(4)' : undefined }}>
       <Bg src={enemy.bg} style={{ filter: `${enemy.bgFilter ?? ''} ${phase === 'ko' ? 'saturate(0.2)' : ''} ${dark ? 'brightness(0.2)' : ''}`, transition: 'filter 300ms steps(3)' }} />
       <div className="fill" style={{ background: 'linear-gradient(180deg, rgba(16,17,38,0.35) 0%, rgba(16,17,38,0.1) 45%, rgba(16,17,38,0.15) 70%, rgba(16,17,38,0.8) 100%)' }} />
       {dark && <div style={{ position: 'absolute', left: 120, top: 0, width: 500, height: 900, background: 'linear-gradient(180deg, rgba(255,230,150,0.4), rgba(255,230,150,0.05))', clipPath: 'polygon(40% 0, 60% 0, 100% 100%, 0 100%)', animation: 'fadeIn 300ms steps(3)' }} />}

@@ -1,4 +1,16 @@
 :root {
+  /* Handheld standards (docs/MOBILE.md). lib/viewport.ts updates these on every
+     resize and rotation; the values below are the desktop defaults. */
+  --stage-scale: 1; /* rendered px per stage px */
+  --ui: 1; /* control-cluster scale */
+  --bleed-x: 0px; /* stage px from the art frame to the screen edge */
+  --bleed-y: 0px;
+  --safe-l: 0px; --safe-r: 0px; --safe-t: 0px; --safe-b: 0px; /* notch + home indicator, in stage px */
+  --rail-l: 0px; --rail-r: 0px; --rail-t: 0px; --rail-b: 0px; /* how far edge controls move outward */
+  --tap: 44px; /* minimum rendered touch target */
+  --ui-soft: 1; /* half-strength --ui for things that live inside the composition */
+  --hud-bottom: 63px; /* bottom edge of the scaled HUD, in stage px */
+
   --ink: #1b1f3b;
   --night: #101126;
   --panel: #14162e;
@@ -30,6 +42,8 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 .viewport { position: fixed; inset: 0; display: grid; place-items: center; overflow: hidden; }
 .stage { position: absolute; left: 50%; top: 50%; width: 1440px; height: 900px; overflow: hidden; background: var(--night); transform-origin: center; }
 .fill { position: absolute; inset: 0; }
+/* A full-screen layer (dims, flashes, transitions): the frame on desktop, the whole glass on handhelds. */
+.bleed { position: absolute; inset: calc(-1 * var(--bleed-y)) calc(-1 * var(--bleed-x)); }
 .bg { position: absolute; background-size: cover; background-position: 50%; image-rendering: pixelated; }
 .sprite { position: absolute; background-size: contain; background-repeat: no-repeat; background-position: 50% 100%; image-rendering: pixelated; }
 
@@ -101,25 +115,57 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 @media (hover: none) and (pointer: coarse) { .kbd-only { display: none !important; } }
 @media (hover: hover), (pointer: fine) { .touch-only { display: none !important; } }
 
-/* The stage is landscape: phones held upright get a rotate card instead. */
-.rotate-hint { display: none; }
-@media (orientation: portrait) and (pointer: coarse) { .rotate-hint { display: grid; } }
+/* ---------- handheld standards (docs/MOBILE.md) ----------
+   [data-handheld] is set by lib/viewport.ts for touch screens and short windows.
+   The art frame keeps its 1440×900 composition; controls ride rails at the safe
+   edge of the glass and scale as whole clusters, so their design never changes. */
+:root[data-handheld] {
+  --safe-l: calc(env(safe-area-inset-left, 0px) / var(--stage-scale));
+  --safe-r: calc(env(safe-area-inset-right, 0px) / var(--stage-scale));
+  --safe-t: calc(env(safe-area-inset-top, 0px) / var(--stage-scale));
+  --safe-b: calc(env(safe-area-inset-bottom, 0px) / var(--stage-scale));
+  /* Negative when the frame itself sits under the notch: controls move inward. */
+  --rail-l: calc(var(--bleed-x) - var(--safe-l));
+  --rail-r: calc(var(--bleed-x) - var(--safe-r));
+  --rail-t: calc(var(--bleed-y) - var(--safe-t));
+  --rail-b: calc(var(--bleed-y) - var(--safe-b));
+  --ui-soft: calc(1 + (var(--ui) - 1) * 0.5);
+  --hud-bottom: calc(63px * var(--ui) - var(--bleed-y));
+}
+/* Screens clip to the frame on desktop. Handheld rails live beside the frame, so
+   there the stage and screens stop clipping and the viewport clips at the glass. */
+.screen-clip { overflow: hidden; }
+:root[data-handheld] :is(.stage, .screen-clip) { overflow: visible; }
+:root[data-handheld] .stage { --tap: calc(44px / var(--stage-scale)); }
+/* Control clusters: the same design, scaled from the corner they are anchored to. */
+:root[data-handheld] :is(.ui-tl, .ui-tr, .ui-bl, .ui-br, .ui-t, .ui-b, .ui-l, .ui-r) { scale: var(--ui); --tap: calc(44px / var(--stage-scale) / var(--ui)); }
+:root[data-handheld] .ui-tl { transform-origin: 0 0; }
+:root[data-handheld] .ui-tr { transform-origin: 100% 0; }
+:root[data-handheld] .ui-bl { transform-origin: 0 100%; }
+:root[data-handheld] .ui-br { transform-origin: 100% 100%; }
+:root[data-handheld] .ui-t { transform-origin: 50% 0; }
+:root[data-handheld] .ui-b { transform-origin: 50% 100%; }
+:root[data-handheld] .ui-l { transform-origin: 0 50%; }
+:root[data-handheld] .ui-r { transform-origin: 100% 50%; }
+:root[data-handheld] .ui-soft { scale: var(--ui-soft); --tap: calc(44px / var(--stage-scale) / var(--ui-soft)); }
+/* Touch slop: a small control keeps its look but answers to a 44px (rendered) finger. */
+:where(:root[data-handheld] .tap) { position: relative; }
+:root[data-handheld] .tap::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, var(--tap)); height: max(100%, var(--tap)); translate: -50% -50%; }
+/* Content priority: secondary detail that handhelds leave out, and handheld-only additions. */
+:root[data-handheld] .desk-only { display: none !important; }
+:root:not([data-handheld]) .hand-only { display: none !important; }
+
+/* The stage is landscape: phones held upright get a rotate card, and turning
+   the phone irises the stage back open instead of showing half-resized frames. */
+.rotate-hint { display: grid; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 200ms steps(4), visibility 0s 200ms; }
+@media (orientation: portrait) and (pointer: coarse) { .rotate-hint { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity 240ms steps(4); } }
 @keyframes rotatePhone { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+@keyframes stageWake { from { clip-path: circle(0% at 50% 50%); } to { clip-path: circle(160% at 50% 50%); } }
+:root[data-waking] :is(.stage, .mobile-surface) { animation: stageWake 460ms steps(8) backwards; }
+@media (prefers-reduced-motion: reduce) { :root[data-waking] :is(.stage, .mobile-surface) { animation: fadeIn 200ms steps(3) backwards; } }
 
 /* Preserve the 1440×900 composition; increase important type before phone scaling. */
 @media (hover: none) and (pointer: coarse) {
-  .game-hud { height: 108px !important; padding: 0 20px !important; gap: 20px; }
-  .hud-party { gap: 20px !important; flex-shrink: 0; }
-  .hud-avatar, .hud-button { width: 96px !important; height: 96px !important; flex-shrink: 0; }
-  .hud-avatar .sprite { width: 300px !important; height: 300px !important; left: -136px !important; top: 4px !important; }
-  .combat-turn-banner, .map-act-heading { top: 126px !important; }
-  .combat-turn-banner .f-press { font-size: 24px !important; }
-  .combat-turn-banner .f-body { font-size: 28px !important; }
-  .hud-button svg { width: 44px; height: 44px; }
-  .hud-level { top: 70px !important; font-size: 18px !important; line-height: 20px !important; }
-  .hud-identity { display: none !important; }
-  .hud-value { font-size: 28px !important; white-space: nowrap; }
-  .hud-center { font-size: 26px !important; line-height: 32px; letter-spacing: .03em !important; text-align: center; }
   .game-card .card-title { height: 44px !important; flex-shrink: 0; }
   .game-card .card-title .f-press { font-size: 26px !important; }
   .game-card .card-damage { width: 54px !important; height: 54px !important; }

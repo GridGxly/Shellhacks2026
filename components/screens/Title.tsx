@@ -5,6 +5,7 @@ import { instrumentOf, useGame, type Screen } from '@/lib/store';
 import { Arrow, Bg, FloatingNotes, Sprite, Stars } from '../ui';
 import IntroMontage from './IntroMontage';
 import { MobileSurface, useTouchLayout } from '../MobileSurface';
+import { enterFullscreen, useFullscreenOffer } from '@/lib/viewport';
 
 let introSeen = false;
 
@@ -12,6 +13,7 @@ type Item = { label: string; act: () => void; primary?: boolean; mode?: boolean 
 
 export default function Title() {
   const touch = useTouchLayout();
+  const fullscreen = useFullscreenOffer();
   const [shot, setShot] = useState(introSeen ? 5 : 0);
   const saved = useGame((s) => s.saved);
   const startingRun = useGame(s => s.startingRun);
@@ -93,7 +95,10 @@ export default function Title() {
     <div className="mobile-home-art"><img src="/assets/logo.png" alt="Slay the Choir" /><div className="mobile-home-performer" style={{ backgroundImage: `url(${instrumentOf(useGame.getState().run).sprite})` }} /></div>
     <div className="mobile-home-content"><AccountChip /><nav aria-label="Main menu">
       <div className="mobile-home-modes">{primary.map(it => <button key={it.label} disabled={startingRun || Boolean(transition)} onClick={() => { sfx('click'); it.act(); }}>{it.label}{it.label === 'GEMS AND I' && <small>TRAINING</small>}</button>)}</div>
-      <div className="mobile-home-links">{secondary.map(it => <button key={it.label} disabled={startingRun || Boolean(transition)} onClick={() => { sfx('click'); it.act(); }}>{it.label}</button>)}</div>
+      <div className="mobile-home-links">
+        {secondary.map(it => <button key={it.label} disabled={startingRun || Boolean(transition)} onClick={() => { sfx('click'); it.act(); }}>{it.label}</button>)}
+        {fullscreen && <button onClick={() => { sfx('click'); void enterFullscreen(); }}>FULL SCREEN</button>}
+      </div>
     </nav></div>
   </MobileSurface>;
 

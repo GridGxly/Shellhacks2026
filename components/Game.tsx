@@ -1,9 +1,10 @@
 'use client';
 import { useEffect, useState, type CSSProperties } from 'react';
-import { useGame } from '@/lib/store';
+import { useGame, type Screen } from '@/lib/store';
 import { ac, applySettings, playMusic, preload, sfx } from '@/lib/audio';
 import { ENEMIES } from '@/lib/content';
 import { mic } from '@/lib/mic';
+import { applyViewport, enterFullscreen, measureViewport, touchDevice } from '@/lib/viewport';
 import Title from './screens/Title';
 import Tavern from './screens/Tavern';
 import Training from './screens/Training';
@@ -25,6 +26,8 @@ export default function Game() {
   const overlay = useGame((s) => s.overlay);
   const transition = useGame((s) => s.transition);
   const toast = useGame((s) => s.toast);
+  // The ambient backdrop beside the frame on wide phones continues the current scene.
+  const scene = useGame((s) => sceneBackground(s.screen, s.combat?.enemyIdx, s.run.floor));
 
   useEffect(() => {
     // visualViewport tracks the area left after mobile browser bars show or hide.
@@ -40,11 +43,9 @@ export default function Game() {
       document.documentElement.style.setProperty('--visual-height', `${visibleHeight}px`);
       document.documentElement.style.setProperty('--visual-top', `${v?.offsetTop ?? 0}px`);
 
-      setView({
-        scale: Math.min(width / 1440, height / 900),
-        x: (v?.offsetLeft ?? 0) + width / 2,
-        y: (v?.offsetTop ?? 0) + height / 2,
-      });
+      const next = measureViewport(width, height, v?.offsetLeft ?? 0, v?.offsetTop ?? 0);
+      applyViewport(next);
+      setView({ scale: next.scale, x: next.x, y: next.y });
     };
     const revealInput = () => {
       cancelAnimationFrame(focusFrame);
@@ -131,7 +132,7 @@ export default function Game() {
   };
 
   return (
-    <div className="viewport" style={{ '--scene-background': `url(${screen === 'tavern' ? '/assets/bg/tavern.png' : '/assets/bg/summit.png'})` } as CSSProperties} onPointerDown={boot} onKeyDown={boot} tabIndex={-1}>
+    <div className="viewport" style={{ '--scene-background': `url(${scene})` } as CSSProperties} onPointerDown={boot} onKeyDown={boot} tabIndex={-1}>
       <div className="stage" style={{ left: view.x, top: view.y, transform: `translate(-50%, -50%) scale(${view.scale})` }}>
         {!booted ? (
           <BootGate onStart={boot} />
@@ -167,44 +168,19 @@ export default function Game() {
           </>
         )}
       </div>
-      {booted && <FullscreenButton />}
       <RotateHint />
     </div>
   );
 }
 
-const touchDevice = () => typeof window !== 'undefined' && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-
-/** Android Chrome goes full screen and locks landscape; iPhone Safari has no element full screen and skips this. */
-async function enterFullscreen() {
-  try {
-    if (!document.fullscreenElement && document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
-    await (screen.orientation as (ScreenOrientation & { lock?: (o: string) => Promise<void> }) | undefined)?.lock?.('landscape');
-  } catch { /* not supported: the stage still scales to fit */ }
-}
-
-function FullscreenButton() {
-  const [full, setFull] = useState(false);
-  useEffect(() => {
-    const on = () => setFull(!!document.fullscreenElement);
-    on();
-    document.addEventListener('fullscreenchange', on);
-    return () => document.removeEventListener('fullscreenchange', on);
-  }, []);
-  if (full || typeof document === 'undefined' || !document.fullscreenEnabled) return null;
-  return (
-    <button
-      className="touch-only"
-      aria-label="Full screen"
-      onClick={() => { sfx('click'); void enterFullscreen(); }}
-      style={{ position: 'fixed', right: 'max(10px, env(safe-area-inset-right))', bottom: 10, zIndex: 300, width: 40, height: 40, display: 'grid', placeItems: 'center', background: 'rgba(16,17,38,0.85)', border: '3px solid #3A3F70' }}
-    >
-      <svg width="18" height="18" viewBox="0 0 9 9" shapeRendering="crispEdges" fill="#FFD23F">
-        <rect x="0" y="0" width="3" height="1" /><rect x="0" y="0" width="1" height="3" /><rect x="6" y="0" width="3" height="1" /><rect x="8" y="0" width="1" height="3" />
-        <rect x="0" y="8" width="3" height="1" /><rect x="0" y="6" width="1" height="3" /><rect x="6" y="8" width="3" height="1" /><rect x="8" y="6" width="1" height="3" />
-      </svg>
-    </button>
-  );
+function sceneBackground(screen: Screen, enemyIdx: number | undefined, floor: number) {
+  if (screen === 'combat' && enemyIdx !== undefined) return ENEMIES[enemyIdx].bg;
+  if (screen === 'victory' || screen === 'actclear') return ENEMIES[Math.max(0, floor - 1)].bg;
+  if (screen === 'loss') return ENEMIES[Math.min(ENEMIES.length - 1, floor)].bg;
+  if (screen === 'map') return '/assets/bg/map.png';
+  if (screen === 'instrument') return '/assets/bg/showroom.png';
+  if (screen === 'tavern' || screen === 'training') return '/assets/bg/tavern.png';
+  return '/assets/bg/summit.png';
 }
 
 /** Portrait phones: the 1440×900 stage would be a thin strip, so ask for landscape. */
