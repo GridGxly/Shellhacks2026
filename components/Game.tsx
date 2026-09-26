@@ -1,0 +1,196 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { useGame } from '@/lib/store';
+import { ac, applySettings, playMusic, preload, sfx } from '@/lib/audio';
+import { ENEMIES } from '@/lib/content';
+import Title from './screens/Title';
+import { Credits, HowToPlay, MicCheck } from './screens/Menus';
+import ChooseInstrument from './screens/ChooseInstrument';
+import MapScreen from './screens/MapScreen';
+import Combat from './screens/Combat';
+import { ActClear, FinalVictory, Loss, Victory } from './screens/Results';
+import { Leaderboard, Profile } from './screens/Social';
+import { MapPeek, Pause, StatsOverlay } from './overlays/HudOverlays';
+import { Overwrite, SignIn } from './overlays/Account';
+
+export default function Game() {
+  const [scale, setScale] = useState(1);
+  const [booted, setBooted] = useState(false);
+  const screen = useGame((s) => s.screen);
+  const overlay = useGame((s) => s.overlay);
+  const transition = useGame((s) => s.transition);
+  const toast = useGame((s) => s.toast);
+
+  useEffect(() => {
+    const fit = () => setScale(Math.min(window.innerWidth / 1440, window.innerHeight / 900));
+    fit();
+    window.addEventListener('resize', fit);
+    useGame.getState().hydrate();
+    // Dev only: window.__stc.setState({...}) to jump around while building.
+    if (process.env.NODE_ENV !== 'production') (window as unknown as { __stc: typeof useGame }).__stc = useGame;
+    try {
+      const saved = localStorage.getItem('stc.settings.v1');
+      if (saved) applySettings(JSON.parse(saved));
+    } catch {
+      /* defaults */
+    }
+    fetch('/api/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((u) => u && useGame.getState().setUser(u))
+      .catch(() => {});
+    return () => window.removeEventListener('resize', fit);
+  }, []);
+
+  // Global shortcuts: Esc = pause/back, M = map peek, C = stats.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const s = useGame.getState();
+      if (e.key === 'Escape') {
+        if (s.overlay) {
+          sfx('back');
+          s.setOverlay(null);
+        } else if (s.screen === 'combat' || s.screen === 'map') {
+          sfx('click');
+          s.setOverlay('pause');
+        }
+      }
+      if (s.overlay === 'mappeek' && (e.key === 'm' || e.key === 'M')) { sfx('back'); s.setOverlay(null); return; }
+      if ((s.screen === 'combat' || s.screen === 'map') && !s.overlay) {
+        if (e.key === 'm' || e.key === 'M') { sfx('click'); s.setOverlay('mappeek'); }
+        if (e.key === 'c' || e.key === 'C') { sfx('click'); s.setOverlay('stats'); }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const boot = () => {
+    if (booted) return;
+    ac();
+    preload([
+      ...new Set(ENEMIES.map((e) => e.attackSfx)),
+      '/audio/sfx/ko-slam.mp3', '/audio/sfx/versus-slam.mp3', '/audio/sfx/encore-charge.mp3',
+      '/audio/sfx/encore-hit.mp3', '/audio/sfx/victory-sting.mp3', '/audio/sfx/boss-lock-rattle.mp3',
+    ]);
+    setBooted(true);
+    sfx('click');
+    playMusic('title');
+  };
+
+  return (
+    <div className="viewport" onPointerDown={boot} onKeyDown={boot} tabIndex={-1}>
+      <div className="stage" style={{ transform: `translate(-50%, -50%) scale(${scale})` }}>
+        {!booted ? (
+          <BootGate onStart={boot} />
+        ) : (
+          <>
+            {screen === 'title' && <Title />}
+            {screen === 'howto' && <HowToPlay />}
+            {screen === 'mic' && <MicCheck />}
+            {screen === 'credits' && <Credits />}
+            {screen === 'instrument' && <ChooseInstrument />}
+            {screen === 'map' && <MapScreen />}
+            {screen === 'combat' && <Combat />}
+            {screen === 'victory' && <Victory />}
+            {screen === 'actclear' && <ActClear />}
+            {screen === 'loss' && <Loss />}
+            {screen === 'final' && <FinalVictory />}
+            {screen === 'leaderboard' && <Leaderboard />}
+            {screen === 'profile' && <Profile />}
+
+            {overlay === 'stats' && <StatsOverlay />}
+            {overlay === 'pause' && <Pause />}
+            {overlay === 'mappeek' && <MapPeek />}
+            {overlay === 'signin' && <SignIn />}
+            {overlay === 'overwrite' && <Overwrite />}
+
+            {toast && <Toast text={toast} />}
+            {transition === 'wipe' && <Wipe />}
+            {transition === 'iris' && <Iris />}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BootGate({ onStart }: { onStart: () => void }) {
+  return (
+    <button className="fill" onClick={onStart} style={{ display: 'grid', placeItems: 'center', background: '#07070f' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28 }}>
+        <img src="/assets/logo.png" alt="Slay the Choir" width={520} style={{ animation: 'fadeIn 800ms both' }} />
+        <div className="f-press" style={{ fontSize: 16, color: 'var(--sun)', animation: 'blink 1.1s steps(1) infinite' }}>
+          PRESS ANY KEY
+        </div>
+        <div className="f-label" style={{ fontSize: 12, color: 'var(--muted)' }}>
+          HEADPHONES RECOMMENDED · MIC REQUIRED TO PLAY FOR REAL
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/** M3 stair-step wipe: magenta leading edge sweeps left to right. */
+function Wipe() {
+  useEffect(() => sfx('wipe'), []);
+  const steps = 10;
+  return (
+    <div className="fill" style={{ zIndex: 100, pointerEvents: 'none', overflow: 'hidden' }}>
+      {Array.from({ length: steps }, (_, i) => (
+        <div
+          key={i}
+          style={{
+            position: 'absolute',
+            left: -40,
+            top: i * 90,
+            width: 1560,
+            height: 90,
+            background: '#101126',
+            boxShadow: '16px 0 0 #FF4FA3',
+            animation: `wipeIn 360ms ${i * 22}ms steps(8) both, wipeOut 360ms ${420 + i * 22}ms steps(8) forwards`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Iris() {
+  return (
+    <div className="fill" style={{ zIndex: 100, pointerEvents: 'none' }}>
+      <div className="fill" style={{ background: '#07070f', animation: 'irisOpenClose 1100ms steps(14) both' }} />
+      <style>{`@keyframes irisOpenClose { 0% { clip-path: circle(0% at 50% 50%); } 45%, 55% { clip-path: circle(80% at 50% 50%); } 100% { clip-path: circle(0% at 50% 50%); } }`}</style>
+    </div>
+  );
+}
+
+function Toast({ text }: { text: string }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: 40,
+        top: 170,
+        zIndex: 90,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        padding: '14px 20px 14px 16px',
+        background: 'rgba(16,17,38,0.95)',
+        border: '3px solid var(--meadow)',
+        boxShadow: '#101126 5px 5px 0',
+        animation: 'slideInLeft 300ms steps(6) both, fadeOut 400ms 2800ms forwards',
+      }}
+    >
+      <svg width="32" height="32" viewBox="0 0 8 8" shapeRendering="crispEdges" style={{ animation: 'blink 300ms steps(1) 2' }}>
+        <rect x="0" y="0" width="8" height="8" fill="#4CC26B" />
+        <rect x="1" y="1" width="5" height="2" fill="#101126" />
+        <rect x="2" y="5" width="4" height="3" fill="#FFF6E0" />
+      </svg>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="f-press" style={{ fontSize: 13, color: 'var(--meadow)' }}>CHECKPOINT SAVED</div>
+        <div className="f-body" style={{ fontSize: 15, color: 'var(--soft)' }}>{text}</div>
+      </div>
+    </div>
+  );
+}
