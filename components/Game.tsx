@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useGame } from '@/lib/store';
 import { ac, applySettings, playMusic, preload, sfx } from '@/lib/audio';
 import { ENEMIES } from '@/lib/content';
@@ -28,17 +28,34 @@ export default function Game() {
 
   useEffect(() => {
     // visualViewport tracks the area left after mobile browser bars show or hide.
+    let stableHeight = window.innerHeight;
+    let focusFrame = 0;
     const fit = () => {
       const v = window.visualViewport;
       const width = v?.width ?? window.innerWidth;
-      const height = v?.height ?? window.innerHeight;
+      const visibleHeight = v?.height ?? window.innerHeight;
+      const editing = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement;
+      if (!editing) stableHeight = visibleHeight;
+      const height = editing ? Math.max(stableHeight, visibleHeight) : visibleHeight;
+      document.documentElement.style.setProperty('--visual-height', `${visibleHeight}px`);
+      document.documentElement.style.setProperty('--visual-top', `${v?.offsetTop ?? 0}px`);
+
       setView({
         scale: Math.min(width / 1440, height / 900),
         x: (v?.offsetLeft ?? 0) + width / 2,
         y: (v?.offsetTop ?? 0) + height / 2,
       });
     };
+    const revealInput = () => {
+      cancelAnimationFrame(focusFrame);
+      focusFrame = requestAnimationFrame(() => {
+        fit();
+        const input = document.activeElement;
+        if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) input.scrollIntoView({ block: 'nearest' });
+      });
+    };
     fit();
+    document.addEventListener('focusin', revealInput);
     window.addEventListener('resize', fit);
     window.visualViewport?.addEventListener('resize', fit);
     window.visualViewport?.addEventListener('scroll', fit);
@@ -64,6 +81,8 @@ export default function Game() {
       })
       .catch(() => {});
     return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener('focusin', revealInput);
       window.removeEventListener('resize', fit);
       window.visualViewport?.removeEventListener('resize', fit);
       window.visualViewport?.removeEventListener('scroll', fit);
@@ -112,7 +131,7 @@ export default function Game() {
   };
 
   return (
-    <div className="viewport" onPointerDown={boot} onKeyDown={boot} tabIndex={-1}>
+    <div className="viewport" style={{ '--scene-background': `url(${screen === 'tavern' ? '/assets/bg/tavern.png' : '/assets/bg/summit.png'})` } as CSSProperties} onPointerDown={boot} onKeyDown={boot} tabIndex={-1}>
       <div className="stage" style={{ left: view.x, top: view.y, transform: `translate(-50%, -50%) scale(${view.scale})` }}>
         {!booted ? (
           <BootGate onStart={boot} />

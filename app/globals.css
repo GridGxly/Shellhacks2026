@@ -144,3 +144,77 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
   .boot-start { font-size: 32px !important; }
   .mobile-audio-hint { font-size: 24px !important; line-height: 28px; }
 }
+
+/* Native-sized phone controls: never scale a form down with the game artwork. */
+.mobile-surface { position:fixed; inset-inline:0; top:var(--visual-top,0px); height:var(--visual-height,100dvh); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; z-index:50; padding:12px max(16px,env(safe-area-inset-right)) 16px max(16px,env(safe-area-inset-left)); background:#101126; }
+.mobile-surface button { min-height:44px; touch-action:manipulation; }
+.mobile-home { z-index:20; display:grid; grid-template-columns:minmax(160px,35%) minmax(0,1fr); gap:20px; background:linear-gradient(90deg,#10112622,#101126ba),url('/assets/bg/summit.png') center/cover; }
+.mobile-home-art { position:relative; min-height:286px; }
+.mobile-home-art>img { width:100%; max-width:310px; display:block; margin:-18px auto 0; }
+.mobile-home-performer { position:absolute; inset:34% 0 0; background-size:contain; background-repeat:no-repeat; background-position:center bottom; image-rendering:pixelated; animation:breathe 1.2s steps(2) infinite; }
+.mobile-home-content { min-width:0; display:flex; flex-direction:column; gap:10px; }
+.mobile-home .title-account { position:relative!important; inset:auto!important; justify-content:flex-end; align-self:stretch; gap:10px!important; padding:0!important; border:0!important; box-shadow:none!important; animation:none!important; }
+.mobile-home .title-account .f-body { display:none; }
+.mobile-home .title-account button { padding:8px 12px!important; font-size:11px!important; }
+.mobile-home .title-account .f-label { font-size:11px!important; letter-spacing:.05em; }
+.mobile-home .title-account .f-press { font-size:12px!important; }
+.mobile-home nav { display:flex; flex-direction:column; gap:10px; padding:12px; background:#101126eb; border:2px solid #55577d; }
+.mobile-home-modes { display:grid; gap:8px; }
+.mobile-home-modes button { width:100%; padding:12px 8px; font:13px/1.45 var(--press); background:#ffd23f; color:#101126; border:2px solid #f0ddb4; box-shadow:3px 3px #a82762; }
+.mobile-home-modes small { display:inline-block; margin-left:10px; font:12px var(--label); }
+.mobile-home-links { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.mobile-home-links button { font:11px/1.5 var(--label); padding:5px; color:#fff6e0; border:1px solid #55577d; background:#232541; }
+.mobile-home button:disabled { opacity:.55; }
+.account-mobile { z-index:600; background:#080914ed; padding-top:12px; }
+.account-mobile .account-modal { position:relative; inset:auto; min-height:100%; }
+.account-mobile .account-modal>.fill { position:fixed; }
+.account-mobile .account-modal-panel { position:relative!important; top:auto!important; left:auto!important; width:min(100%,560px)!important; margin:0 auto; animation:none!important; }
+.account-mobile .account-form-body { padding:18px!important; gap:14px!important; }
+.account-mobile input { width:100%; min-height:48px; font-size:20px!important; scroll-margin-block:18px; }
+.account-mobile .f-label { font-size:12px!important; }
+.account-mobile button { font-size:12px!important; }
+.mobile-lobby-back,.mobile-lobby-error { display:none; }
+@media (max-width:1024px), (hover:none) and (pointer:coarse) {
+  .viewport { background-image:linear-gradient(#10112644,#10112666),var(--scene-background); background-size:cover; background-position:center; }
+  .tavern-mobile-lobby,.mobile-performer-select { background:linear-gradient(#101126aa,#101126dd),url('/assets/bg/tavern.png') center/cover; }
+  .tavern-mobile-lobby .tavern-heading { position:static; width:auto; text-shadow:none; }
+  .tavern-mobile-lobby .tavern-heading h1 { font-size:18px; margin:0 0 8px; }
+  .tavern-mobile-lobby .tavern-heading svg { display:none; }
+  .tavern-mobile-lobby .tavern-heading p { font-size:18px; padding:4px 8px; }
+  .tavern-mobile-lobby .tavern-mode-choice { position:static; width:auto; gap:12px; margin:12px 0; }
+  .tavern-mobile-lobby .tavern-mode-choice button { min-width:0; flex:1; font-size:12px; }
+  .tavern-mobile-lobby .tavern-lobby-cards { position:static; display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .tavern-mobile-lobby .tavern-board { width:auto; height:auto; padding:16px; border-width:3px; }
+  .tavern-mobile-lobby .tavern-board h2 { font-size:14px; margin:8px 0; }
+  .tavern-mobile-lobby .tavern-board p { font-size:18px; min-height:0; margin:0 0 12px; }
+  .tavern-mobile-lobby .tavern-board-number { display:none; }
+  .tavern-mobile-lobby .tavern-board label { font-size:12px; }
+  .tavern-mobile-lobby .tavern-board input { width:100%; max-width:230px; height:48px; font-size:22px; margin:8px auto; scroll-margin-block:18px; }
+  .tavern-mobile-lobby .tavern-action,.tavern-mobile-lobby .tavern-outline { font-size:11px; padding:10px; }
+  .tavern-mobile-lobby .tavern-setup { position:static; width:auto; gap:12px; margin:16px 0 8px; align-items:stretch; }
+  .tavern-mobile-lobby .tavern-setup>* { flex:1; }
+  .tavern-mobile-lobby .tavern-note { position:static; width:auto; font-size:16px; line-height:1.35; margin:10px 0; }
+  .mobile-lobby-back { display:block; font:12px var(--label); padding:10px 18px; background:#1b1d3a; border:2px solid #ac7544; }
+  .mobile-lobby-error { display:block; color:#ff8a93; font:18px var(--body); }
+  .mobile-performer-select .tavern-character-select { position:relative; inset:auto; display:grid; grid-template-columns:minmax(120px,26%) minmax(0,1fr); gap:12px; }
+  .mobile-performer-select .tavern-character-select h2 { position:static; width:auto; font:14px/1.6 var(--press); grid-column:1; }
+  .mobile-performer-select .tavern-character-preview { position:relative; inset:auto; width:100%; height:180px; grid-column:1; grid-row:2; }
+  .mobile-performer-select .tavern-character-preview .tavern-avatar { width:100%!important; height:100%!important; }
+  .mobile-performer-select .tavern-avatar .sprite { width:100%!important; height:100%!important; }
+  .mobile-performer-select .tavern-character-description { position:static; width:auto; min-height:0; padding:8px; grid-column:1; border-width:2px; }
+  .mobile-performer-select .tavern-character-description strong { font:14px/1.4 var(--press); }
+  .mobile-performer-select .tavern-character-description p { font:16px/1.2 var(--body); }
+  .mobile-performer-select .tavern-character-panel { position:static; width:auto; height:auto; grid-column:2; grid-row:1/4; padding:12px; border-width:2px; }
+  .mobile-performer-select .tavern-character-panel fieldset { position:static; width:auto; }
+  .mobile-performer-select .tavern-character-panel legend { font:13px/1.4 var(--label); white-space:normal; }
+  .mobile-performer-select .tavern-character-options { grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin:8px 0 12px; }
+  .mobile-performer-select .tavern-character-option { height:120px; font:13px/24px var(--label); border-width:2px; }
+  .mobile-performer-select .tavern-character-thumbnail { width:100%; height:88px; }
+  .mobile-performer-select .tavern-character-thumbnail>.tavern-avatar { width:100%!important; height:100%!important; }
+  .mobile-performer-select .tavern-instrument-options { grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:8px; }
+  .mobile-performer-select .tavern-instrument-option { height:48px; font:12px/1.3 var(--label); border-width:2px; }
+  .mobile-performer-select .tavern-character-actions { position:static; width:auto; grid-column:2; gap:12px; }
+  .mobile-performer-select .tavern-character-actions button { height:auto; min-height:48px; font:13px/1.4 var(--label); padding:8px; }
+  .mobile-performer-select .tavern-character-back { flex:0 0 100px; }
+}
+@media (prefers-reduced-motion:reduce) { .mobile-home-performer { animation:none; } }

@@ -16,6 +16,7 @@ import Staff from '../Staff';
 import { HOOK_START, tomatoThrows, verdictTargets, pvpVerdictTargets } from '../tavern/Gags';
 import TavernRoom, { type TavernPhase } from '../tavern/TavernRoom';
 import { Ornament } from '../ui';
+import { MobileSurface } from '../MobileSurface';
 import './tavern-screen.css';
 
 export default function Tavern() {
@@ -220,16 +221,18 @@ export default function Tavern() {
 
   return <TavernRoom phase={stagePhase} mode={gameMode} winnerSide={winnerSide} mine={{ name: mine?.name ?? user?.username ?? 'YOU', characterId: mine?.characterId ?? characterId, instrument: inst.id, accuracy: myAccuracy }} partner={partner ? { name: partner.name, characterId: partner.characterId, instrument: partner.instrument, accuracy: partnerAccuracy } : null} joined={!!partner} lightElapsed={elapsed === -1 && localStart === null ? -1 : elapsed + 4000} verdictElapsed={verdictElapsed} pass={pass} activity={activity}>
     {phase === 'lobby' && selecting && <TavernCharacterSelect characterId={characterId} instrument={instrument} onCharacterChange={setCharacterId} onInstrumentChange={setInstrument} onContinue={() => setSelecting(false)} onBack={returnHome} continueLabel="TO THE TAVERN →" />}
-    {phase === 'lobby' && !selecting && <>
+    {phase === 'lobby' && !selecting && <MobileSurface className="tavern-mobile-lobby">
       <header className="tavern-heading"><h1>TAVERN MODE</h1><Ornament /><p>{isPvp ? 'Same phrase. Best accuracy wins. A draw stays a draw.' : 'Two musicians. Complementary parts. One shared performance.'}</p></header>
       <div className="tavern-mode-choice" role="group" aria-label="Tavern game mode"><button aria-pressed={!isPvp} className={`tavern-outline${!isPvp ? ' selected' : ''}`} onClick={() => setMode('duet')}>DUET · TOGETHER</button><button aria-pressed={isPvp} className={`tavern-outline${isPvp ? ' selected' : ''}`} onClick={() => setMode('pvp')}>1V1 · FACE OFF</button></div>
       <div className="tavern-lobby-cards">
         <section className="tavern-board"><span className="tavern-board-number">01</span><h2>HOST A SHOW</h2><p>Take the stage and invite one friend with a four-character code.</p><button className="tavern-action" disabled={busy || (!micReady && !demo)} onClick={() => void enter(false)}>HOST SHOW →</button></section>
-        <section className="tavern-board"><span className="tavern-board-number">02</span><h2>JOIN A SHOW</h2><label htmlFor="tavern-code">YOUR FRIEND’S CODE</label><input id="tavern-code" aria-label="Tavern code" autoComplete="off" maxLength={4} value={code} placeholder="ABCD" onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter' && code.length === 4) void enter(true); }} /><button className="tavern-action" disabled={busy || code.length !== 4 || (!micReady && !demo)} onClick={() => void enter(true)}>JOIN SHOW →</button></section>
+        <section className="tavern-board"><span className="tavern-board-number">02</span><h2>JOIN A SHOW</h2><label htmlFor="tavern-code">YOUR FRIEND’S CODE</label><input id="tavern-code" aria-label="Tavern code" autoComplete="off" autoCapitalize="characters" autoCorrect="off" spellCheck={false} maxLength={4} value={code} placeholder="ABCD" onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter' && code.length === 4) void enter(true); }} /><button className="tavern-action" disabled={busy || code.length !== 4 || (!micReady && !demo)} onClick={() => void enter(true)}>JOIN SHOW →</button></section>
       </div>
       <div className="tavern-setup"><button className="tavern-outline" disabled={busy} onClick={() => setSelecting(true)}>{getTavernCharacter(characterId).name.toUpperCase()} · {inst.name.toUpperCase()}<br />CHANGE PERFORMER</button><button className="tavern-outline" disabled={busy} onClick={() => void enableMic()}>{micReady ? '✓ MICROPHONE READY' : 'ENABLE MICROPHONE'}</button><button className={`tavern-outline${demo ? ' selected' : ''}`} disabled={busy} onClick={() => { mic.stop(); setMicReady(false); setDemo(true); setError(''); ac(); }}>DEMO PERFORMANCE</button></div>
       <p className="tavern-note">HEADPHONES RECOMMENDED · You hear your partner only during the final replay.<br />{demo ? 'DEMO: notes are simulated; the replay uses instruments.' : 'Guests welcome. Recordings disappear after the show.'}</p>
-    </>}
+      <button className="mobile-lobby-back" onClick={returnHome}>← BACK HOME</button>
+      {error && <p className="mobile-lobby-error" role="alert">{error}</p>}
+    </MobileSurface>}
     {(stagePhase === 'hosting' || stagePhase === 'ready') && <>
       <section className="tavern-room-code"><span className="f-label">{seat?.part === 'A' ? isPvp ? 'INVITE YOUR 1V1 CHALLENGER' : 'INVITE YOUR DUET PARTNER' : `${room?.host.name ?? 'YOUR HOST'}’S SHOW`}</span><strong>{seat?.code}</strong><button className="tavern-outline" onClick={() => { void navigator.clipboard.writeText(seat!.code).then(() => setCopied(true)).catch(() => setError('Copy the four-character code shown above.')); }}>{copied ? 'COPIED ✓' : 'COPY CODE'}</button></section>
       <section className="tavern-bottom-status"><h2>{!partner ? 'WAITING FOR YOUR PARTNER…' : seat?.part === 'A' ? 'THE STAGE IS YOURS' : 'WAITING FOR THE HOST…'}</h2><p>{!partner ? 'Share the code. Your friend can join as a guest.' : isPvp ? '1V1 · Both play the same phrase. Higher accuracy wins; ties draw.' : `You play Part ${seat?.part} · ${seat?.part === 'A' ? 'Melody' : 'Harmony'} · four bars together.`}</p>{partner && seat?.part === 'A' && <button className="tavern-action" disabled={busy} onClick={() => void startShow()}>START SHOW →</button>}</section>

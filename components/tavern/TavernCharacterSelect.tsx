@@ -4,6 +4,7 @@ import { useId } from 'react';
 import { INSTRUMENTS, type InstrumentId } from '@/lib/content';
 import { getTavernCharacter, TAVERN_CHARACTERS, type TavernCharacterId } from '@/lib/tavern-characters';
 import TavernAvatar from './TavernAvatar';
+import { MobileSurface } from '../MobileSurface';
 import './tavern-characters.css';
 
 export interface TavernCharacterSelectProps {
@@ -21,7 +22,7 @@ export interface TavernCharacterSelectProps {
 export default function TavernCharacterSelect({ characterId, instrument, onCharacterChange, onInstrumentChange, onContinue, onBack, disabled = false, continueLabel }: TavernCharacterSelectProps) {
   const id = useId();
   const selected = getTavernCharacter(characterId);
-  return <section className="tavern-character-select" aria-labelledby={`${id}-heading`} aria-busy={disabled}>
+  return <MobileSurface className="mobile-performer-select"><section className="tavern-character-select" aria-labelledby={`${id}-heading`} aria-busy={disabled}>
     <h2 id={`${id}-heading`}>CHOOSE YOUR<br />PERFORMER</h2>
     <div className="tavern-character-preview" key={selected.id}>
       <TavernAvatar characterId={selected.id} instrument={instrument} size={436} />
@@ -56,5 +57,5 @@ export default function TavernCharacterSelect({ characterId, instrument, onChara
       {onBack && <button type="button" className="tavern-character-back" disabled={disabled} onClick={onBack}>← BACK</button>}
       <button type="button" className="tavern-character-continue" disabled={disabled} onClick={onContinue}>{continueLabel ?? `USE ${selected.name.toUpperCase()} · CONTINUE →`}</button>
     </div>
-  </section>;
+  </section></MobileSurface>;
 }

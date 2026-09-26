@@ -4,12 +4,14 @@ import { playFile, playMusic, sfx } from '@/lib/audio';
 import { instrumentOf, useGame, type Screen } from '@/lib/store';
 import { Arrow, Bg, FloatingNotes, Sprite, Stars } from '../ui';
 import IntroMontage from './IntroMontage';
+import { MobileSurface, useTouchLayout } from '../MobileSurface';
 
 let introSeen = false;
 
 type Item = { label: string; act: () => void; primary?: boolean; mode?: boolean };
 
 export default function Title() {
+  const touch = useTouchLayout();
   const [shot, setShot] = useState(introSeen ? 5 : 0);
   const saved = useGame((s) => s.saved);
   const startingRun = useGame(s => s.startingRun);
@@ -86,6 +88,14 @@ export default function Title() {
   const secondary = items.filter((i) => !i.primary && !i.mode);
   const rowSize = secondary.length > 4 ? Math.ceil(secondary.length / 2) : secondary.length;
   const secondaryRows = [secondary.slice(0, rowSize), secondary.slice(rowSize)].filter((row) => row.length);
+
+  if (touch && shot >= 5) return <MobileSurface className="mobile-home">
+    <div className="mobile-home-art"><img src="/assets/logo.png" alt="Slay the Choir" /><div className="mobile-home-performer" style={{ backgroundImage: `url(${instrumentOf(useGame.getState().run).sprite})` }} /></div>
+    <div className="mobile-home-content"><AccountChip /><nav aria-label="Main menu">
+      <div className="mobile-home-modes">{primary.map(it => <button key={it.label} disabled={startingRun || Boolean(transition)} onClick={() => { sfx('click'); it.act(); }}>{it.label}{it.label === 'GEMS AND I' && <small>TRAINING</small>}</button>)}</div>
+      <div className="mobile-home-links">{secondary.map(it => <button key={it.label} disabled={startingRun || Boolean(transition)} onClick={() => { sfx('click'); it.act(); }}>{it.label}</button>)}</div>
+    </nav></div>
+  </MobileSurface>;
 
   return (
     <div className="fill" style={{ background: '#1B1D3A' }}>
@@ -170,7 +180,7 @@ function AccountChip() {
   const setOverlay = useGame((s) => s.setOverlay);
   if (user) {
     return (
-      <div style={{ position: 'absolute', right: 40, top: 28, display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px 8px 8px', background: 'rgba(16,17,38,0.85)', border: '3px solid #3A3F70', animation: 'dropIn 300ms steps(5) both' }}>
+      <div className="title-account" style={{ position: 'absolute', right: 40, top: 28, display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px 8px 8px', background: 'rgba(16,17,38,0.85)', border: '3px solid #3A3F70', animation: 'dropIn 300ms steps(5) both' }}>
         <div style={{ position: 'relative', width: 44, height: 44, overflow: 'hidden', background: '#2A2F55', border: '3px solid var(--sun)' }}>
           <div className="sprite" style={{ left: -68, top: 2, width: 150, height: 150, backgroundImage: 'url(/assets/sprites/riff-trumpet.png)', backgroundPosition: '50% 0' }} />
         </div>
@@ -194,7 +204,7 @@ function AccountChip() {
     );
   }
   return (
-    <div style={{ position: 'absolute', right: 40, top: 32, display: 'flex', alignItems: 'center', gap: 14, animation: 'dropIn 300ms steps(5) both' }}>
+    <div className="title-account" style={{ position: 'absolute', right: 40, top: 32, display: 'flex', alignItems: 'center', gap: 14, animation: 'dropIn 300ms steps(5) both' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
         <div className="f-label" style={{ fontSize: 12, color: 'var(--muted)' }}>PLAYING AS GUEST</div>
         <div className="f-body" style={{ fontSize: 14, color: 'var(--soft)' }}>Sign in to save runs + get ranked</div>
