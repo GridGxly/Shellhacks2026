@@ -138,7 +138,7 @@ export function makeExercise(type: CardType, tempo: number): Exercise {
 
 // ---------- Spelling & staff ----------
 
-type KeySig = { name: string; accidentals: number }; // + sharps, - flats
+export type KeySig = { name: string; accidentals: number }; // + sharps, - flats
 const SHARP_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 const FLAT_NAMES = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
 const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];

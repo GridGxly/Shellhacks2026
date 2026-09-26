@@ -10,6 +10,7 @@ export interface AudioSettings {
   trashTalk: 'spicy' | 'mild' | 'off';
   metronome: 'click' | 'flash' | 'off';
   countIn: 2 | 4;
+  approach: 'on' | 'off'; // osu-style closing circles on the staff (on for beginners) vs the sweeping bar
 }
 
 export const settings: AudioSettings = {
@@ -19,6 +20,7 @@ export const settings: AudioSettings = {
   trashTalk: 'spicy',
   metronome: 'click',
   countIn: 4,
+  approach: 'on',
 };
 
 let ctx: AudioContext | null = null;
@@ -41,6 +43,12 @@ export function ac(): AudioContext {
   }
   if (ctx.state === 'suspended') void ctx.resume();
   return ctx;
+}
+
+/** Apply and persist (same localStorage key Game.tsx loads on boot). */
+export function saveSettings(next: Partial<AudioSettings>) {
+  applySettings(next);
+  try { localStorage.setItem('stc.settings.v1', JSON.stringify(settings)); } catch { /* ignore */ }
 }
 
 export function applySettings(next: Partial<AudioSettings>) {

@@ -17,6 +17,7 @@ type Phase = 'enter' | 'player' | 'perform' | 'attack' | 'enemy' | 'win' | 'ko';
 type Active = number | 'encore';
 
 const wait = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
+const clock = () => performance.now();
 const FLOOR_Y = 590; // fighters stand on this line
 const RIFF = { x: 210, size: 320 };
 
@@ -63,7 +64,7 @@ export default function Combat() {
     const t = window.setTimeout(() => { setPhase('player'); setDealKey((k) => k + 1); }, 1500);
     window.setTimeout(() => sfx('stampHit'), 700);
     [0, 1, 2].forEach((i) => window.setTimeout(() => sfx('deal'), 1500 + i * 90));
-    const l = (r: { midi: number | null }) => setHearing(r.midi);
+    const l = (r: { stableMidi: number | null }) => setHearing(r.stableMidi);
     mic.listeners.add(l);
     return () => {
       alive.current = false;
@@ -117,9 +118,19 @@ export default function Combat() {
       for (let b = 0; b < beats; b++) {
         window.setTimeout(() => alive.current && setPerform((p) => p && { ...p, stage: 'countin', count: b + 1 }), 120 + b * mspb);
       }
+      // Feed negative beats through the count-in so follow-along circles for the
+      // first notes are already closing when the downbeat arrives.
+      let counting = true;
+      const pre = () => {
+        if (!counting || !alive.current) return;
+        setPerform((p) => p && { ...p, beat: (clock() - startPerf) / mspb });
+        requestAnimationFrame(pre);
+      };
+      requestAnimationFrame(pre);
       const demo = useGame.getState().demoMode || mic.status !== 'on';
       const sim = demo ? simulate(ex, inst.shift, 0.82) : null;
       await wait(120 + beats * mspb - 30);
+      counting = false;
       mic.beginRecording();
       const totalBeats = ex.notes[ex.notes.length - 1].startBeat + ex.notes[ex.notes.length - 1].durBeats;
       await new Promise<void>((done) => {
@@ -229,6 +240,7 @@ export default function Combat() {
     void playFile('/audio/sfx/victory-sting.mp3', 0.9);
     await wait(enemy.defeat ? 2600 : 1600);
     if (!alive.current) return;
+    if (useGame.getState().bossDemo) return useGame.getState().endBossDemo();
     const final = useGame.getState().run.floor + 1 >= ENEMIES.length;
     useGame.getState().winFight();
     mapFx.reveal = true;
@@ -250,6 +262,7 @@ export default function Combat() {
     await wait(enemy.ko ? 2400 : 1600);
     if (!alive.current) return;
     muteMusic(false);
+    if (useGame.getState().bossDemo) return useGame.getState().endBossDemo();
     useGame.getState().loseRun();
     useGame.getState().go('loss', 'iris');
   };

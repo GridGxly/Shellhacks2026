@@ -1,27 +1,43 @@
 'use client';
-// Mic + pitch detection (PRD §6). Ported from the team's pitch-detection
-// branch (PitchEngine gates: level, clarity, range) to TypeScript.
+// Mic + pitch detection (PRD §6). The per-frame work is the team's
+// pitch-detection engine (lib/pitch/engine.ts: level / clarity / range gates)
+// and stabilizer (lib/pitch/stabilizer.ts: steady note for display). Grading
+// maps each written note to what was played using the sight-reading demo's
+// logic (skip the attack, coverage within tolerance, else the modal semitone).
 
-import { PitchDetector } from 'pitchy';
-import { INPUT_LATENCY_MS, MIN_PITCH_COVERAGE, ONSET_RISE_DB, PITCH_TOLERANCE_CENTS } from './config';
+import { IGNORE_OCTAVE, INPUT_LATENCY_MS, MIN_PITCH_COVERAGE, MIN_READINGS, ONSET_RISE_DB, PITCH_TOLERANCE_CENTS, SKIP_ATTACK } from './config';
 import type { Exercise } from './music';
+import { DEFAULT_FFT_SIZE, PitchEngine, type RejectReason } from './pitch/engine';
+
+// One analysis window at 44.1 kHz (2048 / 44100 s).
+const ANALYSIS_LAG_MS = (DEFAULT_FFT_SIZE / 44100) * 1000;
+
+// How long after a note starts the detector first reports it. Coming from
+// another pitch (legato), pitchy flips only once the new note fills most of the
+// buffer (~a whole window). From silence nothing competes, so it locks on after
+// ~30% of the buffer. Measured with synthesized tones; see Pitch Lab to check.
+function detectLag(readings: Reading[], k: number): number {
+  return k > 0 && readings[k - 1].midi !== null ? ANALYSIS_LAG_MS : ANALYSIS_LAG_MS * 0.3;
+}
+import { PitchStabilizer } from './pitch/stabilizer';
 
 export interface Reading {
   t: number; // performance.now()
-  midi: number | null; // concert, fractional; null when rejected
+  midi: number | null; // concert, fractional, raw frame; null when rejected
   rmsDb: number;
+  tailDb: number; // newest ~12 ms only; sharp envelope for onsets
+  clarity: number;
+  rejectedBy: RejectReason | null;
+  stableMidi: number | null; // stabilizer output for display; null while unsettled
 }
-
-const FFT = 2048;
-const CLARITY = 0.85;
-const MIN_RMS_DB = -48;
 
 class Mic {
   private stream: MediaStream | null = null;
   private ctx: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
-  private detector = PitchDetector.forFloat32Array(FFT);
-  private buf = new Float32Array(FFT);
+  private engine = new PitchEngine({ bufferSize: DEFAULT_FFT_SIZE });
+  private stabilizer = new PitchStabilizer();
+  private buf = new Float32Array(DEFAULT_FFT_SIZE);
   private raf: number | null = null;
   private recording: Reading[] | null = null;
   listeners = new Set<(r: Reading) => void>();
@@ -35,6 +51,8 @@ class Mic {
       return false;
     }
     try {
+      // Browser "enhancements" reshape a sustained instrument tone enough to
+      // disturb pitch tracking, so all three are off.
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       });
@@ -47,9 +65,10 @@ class Mic {
     await this.ctx.resume();
     const src = this.ctx.createMediaStreamSource(this.stream);
     this.analyser = this.ctx.createAnalyser();
-    this.analyser.fftSize = FFT;
+    this.analyser.fftSize = DEFAULT_FFT_SIZE;
     this.analyser.smoothingTimeConstant = 0;
     src.connect(this.analyser);
+    this.stabilizer.reset();
     this.status = 'on';
     const loop = () => {
       this.raf = requestAnimationFrame(loop);
@@ -62,15 +81,29 @@ class Mic {
     return true;
   }
 
+  stop() {
+    if (this.raf !== null) cancelAnimationFrame(this.raf);
+    this.raf = null;
+    this.stream?.getTracks().forEach((t) => t.stop());
+    this.stream = null;
+    void this.ctx?.close();
+    this.ctx = null;
+    this.analyser = null;
+    this.status = 'off';
+  }
+
   private analyze(): Reading {
-    const [freq, clarity] = this.detector.findPitch(this.buf, this.ctx!.sampleRate);
-    let sum = 0;
-    for (let i = 0; i < this.buf.length; i++) sum += this.buf[i] * this.buf[i];
-    const rms = Math.sqrt(sum / this.buf.length);
-    const rmsDb = rms > 0 ? 20 * Math.log10(rms) : -120;
-    const floor = Math.max(27, (2.5 * this.ctx!.sampleRate) / FFT);
-    const ok = rmsDb >= MIN_RMS_DB && freq > 0 && clarity >= CLARITY && freq >= floor && freq <= 4200;
-    return { t: performance.now(), midi: ok ? 12 * Math.log2(freq / 440) + 69 : null, rmsDb };
+    const frame = this.engine.analyze(this.buf, this.ctx!.sampleRate);
+    const settled = this.stabilizer.push(frame);
+    return {
+      t: performance.now(),
+      midi: frame.midi,
+      rmsDb: frame.rmsDb,
+      tailDb: frame.tailDb,
+      clarity: frame.clarity,
+      rejectedBy: frame.rejectedBy,
+      stableMidi: settled?.midi ?? null,
+    };
   }
 
   beginRecording() {
@@ -99,19 +132,57 @@ export interface NoteResult {
   onsetOffsetMs: number | null;
 }
 
+// Attack times from the sharp tail envelope: a rise of ONSET_RISE_DB over the
+// quietest point in the last ONSET_LOOKBACK_MS (the tongue gap between notes).
+const ONSET_LOOKBACK_MS = 60;
+// The attack lands somewhere between the previous frame and this one (~17 ms
+// apart at 60 fps); back-date by half that. Measured with synthesized tones.
+const ONSET_LAG_MS = 8;
 function onsets(readings: Reading[]): number[] {
   const out: number[] = [];
   let last = -Infinity;
   for (let i = 0; i < readings.length; i++) {
     const r = readings[i];
-    let min = r.rmsDb;
-    for (let j = i - 1; j >= 0 && r.t - readings[j].t < 90; j--) min = Math.min(min, readings[j].rmsDb);
-    if (r.rmsDb - min >= ONSET_RISE_DB && r.t - last > 90) {
-      out.push(r.t);
+    let min = r.tailDb;
+    for (let j = i - 1; j >= 0 && r.t - readings[j].t <= ONSET_LOOKBACK_MS; j--) min = Math.min(min, readings[j].tailDb);
+    if (r.tailDb - min >= ONSET_RISE_DB && r.t - last > 90) {
+      out.push(r.t - ONSET_LAG_MS);
       last = r.t;
     }
   }
   return out;
+}
+
+/**
+ * What pitch did the player play for a note whose sound should arrive between
+ * fromT and toT? Returns `expected` when close enough, the semitone they mostly
+ * played on a real miss, or null for silence.
+ */
+/** With IGNORE_OCTAVE, move a detected pitch into the target's octave (within ±6 semitones). */
+function fold(m: number, expected: number): number {
+  if (!IGNORE_OCTAVE) return m;
+  const d = m - expected;
+  return expected + d - 12 * Math.round(d / 12);
+}
+
+function playedPitch(readings: Reading[], expected: number, fromT: number, toT: number): number | null {
+  // Skip the attack: the previous note is still ringing / this one is settling.
+  const start = fromT + (toT - fromT) * SKIP_ATTACK;
+  const win = readings.filter((r) => r.t >= start && r.t <= toT && r.midi !== null);
+  if (win.length < MIN_READINGS) return null;
+
+  // Close enough (a bit sharp/flat is fine) on most frames -> the target.
+  const close = win.filter((r) => Math.abs(fold(r.midi!, expected) - expected) * 100 <= PITCH_TOLERANCE_CENTS).length;
+  if (close / win.length >= MIN_PITCH_COVERAGE) return expected;
+
+  // A real miss: the semitone they mostly played. If that rounds to the target
+  // (very wobbly but centred), it's effectively a pass.
+  const counts = new Map<number, number>();
+  for (const r of win) {
+    const m = Math.round(fold(r.midi!, expected));
+    counts.set(m, (counts.get(m) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
 }
 
 export function grade(
@@ -125,29 +196,38 @@ export function grade(
   const ons = onsets(readings);
   return ex.notes.map((n, index) => {
     const expected = n.midi + shift;
+    // Legacy Staff.tsx window: this note's start to the next note's start,
+    // both shifted by mic latency.
     const t0 = startPerf + n.startBeat * mspb + INPUT_LATENCY_MS;
-    const t1 = startPerf + (n.startBeat + n.durBeats) * mspb + INPUT_LATENCY_MS - 30;
-    const body = readings.filter((r) => r.t >= t0 && r.t <= t1 && r.midi !== null);
-    if (body.length < 2) return { index, status: 'silent', playedMidi: null, onsetOffsetMs: null };
+    const t1 = startPerf + (n.startBeat + n.durBeats) * mspb + INPUT_LATENCY_MS;
 
-    const near = (m: number) => Math.abs(m - expected) * 100 <= PITCH_TOLERANCE_CENTS;
-    const onPitch = body.filter((r) => near(r.midi!)).length / body.length;
+    // Legacy rule: the pitch played over the window decides the note, full stop.
+    const played = playedPitch(readings, expected, t0, t1);
+    if (played === null) return { index, status: 'silent', playedMidi: null, onsetOffsetMs: null };
+    const status: NoteStatus = played === expected ? 'hit' : 'wrong';
 
-    const counts = new Map<number, number>();
-    body.forEach((r) => counts.set(Math.round(r.midi!), (counts.get(Math.round(r.midi!)) ?? 0) + 1));
-    const played = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
-
+    // Onset is measured for feedback (taunts: "you were late") but never fails
+    // a note. A repeated pitch has no pitch change to key on, so use a level
+    // onset; otherwise the first on-pitch frame near the note's start.
+    const near = (m: number) => Math.abs(fold(m, expected) - expected) * 100 <= PITCH_TOLERANCE_CENTS;
     const prevSame = index > 0 && ex.notes[index - 1].midi === n.midi;
     let onset: number | null = null;
     if (prevSame) {
       onset = ons.find((t) => Math.abs(t - t0) <= timingWindowMs) ?? null;
     } else {
-      const first = readings.find((r) => r.midi !== null && near(r.midi) && Math.abs(r.t - t0) <= timingWindowMs);
-      onset = first?.t ?? null;
+      // A frame is stamped at the END of its buffer, so back-date the first
+      // frame that reads this pitch by how much of the buffer it needed.
+      for (let k = 0; k < readings.length; k++) {
+        const r = readings[k];
+        if (r.midi === null || !near(r.midi)) continue;
+        const t = r.t - detectLag(readings, k);
+        if (Math.abs(t - t0) <= timingWindowMs) {
+          onset = t;
+          break;
+        }
+      }
     }
-    const pitchOk = onPitch >= MIN_PITCH_COVERAGE;
-    const status: NoteStatus = pitchOk && onset !== null ? 'hit' : 'wrong';
-    return { index, status, playedMidi: pitchOk ? expected : played, onsetOffsetMs: onset !== null ? onset - t0 : null };
+    return { index, status, playedMidi: played, onsetOffsetMs: onset !== null ? onset - t0 : null };
   });
 }
 

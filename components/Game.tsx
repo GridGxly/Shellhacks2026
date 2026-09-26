@@ -5,6 +5,8 @@ import { ac, applySettings, playMusic, preload, sfx } from '@/lib/audio';
 import { ENEMIES } from '@/lib/content';
 import Title from './screens/Title';
 import { Credits, HowToPlay, MicCheck } from './screens/Menus';
+import { PitchLab } from './screens/PitchLab';
+import { BossDemo } from './screens/BossDemo';
 import ChooseInstrument from './screens/ChooseInstrument';
 import MapScreen from './screens/MapScreen';
 import Combat from './screens/Combat';
@@ -87,6 +89,8 @@ export default function Game() {
             {screen === 'title' && <Title />}
             {screen === 'howto' && <HowToPlay />}
             {screen === 'mic' && <MicCheck />}
+            {screen === 'lab' && <PitchLab />}
+            {screen === 'bossdemo' && <BossDemo />}
             {screen === 'credits' && <Credits />}
             {screen === 'instrument' && <ChooseInstrument />}
             {screen === 'map' && <MapScreen />}
