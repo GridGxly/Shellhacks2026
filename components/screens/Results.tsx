@@ -104,7 +104,7 @@ export function Victory() {
       <Confetti />
       {/* Riff celebrates on the left, the beaten foe fades on the right */}
       <Sprite src={inst.id === 'trumpet' ? '/assets/sprites/riff-leap.png' : inst.sprite} x={120} y={330} size={360} style={{ animation: 'slideInLeft 400ms steps(6) both, bob 900ms 400ms steps(2) infinite' }} />
-      <Sprite src={beaten.sprite} x={1010} y={420} size={260} style={{ filter: 'grayscale(1) brightness(0.5)', opacity: 0.55, transform: 'rotate(8deg)', animation: 'dissolve 800ms 500ms steps(8) forwards' }} />
+      <Sprite src={beaten.sprite} x={1010} y={420} size={260} style={{ filter: `${beaten.spriteFilter ?? ''} grayscale(1) brightness(0.5)`, opacity: 0.55, transform: 'rotate(8deg)', animation: 'dissolve 800ms 500ms steps(8) forwards' }} />
       {/* The defeated foe releases tips; the count starts on the first landing. */}
       {[0, 1, 2, 3, 4].map((i) => <div key={i} aria-hidden="true" style={{ position: 'absolute', left: 1130, top: 520 + (i % 2) * 22, zIndex: 7, ['--reward-x' as string]: `${-310 - i * 9}px`, ['--reward-y' as string]: `${-188 - (i % 2) * 22}px`, animation: `victoryReward 400ms ${500 + i * 80}ms steps(6) both` }}>
         <svg width="26" height="26" viewBox="0 0 8 8" shapeRendering="crispEdges"><path d="M2 0H6V1H7V2H8V6H7V7H6V8H2V7H1V6H0V2H1V1H2Z" fill="#FFD23F"/><path d="M2 2H6V6H2Z" fill="#D9A21B"/><path d="M3 1H4V6H3Z" fill="#FFF6E0"/></svg>
@@ -154,7 +154,6 @@ export function Loss() {
 
   useEffect(() => playMusic('none'), []);
   const again = () => {
-    useGame.getState().newRun();
     useGame.getState().go('title');
   };
 
@@ -162,7 +161,7 @@ export function Loss() {
     <div className="fill" style={{ background: '#0B0B18', overflow: 'hidden' }}>
       <Bg src={foe.bg} style={{ filter: `${foe.bgFilter ?? ''} grayscale(1) brightness(0.25)` }} />
       <div className="fill" style={{ background: 'radial-gradient(ellipse 60% 60% at 50% 45%, rgba(232,67,79,0.18), rgba(11,11,24,0.95) 80%)' }} />
-      <Sprite src={foe.sprite} x={1000} y={300} size={foe.size} style={{ opacity: 0.35, filter: 'brightness(0.4)', animation: 'breathe 1.4s steps(2) infinite' }} />
+      <Sprite src={foe.sprite} x={1000} y={300} size={foe.size} style={{ opacity: 0.35, filter: `${foe.spriteFilter ?? ''} brightness(0.4)`, animation: 'breathe 1.4s steps(2) infinite' }} />
       <div style={{ position: 'absolute', left: 0, top: 130, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
         <div className="f-press" style={{ fontSize: 80, color: 'var(--hp)', textShadow: '#101126 8px 8px 0', animation: 'slam 450ms steps(6) both' }}>DEFEAT</div>
         <div className="f-body" style={{ fontSize: 22, color: 'var(--soft)', animation: 'fadeIn 300ms 400ms both' }}>
@@ -231,14 +230,14 @@ function XStamp({ size, t, at }: { size: number; t: number; at: number }) {
   );
 }
 
-function Portrait({ sprite, size, boss, t, dropAt, stampAt, dim }: { sprite: string; size: number; boss?: boolean; t: number; dropAt: number; stampAt: number; dim?: boolean }) {
+function Portrait({ sprite, spriteFilter, size, boss, t, dropAt, stampAt, dim }: { sprite: string; spriteFilter?: string; size: number; boss?: boolean; t: number; dropAt: number; stampAt: number; dim?: boolean }) {
   if (t < dropAt) return <div style={{ width: size, height: size }} />;
   const drop = stepK(k01(t, dropAt, dropAt + 250), 4);
   const stamped = t >= stampAt;
   return (
     <div style={{ position: 'relative', width: size, height: size, transform: `translateY(${(1 - drop) * -60}px)` }}>
       <Octagon size={size} ring={boss ? '#FF4FA3' : '#3A3F70'} fill={boss ? '#4A1D38' : '#1E2140'}>
-        <div className="sprite" style={{ left: 0, top: 0, width: size - 12, height: size - 12, backgroundImage: `url(${sprite})`, filter: stamped || dim ? 'grayscale(1) brightness(0.55)' : undefined }} />
+        <div className="sprite" style={{ left: 0, top: 0, width: size - 12, height: size - 12, backgroundImage: `url(${sprite})`, filter: `${spriteFilter ?? ''} ${stamped || dim ? 'grayscale(1) brightness(0.55)' : ''}`.trim() || undefined }} />
       </Octagon>
       <XStamp size={size} t={t} at={stampAt} />
     </div>
@@ -300,7 +299,7 @@ export function ActClear() {
       <div style={{ position: 'absolute', left: 120, top: 330, width: 900, display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 44 }}>
         {foes.map((f, i) => (
           <div key={f.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-            <Portrait sprite={f.sprite} size={f.boss ? 180 : 140} boss={f.boss} t={t} dropAt={1000 + i * 300} stampAt={1250 + i * 300} />
+            <Portrait sprite={f.sprite} spriteFilter={f.spriteFilter} size={f.boss ? 180 : 140} boss={f.boss} t={t} dropAt={1000 + i * 300} stampAt={1250 + i * 300} />
             <span className="f-label" style={{ fontSize: 12, color: f.boss ? '#FF9ACB' : 'var(--muted)', opacity: t > 1100 + i * 300 ? 1 : 0 }}>{f.boss ? 'BOSS · ' : ''}{f.name.toUpperCase()}</span>
           </div>
         ))}
@@ -381,7 +380,6 @@ export function FinalVictory() {
     [6600, () => sfx('upgrade')],
   ]);
   const again = () => {
-    useGame.getState().newRun();
     useGame.getState().go('title');
   };
 
@@ -414,7 +412,7 @@ export function FinalVictory() {
               <span className="f-label" style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>ACT {a.n}</span>
               {ENEMIES.slice(ai * 3, ai * 3 + 3).map((e, j) => {
                 const i = ai * 3 + j;
-                return <Portrait key={e.id} sprite={e.sprite} size={e.boss ? 150 : 118} boss={e.boss} t={t} dropAt={ROLL + i * 40} stampAt={ROLL + 250 + i * STAMP_GAP} />;
+                return <Portrait key={e.id} sprite={e.sprite} spriteFilter={e.spriteFilter} size={e.boss ? 150 : 118} boss={e.boss} t={t} dropAt={ROLL + i * 40} stampAt={ROLL + 250 + i * STAMP_GAP} />;
               })}
             </div>
           ))}

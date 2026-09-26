@@ -57,7 +57,7 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span className="f-label" style={{ fontSize: 12, color: 'var(--muted)' }}>TARGET</span>
             <div style={{ position: 'relative', width: 36, height: 36, overflow: 'hidden', background: '#2A2240', border: '2px solid #43365F' }}>
-              <div className="sprite" style={{ left: -8, top: -2, width: 52, height: 52, backgroundImage: `url(${enemy.sprite})` }} />
+              <div className="sprite" style={{ left: -8, top: -2, width: 52, height: 52, backgroundImage: `url(${enemy.sprite})`, filter: enemy.spriteFilter }} />
             </div>
             <div className="f-press performance-tag" style={{ padding: '8px 12px', background: 'var(--sun)', color: '#101126', fontSize: 13 }}>{damage} DMG</div>
           </div>

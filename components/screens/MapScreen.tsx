@@ -134,7 +134,7 @@ function MapNode({ enemy, state, y, justCleared, justUnlocked, pressed, onClick 
             className="sprite"
             style={{
               left: -size * 0.12, top: -4, width: size * 1.15, height: size * 1.15, backgroundImage: `url(${enemy.sprite})`,
-              filter: state === 'cleared' ? 'grayscale(1) brightness(0.6)' : locked ? (enemy.boss ? 'brightness(0.25) saturate(0.6)' : 'brightness(0)') : undefined,
+              filter: `${enemy.spriteFilter ?? ''} ${state === 'cleared' ? 'grayscale(1) brightness(0.6)' : locked ? (enemy.boss ? 'brightness(0.25) saturate(0.6)' : 'brightness(0)') : ''}`.trim() || undefined,
               transition: 'filter 300ms steps(3)',
             }}
           />
@@ -268,7 +268,7 @@ function Versus() {
       <div className="fill" style={{ background: '#D1307E', clipPath: 'polygon(0 0, 780px 0, 640px 900px, 0 900px)', animation: 'slideInLeft 220ms steps(4) both' }} />
       <div className="fill" style={{ background: e.boss ? '#3A1B2E' : '#1E2140', clipPath: 'polygon(800px 0, 1440px 0, 1440px 900px, 660px 900px)', animation: 'slideInRight 220ms steps(4) both' }} />
       <Sprite src={inst.sprite} x={60} y={200} size={560} style={{ animation: 'slideInLeft 220ms 40ms steps(3) both' }} />
-      <Sprite src={e.sprite} x={800} y={170} size={600} style={{ animation: 'slideInRight 220ms 40ms steps(3) both' }} />
+      <Sprite src={e.sprite} x={800} y={170} size={600} style={{ filter: e.spriteFilter, animation: 'slideInRight 220ms 40ms steps(3) both' }} />
       <div className="f-press" style={{ position: 'absolute', left: 620, top: 380, fontSize: 96, color: 'var(--sun)', textShadow: '#101126 8px 8px 0', animation: 'slam 220ms 100ms steps(3) both' }}>VS</div>
       <div style={{ position: 'absolute', right: 60, top: 80, textAlign: 'right', animation: 'dropIn 160ms 220ms steps(2) both' }}>
         <div className="f-label" style={{ fontSize: 14, color: e.boss ? '#FF7DB8' : 'var(--sun)' }}>FLOOR {e.floor}{e.boss ? ' · BOSS' : ''} · {e.place.toUpperCase()}</div>

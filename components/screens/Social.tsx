@@ -309,7 +309,7 @@ function ProfileCard({ target }: { target: string | null }) {
                 const seen = (data?.deepest ?? 0) > i;
                 return (
                   <div key={e.id} title={seen ? e.name : '???'} style={{ position: 'relative', height: 70, background: seen ? '#2A2F55' : '#15172E', border: `2px solid ${e.boss ? 'var(--magenta-dark)' : '#3A3F70'}`, overflow: 'hidden', animation: `popIn 200ms ${200 + i * 30}ms steps(3) both` }}>
-                    <div className="sprite" style={{ inset: 4, backgroundImage: `url(${e.sprite})`, filter: seen ? undefined : 'brightness(0) opacity(0.5)' }} />
+                    <div className="sprite" style={{ inset: 4, backgroundImage: `url(${e.sprite})`, filter: seen ? e.spriteFilter : 'brightness(0) opacity(0.5)' }} />
                   </div>
                 );
               })}

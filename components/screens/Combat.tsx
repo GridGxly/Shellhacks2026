@@ -464,7 +464,7 @@ export default function Combat() {
               : fx.enemy === 'attack' ? 'lungeLeft 700ms steps(5)'
               : fx.enemy === 'windup' ? undefined : 'breathe 1.4s steps(2) infinite',
             transform: fx.enemy === 'windup' ? 'translateX(20px) rotate(4deg)' : undefined,
-            filter: fx.flash === 'white' ? 'brightness(0)' : undefined,
+            filter: fx.flash === 'white' ? 'brightness(0)' : enemy.spriteFilter,
           }}
         />
         <HpBar hp={combat.enemyHp} max={enemy.hp} width={250} style={{ margin: '4px auto 0' }} />
