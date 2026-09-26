@@ -7,6 +7,7 @@
  */
 
 import { useGame } from './store';
+import { SightReadDemo } from './screens/SightReadDemo';
 import { Title } from './screens/Title';
 import { KeySelect } from './screens/KeySelect';
 import { GameMap } from './screens/Map';
@@ -15,8 +16,14 @@ import { Victory } from './screens/Victory';
 import { FinalVictory } from './screens/FinalVictory';
 import { Loss } from './screens/Loss';
 
+// TEMP: while building the sight-reading concept, show the demo instead of the
+// normal game flow. Set to false to get the real title -> map -> combat router back.
+const SHOW_DEMO = true;
+
 export default function App() {
   const screen = useGame((s) => s.screen);
+
+  if (SHOW_DEMO) return <SightReadDemo />;
 
   switch (screen) {
     case 'title':

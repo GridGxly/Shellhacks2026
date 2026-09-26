@@ -62,3 +62,189 @@ button:disabled {
   padding: 2rem;
   text-align: center;
 }
+
+/* ---------- Sight-reading demo (concept preview) ---------- */
+
+.demo-screen {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.demo-head h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: 1px;
+}
+.demo-sub {
+  margin: 0.25rem 0 0;
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+}
+
+.demo-keys {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.demo-keys-label {
+  color: var(--ink-dim);
+  font-size: 0.85rem;
+}
+.key-btn {
+  background: var(--bg-panel);
+  color: var(--ink);
+  padding: 0.35rem 0.7rem;
+  border: 1px solid #3a2f47;
+}
+.key-btn.active {
+  background: var(--accent);
+  color: #1a1420;
+}
+
+.demo-hud {
+  display: flex;
+  gap: 2.5rem;
+}
+.hud-stat {
+  display: flex;
+  flex-direction: column;
+  min-width: 90px;
+}
+.hud-num {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--accent);
+  line-height: 1;
+}
+.hud-cap {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--ink-dim);
+  margin-top: 0.25rem;
+}
+
+/* Accuracy meter: fills with hits, drops with misses; notch = pass threshold. */
+.acc-bar {
+  position: relative;
+  width: min(640px, 90vw);
+  height: 18px;
+  margin-bottom: 0.75rem; /* room for the threshold label below */
+  background: var(--hp-back);
+  border-radius: 9px;
+}
+.acc-fill {
+  height: 100%;
+  background: var(--wrong); /* below the threshold */
+  border-radius: 9px 0 0 9px;
+  transition: width 0.25s ease, background 0.25s ease;
+}
+.acc-fill.over {
+  background: var(--correct); /* cleared the threshold */
+}
+/* The notch marker sits ON TOP of the fill, so it can't be clipped. */
+.acc-threshold {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 3px;
+  margin-left: -1.5px;
+  background: var(--accent);
+  box-shadow: 0 0 6px 1px var(--accent);
+}
+.acc-threshold-label {
+  position: absolute;
+  top: 20px;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* The stage holds the staff and the overlay stacked on top of each other. */
+.demo-stage {
+  position: relative;
+  background: var(--bg-panel);
+  border-radius: 8px;
+  padding: 1.5rem 1rem;
+  box-shadow: 0 0 0 1px #3a2f47 inset;
+}
+
+.staff-wrap {
+  position: relative;
+}
+/* Paint the sheet music in the light "ink" color so it shows on the dark bg.
+   (Per-note green/red is applied as an inline style, which overrides this.) */
+.staff-render svg path,
+.staff-render svg text {
+  fill: var(--ink);
+}
+
+/* The sweeping cursor: a glowing vertical line (moved smoothly via rAF). */
+.staff-cursor {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 3px;
+  height: 40px;
+  background: var(--accent);
+  box-shadow: 0 0 8px 2px var(--accent);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* Ghost notes are real SVG note-head glyphs cloned into the staff (see Staff.tsx),
+   so they need no CSS shape. This just fades them in. */
+.ghost-clone {
+  animation: ghost-pop 0.2s ease-out;
+}
+@keyframes ghost-pop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.6;
+  }
+}
+
+/* Count-in number and pass/fail banner sit centered over the staff. */
+.demo-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: rgba(26, 20, 32, 0.55);
+  border-radius: 8px;
+}
+.demo-overlay.count-in {
+  font-size: 5rem;
+  font-weight: bold;
+  color: var(--accent);
+}
+.demo-overlay.result {
+  font-size: 3rem;
+  font-weight: bold;
+}
+.demo-overlay.result.pass {
+  color: var(--correct);
+}
+.demo-overlay.result.fail {
+  color: var(--wrong);
+}
+.result-sub {
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.demo-controls button {
+  font-size: 1.1rem;
+  padding: 0.7rem 1.6rem;
+}
