@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ac, clickAt, muteMusic, playMusic, settings, sfx, stopVoices } from '@/lib/audio';
 import { RECORD_TAIL_MS, TAVERN_BUFF_TIPS, TAVERN_PASS, TIMING_WINDOW_MS } from '@/lib/config';
+import { recordGuestPerformance } from '@/lib/client-performance';
 import { INSTRUMENTS, type InstrumentId } from '@/lib/content';
 import { grade, mic, simulate, type NoteResult } from '@/lib/mic';
 import { useGame } from '@/lib/store';
@@ -87,6 +88,8 @@ export default function Tavern() {
     const start = room.startAt - offset;
     const downbeatPerf = performance.now() + start - Date.now();
     const part = duetPart(seat.part);
+    const practiceUser = useGame.getState().user?.username ?? null;
+    const guestAttempt = crypto.randomUUID();
     const mspb = 60000 / part.tempo;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const later = (at: number, fn: () => void) => timers.push(setTimeout(() => { if (!controller.signal.aborted) fn(); }, Math.max(0, at - Date.now())));
@@ -119,9 +122,12 @@ export default function Tavern() {
         if (controller.signal.aborted) return;
         mic.stop();
         const hitIndices = final.filter((note) => note.status === 'hit').map((note) => note.index);
-        const body: TavernResultInput = { hits: hitIndices.length, total: part.notes.length, hitIndices, ...clip };
+        const body: TavernResultInput = { hits: hitIndices.length, total: part.notes.length, hitIndices, notes: final, simulated: !!simulated, ...clip };
         try {
           await tavernRequest<PublicTavernRoom>(`/api/tavern/${seat.code}/result`, body, seat, controller.signal);
+          if (!practiceUser && !useGame.getState().user && !controller.signal.aborted) {
+            recordGuestPerformance({ source: 'tavern', attemptId: guestAttempt, instrument: inst.id, exercise: part, notes: final, simulated: !!simulated });
+          }
           if (!controller.signal.aborted) setPhase((current) => current === 'uploading' ? 'waiting' : current);
         } catch { if (!controller.signal.aborted) disconnect(); }
       })();
@@ -131,7 +137,7 @@ export default function Tavern() {
     // startAt is immutable. Cleanup is owned by the lifetime controller so a
     // refined clock sample cannot cancel an already-scheduled recording.
     return () => {};
-  }, [room?.startAt, seat, offset, phase, demo, inst.shift, disconnect]);
+  }, [room?.startAt, seat, offset, phase, demo, inst.id, inst.shift, disconnect]);
 
   useEffect(() => {
     if (!seat || !room?.playbackAt || !room.host.result || !room.guest?.result || playbackStarted.current || phase === 'disconnected') return;

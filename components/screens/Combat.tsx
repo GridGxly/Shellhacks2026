@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { ac, clickAt, muteMusic, playFile, playMusic, playVoice, settings, sfx, stopVoices } from '@/lib/audio';
 import { COUNT_IN_BEATS, RECORD_TAIL_MS, REVIEW_DURATION_MS, TAUNT_ON_HIT_CHANCE, ULTIMATE_PASS_THRESHOLD } from '@/lib/config';
 import { ENEMIES } from '@/lib/content';
+import { reportAdventurePerformance } from '@/lib/client-performance';
 import { grade, mic, simulate, type NoteResult } from '@/lib/mic';
 import type { Exercise } from '@/lib/music';
 import { instrumentOf, stat, useGame } from '@/lib/store';
@@ -214,6 +215,8 @@ export default function Combat() {
       setPicked(null);
       setDrag(null);
       const ex = active === 'encore' ? c.encoreExercise : c.hand[active].exercise;
+      const attemptId = crypto.randomUUID();
+      const practiceUser = s.user?.username ?? null;
       setTaunt(null);
       stopVoices();
       // Silence from the moment a card is picked until the review is over: the
@@ -274,6 +277,9 @@ export default function Combat() {
       const readings = mic.endRecording();
       const final: NoteResult[] = sim ?? grade(ex, readings, startPerf, inst.shift, timing);
       const hits = final.filter((r) => r.status === 'hit').length;
+      if (!s.bossDemo && (useGame.getState().user?.username ?? null) === practiceUser) {
+        void reportAdventurePerformance({ attemptId, instrument: inst.id, exercise: ex, notes: final, simulated: !!sim }, practiceUser !== null);
+      }
       const pass = hits / final.length >= (active === 'encore' ? ULTIMATE_PASS_THRESHOLD : passLine);
       performing.current = false;
       if (!alive.current) return;

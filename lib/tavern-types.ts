@@ -1,3 +1,4 @@
+import type { NoteResult } from './mic';
 import type { InstrumentId } from './content';
 
 export type TavernPart = 'A' | 'B';
@@ -34,6 +35,8 @@ export interface TavernEntry {
   serverNow: number;
 }
 export interface TavernResultInput {
+  notes: NoteResult[];
+  simulated: boolean;
   hits: number;
   total: number;
   offsetMs: number;

@@ -6,8 +6,10 @@ import {
   TAVERN_STALE_MS, TAVERN_START_DELAY_MS,
 } from '@/lib/config';
 import { currentUser, db, dbConfigured, offline, transaction, type UserDoc } from '@/lib/db';
+import { validateTrainingResults } from '@/lib/training-core';
+import { recordPerformance } from './performance';
 import { DUET_A, DUET_B } from '@/lib/music';
-import type { PublicTavernPlayer, PublicTavernRoom, TavernPart, TavernPhase, TavernResultInput } from '@/lib/tavern-types';
+import type { PublicTavernPlayer, PublicTavernRoom, TavernPhase, TavernResultInput } from '@/lib/tavern-types';
 import { duplicate, handled, int, mutation, readJson } from './http';
 import { clientIp, limit } from './ratelimit';
 import { instrument } from './validation';
@@ -22,6 +24,7 @@ interface Player extends Omit<PublicTavernPlayer, 'result'> {
 }
 interface TavernRoomDoc {
   _id: string;
+  nonce?: string;
   phase: TavernPhase;
   host: Player;
   guest: Player | null;
@@ -70,13 +73,16 @@ function memberToken(request: Request, body: Record<string, unknown>) {
 async function load(d: Db, code: string, session?: ClientSession) {
   return rooms(d).findOne({ _id: code, expiresAt: { $gt: new Date() } }, { session });
 }
-function resultInput(body: Record<string, unknown>, part: TavernPart): TavernResultInput | null {
-  const ex = part === 'A' ? DUET_A : DUET_B;
+function resultInput(body: Record<string, unknown>, player: Player): TavernResultInput | null {
+  const ex = player.part === 'A' ? DUET_A : DUET_B;
+  if (typeof body.simulated !== 'boolean') return null;
+  const notes = validateTrainingResults(ex, player.instrument, body.notes);
+  if (!notes || notes.filter(note => note.status === 'hit').length !== body.hits) return null;
   if (body.total !== ex.notes.length || !int(body.hits, 0, ex.notes.length) || typeof body.offsetMs !== 'number' || !Number.isFinite(body.offsetMs) || Math.abs(body.offsetMs) > TAVERN_MAX_RECORD_OFFSET_MS) return null;
-  let hitIndices: number[] | undefined;
+  const hitIndices = notes.filter(note => note.status === 'hit').map(note => note.index);
   if (body.hitIndices !== undefined) {
     if (!Array.isArray(body.hitIndices) || body.hitIndices.length !== body.hits || body.hitIndices.some(i => !int(i, 0, ex.notes.length - 1)) || new Set(body.hitIndices).size !== body.hitIndices.length) return null;
-    hitIndices = [...body.hitIndices].sort((a, b) => a - b);
+    if (body.hitIndices.some(index => notes[index].status !== 'hit')) return null;
   }
   let audio: string | undefined, mime: string | undefined;
   if (body.audio !== undefined) {
@@ -88,7 +94,7 @@ function resultInput(body: Record<string, unknown>, part: TavernPart): TavernRes
     if (!['audio/webm', 'audio/webm;codecs=opus', 'audio/mp4', 'audio/mp4;codecs=mp4a.40.2'].includes(mime)) return null;
     audio = body.audio;
   } else if (body.mime !== undefined) return null;
-  return { hits: body.hits, total: ex.notes.length, offsetMs: Math.round(body.offsetMs), ...(audio ? { audio, mime } : {}), ...(hitIndices ? { hitIndices } : {}) };
+  return { notes, simulated: body.simulated, hits: body.hits, total: ex.notes.length, offsetMs: Math.round(body.offsetMs), ...(audio ? { audio, mime } : {}), ...(hitIndices ? { hitIndices } : {}) };
 }
 
 /** Shared route boundary: tokens stay out of public snapshots and normal URLs. */
@@ -113,7 +119,7 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
         for (let attempt = 0; attempt < 12; attempt++) {
           const code = Array.from({ length: 4 }, () => ALPHABET[randomInt(ALPHABET.length)]).join('');
           try {
-            await rooms(d).insertOne({ _id: code, phase: 'waiting', host: player, guest: null, createdAt: new Date(now), expiresAt: expiry(now) });
+            await rooms(d).insertOne({ _id: code, nonce: randomBytes(16).toString('hex'), phase: 'waiting', host: player, guest: null, createdAt: new Date(now), expiresAt: expiry(now) });
             return json({ code, token, part: 'A', serverNow: now });
           } catch (e) { if (!duplicate(e)) throw e; }
         }
@@ -168,7 +174,7 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
         if (now - other.seenAt.getTime() > TAVERN_STALE_MS) return error('The other musician disconnected.', 410);
         room.startAt = new Date(now + TAVERN_START_DELAY_MS); room.phase = 'countdown';
       } else if (action === 'result') {
-        const take = resultInput(body, player.part);
+        const take = resultInput(body, player);
         if (!take) return error('That take has invalid notes, timing or audio.');
         if (player.result) {
           if (JSON.stringify(player.result) !== JSON.stringify(take)) return error('Your take was already submitted.', 409);
@@ -179,6 +185,10 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
         const end = Math.max(...ex.notes.map(note => note.startBeat + note.durBeats)) * 60000 / ex.tempo;
         if (now < room.startAt.getTime() + end + RECORD_TAIL_MS - 300) return error('Finish playing before sending your take.', 409);
         if (other && now - other.seenAt.getTime() > TAVERN_STALE_MS) return error('The other musician disconnected.', 410);
+        // Room codes are recycled: the private nonce scopes each immutable take
+        // to one show. Learning and the accepted result commit atomically.
+        room.nonce ??= randomBytes(16).toString('hex');
+        if (player.userId) await recordPerformance(d, session, player.userId, 'tavern', `${room.nonce}:${player.part}`, player.instrument, ex, take.notes, take.simulated);
         player.result = take;
         if (room.host.result && room.guest.result) {
           const a = room.host.result, b = room.guest.result;
