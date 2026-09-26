@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { ACT_BONUS_TIPS, ENCORE_TEMPO_BASE, ENCORE_TEMPO_PER_ACT, STATS, TIPS_PER_WIN, TIPS_START, XP_PER_LEVEL, XP_PER_WIN, LOW_HP_TAUNT, type StatId } from './config';
 import { ENEMIES, INSTRUMENTS, type InstrumentId } from './content';
-import { exerciseKey, makeExercise, ODE_TO_JOY, type CardType, type Exercise } from './music';
+import { exerciseKey, makeExercise, GRAN_VALS, type CardType, type Exercise } from './music';
 import { addScore, type RunEvent } from './score';
 
 export type Screen =
@@ -128,7 +128,7 @@ function newCombat(enemyIdx: number): Combat {
     failStreak: 0,
     used: [],
     encore: enemy.boss ? { charged: true, failedOnce: false } : null,
-    encoreExercise: { ...ODE_TO_JOY, tempo: ENCORE_TEMPO_BASE + ENCORE_TEMPO_PER_ACT * enemy.act },
+    encoreExercise: { ...GRAN_VALS, tempo: ENCORE_TEMPO_BASE + ENCORE_TEMPO_PER_ACT * enemy.act },
     seen,
     hits: 0,
     total: 0,
