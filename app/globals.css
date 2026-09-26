@@ -249,6 +249,30 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 :root[data-handheld] .boss-grid .f-press { font-size: 22px !important; line-height: 26px !important; }
 :root[data-handheld] .boss-grid .f-body { font-size: 19px !important; }
 
+/* Handheld leaderboard and profile: wider, larger type; the leaderboard keeps rank,
+   player, floor and score (instrument and accuracy live on each profile). */
+:root[data-handheld] .lb-col { left: 80px !important; width: 1280px !important; top: 196px !important; gap: 12px !important; }
+:root[data-handheld] .lb-tab { font-size: 16px !important; padding: 12px 18px !important; }
+:root[data-handheld] .lb-col > div:first-child .f-label { font-size: 15px !important; }
+:root[data-handheld] .lb-search { font-size: 18px !important; }
+:root[data-handheld] .lb-search input { height: 56px !important; font-size: 26px !important; }
+:root[data-handheld] .lb-grid { grid-template-columns: 90px 1fr 150px 220px !important; }
+:root[data-handheld] .lb-grid > :nth-child(3), :root[data-handheld] .lb-grid > :nth-child(5) { display: none !important; }
+:root[data-handheld] .lb-head { font-size: 16px !important; }
+:root[data-handheld] .lb-body { height: 250px !important; }
+:root[data-handheld] .lb-row { padding: 12px 22px !important; }
+:root[data-handheld] .lb-row .f-press { font-size: 22px !important; }
+:root[data-handheld] .lb-row .f-body { font-size: 27px !important; }
+:root[data-handheld] .lb-foot .f-body { font-size: 22px !important; }
+:root[data-handheld] .profile-col { left: 60px !important; width: 1320px !important; top: 186px !important; }
+:root[data-handheld] .profile-card { width: 420px !important; }
+:root[data-handheld] .profile-col .f-label { font-size: 15px !important; }
+:root[data-handheld] .profile-col .f-body { font-size: 21px !important; }
+:root[data-handheld] .profile-card .f-press { font-size: 18px !important; }
+:root[data-handheld] .profile-heading { font-size: 19px !important; }
+:root[data-handheld] .profile-run { grid-template-columns: 170px 1fr 150px 170px !important; }
+:root[data-handheld] .profile-run .f-press { font-size: 17px !important; }
+
 /* Native-sized phone controls: never scale a form down with the game artwork. */
 .mobile-surface { position:fixed; inset-inline:0; top:var(--visual-top,0px); height:var(--visual-height,100dvh); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; z-index:50; padding:12px max(16px,env(safe-area-inset-right)) 16px max(16px,env(safe-area-inset-left)); background:#101126; }
 .mobile-surface button { min-height:44px; touch-action:manipulation; }
