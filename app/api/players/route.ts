@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     let rows: { username: string; xp: number; best?: Pick<RunDoc, 'score' | 'floor' | 'instrument'> }[];
     try {
       rows = await users.aggregate<(typeof rows)[number]>([
-        { $search: { index: SEARCH_INDEX, autocomplete: { query: q, path: 'username', fuzzy: { maxEdits: q.length > 3 ? 1 : 0 } } } },
+        { $search: { index: SEARCH_INDEX, autocomplete: { query: q, path: 'username', ...(q.length > 3 ? { fuzzy: { maxEdits: 1 } } : {}) } } },
         ...tail,
       ]).toArray();
     } catch {
