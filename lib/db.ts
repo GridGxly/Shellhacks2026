@@ -62,6 +62,7 @@ export function db(): Promise<Db> {
         d.collection('rateLimits').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
         d.collection('runs').createIndex({ userId: 1, at: -1 }),
         d.collection('fights').createIndex({ enemyId: 1 }),
+        d.collection('tavernRooms').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
       ]);
       return d;
     });

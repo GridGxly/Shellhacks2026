@@ -85,6 +85,16 @@ export const GRAN_VALS: Exercise = {
   notes: granValsNotes(1),
 };
 
+export const DUET_A: Exercise = { ...GRAN_VALS, id: 'duet-a', title: 'Duet · Part A (melody)' };
+// A simpler quarter-note response in a shared playable register. Downbeats
+// form thirds or a unison with A; short melody eighths are passing tones.
+// Both parts finish together, leaving the final beat as the phrase's rest.
+export const DUET_B: Exercise = {
+  id: 'duet-b', type: 'encore', title: 'Duet · Part B (harmony)',
+  tempo: DUET_A.tempo, beatsPerBar: 3, bars: 4,
+  notes: sequence([76, 66, 69, 71, 68, 64, 69, 66, 69, 69], [1, 1, 1, 1, 1, 1, 1, 1, 1, 2]),
+};
+
 let uid = 0;
 const rand = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 
