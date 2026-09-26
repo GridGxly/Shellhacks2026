@@ -205,7 +205,11 @@ function BootGate({ onStart }: { onStart: () => void }) {
   return (
     <button className="fill" onClick={onStart} style={{ display: 'grid', placeItems: 'center', background: '#07070f' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28 }}>
-        <img src="/assets/logo.png" alt="Slay the Choir" width={520} style={{ animation: 'fadeIn 800ms both' }} />
+        {/* Server-rendered, so phones pick the light logo by media query rather than art(). */}
+        <picture>
+          <source media="(pointer: coarse) and (max-width: 500px), (pointer: coarse) and (max-height: 500px)" srcSet="/assets/m/logo.webp" type="image/webp" />
+          <img src="/assets/logo.png" alt="Slay the Choir" width={520} style={{ display: 'block', animation: 'fadeIn 800ms both' }} />
+        </picture>
         <div className="f-press boot-start" style={{ fontSize: 16, color: 'var(--sun)', animation: 'blink 1.1s steps(1) infinite' }}>
           <span className="kbd-only">PRESS ANY KEY</span>
           <span className="touch-only">TAP TO START</span>

@@ -5,7 +5,7 @@
  * Desktop and tablets draw the original PNGs. Phones draw light WebP copies:
  * a 1024 px sprite drawn ~300 css px tall on a phone costs 4 MB of decoded
  * memory as a PNG and 1 MB as its 512 px copy. Small portraits (map peek,
- * bestiary, target icons) always use a 192 px thumbnail, which also downsizes
+ * bestiary, target icons) always use a 256 px thumbnail, which also downsizes
  * more cleanly than nearest-neighbour shrinking a 1024 px sprite.
  */
 const phone = typeof window !== 'undefined'
