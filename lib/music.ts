@@ -86,31 +86,6 @@ export const GRAN_VALS: Exercise = {
 };
 
 let uid = 0;
-const rand = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
-
-// Chord cards: I / IV / V arpeggios, one note at a time (PRD: no true chords).
-// Scale degrees relative to A: I = A C♯ E A, IV = D F♯ A D, V = E G♯ B E.
-const CHORDS: Record<string, number[]> = {
-  I: [0, 2, 4, 7],
-  IV: [-4, -2, 0, 3],
-  V: [-3, -1, 1, 4],
-};
-// Gran Vals' own harmony is I · I · IV · V per 4-bar phrase, resolving to I
-// at the end (bars 11-12 are IV → V → I). These 3-bar progressions are drawn
-// from that, so the cards rehearse the song's actual chord movement.
-const PROGRESSIONS = [
-  ['I', 'IV', 'V'], // the phrase's core motion
-  ['I', 'V', 'I'], // V resolving home, as at bar 12
-  ['IV', 'V', 'I'], // the bar 11-12 cadence
-  ['I', 'I', 'IV'], // the phrase's opening two bars into IV
-  ['V', 'I', 'IV'],
-];
-const PATTERNS = [
-  [0, 1, 2, 3],
-  [3, 2, 1, 0],
-  [0, 2, 1, 3],
-  [0, 1, 2, 1],
-];
 
 /**
  * Chord card: the song's harmony as arpeggios, one note per beat in 3/4.
@@ -123,38 +98,67 @@ const CHORD_BARS: { label: string; midi: number[] }[] = [
   { label: 'E', midi: [68, 71, 76] }, // G♯4 B4 E5
 ];
 
-function chordExercise(tempo: number): Exercise {
+/**
+ * Difficulty tier, 1..3 — the three fights of act 1 ramp from a bare outline
+ * of the music to the real thing. Later acts use the top tier.
+ */
+export type Tier = 1 | 2 | 3;
+export const tierForFloor = (floor: number): Tier => (floor <= 1 ? 1 : floor === 2 ? 2 : 3);
+
+function chordExercise(tempo: number, tier: Tier): Exercise {
+  // 1: hold the root for the whole bar. 2: root (half) + fifth (quarter).
+  // 3: the full triad, one note per beat.
+  const perBar = CHORD_BARS.map((b) => {
+    if (tier === 1) return { midi: [b.midi[0]], durs: [3] };
+    if (tier === 2) return { midi: [b.midi[0], b.midi[2]], durs: [2, 1] };
+    return { midi: b.midi, durs: [1, 1, 1] };
+  });
+  const titleSuffix = tier === 1 ? ' · roots' : tier === 2 ? ' · root + fifth' : '';
   return {
     id: `chord-${uid++}`,
     type: 'chord',
-    title: CHORD_BARS.map((b) => b.label).join(' – '),
+    title: CHORD_BARS.map((b) => b.label).join(' – ') + titleSuffix,
     tempo,
     beatsPerBar: 3,
     bars: CHORD_BARS.length,
-    notes: sequence(
-      CHORD_BARS.flatMap((b) => b.midi),
-      Array(CHORD_BARS.length * 3).fill(1),
-    ),
+    notes: sequence(perBar.flatMap((b) => b.midi), perBar.flatMap((b) => b.durs)),
     chordLabels: CHORD_BARS.map((b, bar) => ({ bar, label: b.label })),
   };
 }
 
 /**
- * Scale card: the concert A major scale, one note per beat in 3/4. Up the
- * octave then back down to the fifth — 12 notes, so it fills 4 bars exactly
- * and fits one staff line like the other cards.
+ * Scale card, by tier:
+ *   1 — the first five notes up and down (A B C♯ D E D C♯ B A).
+ *   2 — the full octave up and back down.
+ *   3 — the full octave, then the tonic arpeggio on top.
+ * Always one note per beat in 3/4, so bar counts follow the note count.
  */
-function scaleExercise(tempo: number): Exercise {
-  const up = Array.from({ length: 8 }, (_, i) => deg(i)); // A4 up to A5
-  const down = [6, 5, 4, 3].map((d) => deg(d)); // G♯5 F♯5 E5 D5
-  const pitches = [...up, ...down];
+function scaleExercise(tempo: number, tier: Tier): Exercise {
+  let degs: number[];
+  let title: string;
+  if (tier === 1) {
+    degs = [0, 1, 2, 3, 4, 3, 2, 1, 0]; // 9 notes -> 3 bars
+    title = 'A major · first five';
+  } else if (tier === 2) {
+    degs = [...Array.from({ length: 8 }, (_, i) => i), 6, 5, 4, 3, 2, 1, 0]; // 15 -> 5 bars
+    title = 'A major · octave';
+  } else {
+    // Octave up and down, then the arpeggio A C♯ E A back down to the tonic.
+    degs = [
+      ...Array.from({ length: 8 }, (_, i) => i),
+      6, 5, 4, 3, 2, 1, 0,
+      2, 4, 7, 4, 2, 0,
+    ]; // 21 -> 7 bars
+    title = 'A major · octave + arpeggio';
+  }
+  const pitches = degs.map(deg);
   return {
     id: `scale-${uid++}`,
     type: 'scale',
-    title: 'A major',
+    title,
     tempo,
     beatsPerBar: 3,
-    bars: 4,
+    bars: pitches.length / 3,
     notes: sequence(pitches, Array(pitches.length).fill(1)),
   };
 }
@@ -166,25 +170,26 @@ function scaleExercise(tempo: number): Exercise {
  */
 export const RHYTHM_PITCH = 65; // F4 concert
 
-// Rhythm cards: one pitch, rhythm cells per bar.
-// Each cell fills one 3/4 bar. The first is Gran Vals' own bar rhythm
-// (two eighths then two quarters); the rest are waltz variations on it.
 /**
  * Gran Vals' own bar rhythm: two 8ths on beat 1, then quarters on beats 2 and
- * 3 (bars 1-3 of the phrase are all identical). Cards use it directly so the
- * rhythm a player rehearses is the rhythm of the song.
+ * 3 (bars 1-3 of the phrase are all identical).
  */
 export const GRAN_VALS_CELL = [0.5, 0.5, 1, 1];
 
-// Every bar uses the song's figure, so the rhythm a player rehearses is
-// exactly the rhythm of Gran Vals.
-const CELLS = [GRAN_VALS_CELL];
-function rhythmExercise(tempo: number): Exercise {
-  const durs = [rand(CELLS), rand(CELLS), rand(CELLS)].flat();
+/**
+ * Rhythm card, by tier — always 3 bars of 3/4 on one pitch:
+ *   1 — straight quarter notes.
+ *   2 — straight eighth notes.
+ *   3 — the song's own figure (two 8ths, then two quarters).
+ */
+function rhythmExercise(tempo: number, tier: Tier): Exercise {
+  const cell = tier === 1 ? [1, 1, 1] : tier === 2 ? [0.5, 0.5, 0.5, 0.5, 0.5, 0.5] : GRAN_VALS_CELL;
+  const durs = [...cell, ...cell, ...cell];
+  const titleSuffix = tier === 1 ? ' · quarters' : tier === 2 ? ' · eighths' : '';
   return {
     id: `rhythm-${uid++}`,
     type: 'rhythm',
-    title: 'on concert F',
+    title: 'on concert F' + titleSuffix,
     tempo,
     beatsPerBar: 3,
     bars: 3,
@@ -195,10 +200,10 @@ function rhythmExercise(tempo: number): Exercise {
 /** Identity of an exercise's music (ids are always new, so compare the notes). */
 export const exerciseKey = (ex: Exercise) => `${ex.type}:${ex.notes.map((n) => `${n.midi}/${n.durBeats}`).join(',')}`;
 
-export function makeExercise(type: CardType, tempo: number): Exercise {
-  if (type === 'chord') return chordExercise(tempo);
-  if (type === 'scale') return scaleExercise(tempo);
-  return rhythmExercise(tempo);
+export function makeExercise(type: CardType, tempo: number, tier: Tier = 3): Exercise {
+  if (type === 'chord') return chordExercise(tempo, tier);
+  if (type === 'scale') return scaleExercise(tempo, tier);
+  return rhythmExercise(tempo, tier);
 }
 
 // ---------- Spelling & staff ----------

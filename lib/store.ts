@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { ACT_BONUS_TIPS, ENCORE_TEMPO_BASE, ENCORE_TEMPO_PER_ACT, STATS, TIPS_PER_WIN, TIPS_START, XP_PER_LEVEL, XP_PER_WIN, LOW_HP_TAUNT, type StatId } from './config';
 import { ENEMIES, INSTRUMENTS, type InstrumentId } from './content';
-import { exerciseKey, makeExercise, GRAN_VALS, type CardType, type Exercise } from './music';
+import { exerciseKey, makeExercise, tierForFloor, GRAN_VALS, type CardType, type Exercise, type Tier } from './music';
 import { addScore, type RunEvent } from './score';
 
 export type Screen =
@@ -107,10 +107,14 @@ function migrateRun(r: Run | null): Run | null {
   return { ...r, id: r.id ?? newRunId(), demo: r.demo ?? false, log: Array.isArray(r.log) ? r.log : [] };
 }
 
-/** A new exercise whose notes weren't already dealt this fight (a few tries, then accept). */
-function freshExercise(type: CardType, tempo: number, seen: string[]): Exercise {
-  let ex = makeExercise(type, tempo);
-  for (let i = 0; i < 12 && seen.includes(exerciseKey(ex)); i++) ex = makeExercise(type, tempo);
+/**
+ * A new exercise whose notes weren't already dealt this fight (a few tries,
+ * then accept). Exercises are deterministic per tier, so a retry only finds
+ * something new where a generator still varies.
+ */
+function freshExercise(type: CardType, tempo: number, tier: Tier, seen: string[]): Exercise {
+  let ex = makeExercise(type, tempo, tier);
+  for (let i = 0; i < 12 && seen.includes(exerciseKey(ex)); i++) ex = makeExercise(type, tempo, tier);
   seen.push(exerciseKey(ex));
   return ex;
 }
@@ -123,7 +127,7 @@ function newCombat(enemyIdx: number): Combat {
     enemyIdx,
     enemyHp: enemy.hp,
     round: 1,
-    hand: types.map((type) => ({ type, exercise: freshExercise(type, enemy.tempo, seen), landed: false, fails: 0 })),
+    hand: types.map((type) => ({ type, exercise: freshExercise(type, enemy.tempo, tierForFloor(enemy.floor), seen), landed: false, fails: 0 })),
     heat: 0,
     failStreak: 0,
     used: [],
@@ -381,13 +385,13 @@ export const useGame = create<GameState>((set, get) => ({
   nextRound: () =>
     set((s) => {
       const c = s.combat!;
-      const tempo = ENEMIES[c.enemyIdx].tempo;
+      const { tempo, floor } = ENEMIES[c.enemyIdx];
       const seen = [...c.seen];
       return {
         combat: {
           ...c,
           round: c.round + 1,
-          hand: c.hand.map((card) => (card.landed ? card : { ...card, exercise: freshExercise(card.type, tempo, seen) })),
+          hand: c.hand.map((card) => (card.landed ? card : { ...card, exercise: freshExercise(card.type, tempo, tierForFloor(floor), seen) })),
           seen,
         },
       };
