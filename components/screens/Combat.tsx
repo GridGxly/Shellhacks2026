@@ -69,8 +69,10 @@ export default function Combat() {
     mic.listeners.add(l);
     return () => {
       alive.current = false;
+      performing.current = false;
       clearTimeout(t);
       mic.listeners.delete(l);
+      mic.endRecording();
       muteMusic(false);
       stopVoices();
     };
@@ -113,6 +115,7 @@ export default function Combat() {
       setPerform({ ex, active, stage: 'unfold', count: 0, beat: null, results: [] });
       if (active === 'encore') void playFile('/audio/sfx/encore-charge.mp3', 0.8);
       await wait(450);
+      if (!alive.current) return;
       // Count-in: music + voices stay hard-muted so nothing leaks into the mic.
       const mspb = 60000 / ex.tempo;
       const beats = settings.countIn || COUNT_IN_BEATS;
@@ -136,6 +139,7 @@ export default function Combat() {
       const sim = demo ? simulate(ex, inst.shift, 0.82) : null;
       await wait(120 + beats * mspb - 30);
       counting = false;
+      if (!alive.current) return;
       mic.beginRecording();
       const totalBeats = ex.notes[ex.notes.length - 1].startBeat + ex.notes[ex.notes.length - 1].durBeats;
       await new Promise<void>((done) => {
@@ -156,6 +160,7 @@ export default function Combat() {
         };
         requestAnimationFrame(tick);
       });
+      if (!alive.current) return;
       const readings = mic.endRecording();
       const final: NoteResult[] = sim ?? grade(ex, readings, startPerf, inst.shift, timing);
       const hits = final.filter((r) => r.status === 'hit').length;
@@ -173,6 +178,7 @@ export default function Combat() {
       // Miss: the enemy heckles during the review (PRD §7a).
       const talk = !pass ? say('miss', ex, final, failCount) : Promise.resolve();
       await wait(REVIEW_DURATION_MS);
+      if (!alive.current) return;
       setPerform(null);
       muteMusic(false);
 
