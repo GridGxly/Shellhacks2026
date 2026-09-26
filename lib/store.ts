@@ -1,8 +1,9 @@
 'use client';
 import { create } from 'zustand';
-import { ACT_BONUS_SCORE, ACT_BONUS_TIPS, STATS, TIPS_PER_WIN, TIPS_START, XP_PER_LEVEL, XP_PER_WIN, LOW_HP_TAUNT, type StatId } from './config';
+import { ACT_BONUS_TIPS, ENCORE_TEMPO_BASE, ENCORE_TEMPO_PER_ACT, STATS, TIPS_PER_WIN, TIPS_START, XP_PER_LEVEL, XP_PER_WIN, LOW_HP_TAUNT, type StatId } from './config';
 import { ENEMIES, INSTRUMENTS, type InstrumentId } from './content';
-import { makeExercise, ODE_TO_JOY, type CardType, type Exercise } from './music';
+import { exerciseKey, makeExercise, ODE_TO_JOY, type CardType, type Exercise } from './music';
+import { addScore, type RunEvent } from './score';
 
 export type Screen =
   | 'title' | 'howto' | 'mic' | 'credits' | 'instrument' | 'map' | 'combat'
@@ -27,6 +28,9 @@ export interface Combat {
   used: string[];
   encore: { charged: boolean; failedOnce: boolean } | null;
   encoreExercise: Exercise;
+  seen: string[]; // exerciseKey of every exercise dealt this fight (no repeats)
+  hits: number; // fight-local note counts (the danger stats want this fight only)
+  total: number;
 }
 
 export interface RunStats {
@@ -39,6 +43,7 @@ export interface RunStats {
 }
 
 export interface Run {
+  id: string; // server dedupes submissions by this
   instrument: InstrumentId;
   hp: number;
   tips: number;
@@ -48,6 +53,8 @@ export interface Run {
   score: number;
   stats: RunStats;
   startedAt: number;
+  demo: boolean; // any action graded by the simulator: the run is practice, not ranked
+  log: RunEvent[]; // every scored action; the server recomputes the score from it
 }
 
 export interface User {
@@ -58,6 +65,7 @@ export interface User {
 
 const SAVE_KEY = 'stc.save.v1';
 const BEST_KEY = 'stc.best.v1';
+const PENDING_KEY = 'stc.pending.v1'; // a finished run the server hasn't acknowledged yet
 
 const freshLevels = (): Record<StatId, number> => ({ maxHp: 0, cardDamage: 0, encoreDamage: 0, timingWindow: 0, passLine: 0 });
 
@@ -74,8 +82,11 @@ export function canAfford(run: Run, id: StatId) {
 }
 export const accuracy = (s: RunStats) => (s.notesTotal ? Math.round((s.notesHit / s.notesTotal) * 100) : 0);
 
+const newRunId = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
 function freshRun(instrument: InstrumentId = 'trumpet'): Run {
   return {
+    id: newRunId(),
     instrument,
     hp: STATS[0].base,
     tips: TIPS_START,
@@ -85,24 +96,47 @@ function freshRun(instrument: InstrumentId = 'trumpet'): Run {
     score: 0,
     stats: { notesHit: 0, notesTotal: 0, cardsLanded: 0, cardsFailed: 0, rounds: 0, encoresLanded: 0 },
     startedAt: Date.now(),
+    demo: false,
+    log: [],
   };
+}
+
+/** Saves from before run ids/logs existed still load. */
+function migrateRun(r: Run | null): Run | null {
+  if (!r) return null;
+  return { ...r, id: r.id ?? newRunId(), demo: r.demo ?? false, log: Array.isArray(r.log) ? r.log : [] };
+}
+
+/** A new exercise whose notes weren't already dealt this fight (a few tries, then accept). */
+function freshExercise(type: CardType, tempo: number, seen: string[]): Exercise {
+  let ex = makeExercise(type, tempo);
+  for (let i = 0; i < 12 && seen.includes(exerciseKey(ex)); i++) ex = makeExercise(type, tempo);
+  seen.push(exerciseKey(ex));
+  return ex;
 }
 
 function newCombat(enemyIdx: number): Combat {
   const enemy = ENEMIES[enemyIdx];
   const types: CardType[] = ['chord', 'rhythm', 'scale'];
+  const seen: string[] = [];
   return {
     enemyIdx,
     enemyHp: enemy.hp,
     round: 1,
-    hand: types.map((type) => ({ type, exercise: makeExercise(type, enemy.tempo), landed: false, fails: 0 })),
+    hand: types.map((type) => ({ type, exercise: freshExercise(type, enemy.tempo, seen), landed: false, fails: 0 })),
     heat: 0,
     failStreak: 0,
     used: [],
     encore: enemy.boss ? { charged: true, failedOnce: false } : null,
-    encoreExercise: { ...ODE_TO_JOY, tempo: 88 + enemy.act * 8 },
+    encoreExercise: { ...ODE_TO_JOY, tempo: ENCORE_TEMPO_BASE + ENCORE_TEMPO_PER_ACT * enemy.act },
+    seen,
+    hits: 0,
+    total: 0,
   };
 }
+
+/** The floor number of the fight in progress (1..18). */
+const fightFloor = (run: Run) => run.floor + 1;
 
 function readJSON<T>(key: string): T | null {
   try {
@@ -145,6 +179,7 @@ interface GameState {
   best: { score: number; floor: number } | null;
   user: User | null;
   toast: string | null;
+  combatLocked: boolean; // a performance/attack/enemy turn is running: no pause overlays
 
   hydrate: () => void;
   setUser: (u: User | null) => void;
@@ -154,12 +189,13 @@ interface GameState {
   chooseInstrument: (id: InstrumentId) => void;
   newRun: () => void;
   continueRun: () => void;
+  adoptSave: (run: Run) => void;
   startFight: () => void;
   buy: (id: StatId) => boolean;
   showToast: (t: string) => void;
 
-  resolveCard: (cardIdx: number, pass: boolean, hits: number, total: number) => void;
-  resolveEncore: (pass: boolean, hits: number, total: number) => void;
+  resolveCard: (cardIdx: number, pass: boolean, hits: number, total: number, simulated: boolean) => void;
+  resolveEncore: (pass: boolean, hits: number, total: number, simulated: boolean) => void;
   damageEnemy: (amount: number) => void;
   enemyHitsPlayer: () => number;
   nextRound: () => void;
@@ -180,9 +216,13 @@ export const useGame = create<GameState>((set, get) => ({
   best: null,
   user: null,
   toast: null,
+  combatLocked: false,
 
-  hydrate: () => set({ saved: readJSON<Run>(SAVE_KEY), best: readJSON(BEST_KEY) }),
-  setUser: (user) => set({ user }),
+  hydrate: () => set({ saved: migrateRun(readJSON<Run>(SAVE_KEY)), best: readJSON(BEST_KEY) }),
+  setUser: (user) => {
+    set({ user });
+    if (user) void flushPending();
+  },
 
   go: (screen, transition = 'wipe') => {
     if (!transition) return set({ screen, overlay: null });
@@ -200,21 +240,31 @@ export const useGame = create<GameState>((set, get) => ({
     set((s) => ({ run: freshRun(s.run.instrument), combat: null, lossBy: null, saved: null }));
   },
   continueRun: () => {
-    const saved = get().saved;
+    const saved = migrateRun(get().saved);
     if (saved) set({ run: saved, combat: null });
+  },
+
+  /** Use a checkpoint that came from the cloud as this device's checkpoint. */
+  adoptSave: (r) => {
+    const saved = migrateRun(r);
+    writeJSON(SAVE_KEY, saved);
+    set({ saved });
   },
 
   startFight: () => set((s) => ({ combat: newCombat(s.run.floor) })),
 
+  // Upgrades only between fights, so the checkpoint never holds a mid-fight snapshot.
   buy: (id) => {
-    const { run } = get();
+    const { run, screen, user } = get();
+    if (screen === 'combat') return false;
     const { affordable, cost } = canAfford(run, id);
     if (!affordable) return false;
     const levels = { ...run.levels, [id]: run.levels[id] + 1 };
     const next: Run = { ...run, tips: run.tips - cost, levels };
     if (id === 'maxHp') next.hp = stat(next, 'maxHp');
-    set({ run: next });
+    set({ run: next, saved: next });
     writeJSON(SAVE_KEY, next);
+    if (user) void syncSave(next);
     return true;
   },
 
@@ -223,9 +273,10 @@ export const useGame = create<GameState>((set, get) => ({
     window.setTimeout(() => set((s) => (s.toast === toast ? { toast: null } : {})), 3200);
   },
 
-  resolveCard: (cardIdx, pass, hits, total) =>
+  resolveCard: (cardIdx, pass, hits, total, simulated) =>
     set((s) => {
       const c = s.combat!;
+      const ev: RunEvent = ['c', fightFloor(s.run), pass ? 1 : 0, hits, total];
       const hand = c.hand.map((card, i) =>
         i === cardIdx ? { ...card, landed: pass || card.landed, fails: card.fails + (pass ? 0 : 1) } : card,
       );
@@ -234,26 +285,32 @@ export const useGame = create<GameState>((set, get) => ({
       if (failStreak >= 2 || (!pass && s.run.hp <= LOW_HP_TAUNT)) heat = 3;
       let encore = c.encore;
       if (encore && hand.every((h) => h.landed)) encore = { ...encore, charged: true };
-      const acc = total ? (hits / total) * 100 : 0;
       return {
-        combat: { ...c, hand, failStreak, heat, encore },
+        combat: { ...c, hand, failStreak, heat, encore, hits: c.hits + hits, total: c.total + total },
         run: {
           ...s.run,
-          score: Math.max(0, s.run.score + (pass ? Math.round(100 + acc * 2) : -50)),
+          score: addScore(s.run.score, ev),
+          log: [...s.run.log, ev],
+          demo: s.run.demo || simulated,
           stats: {
             ...s.run.stats,
             notesHit: s.run.stats.notesHit + hits,
             notesTotal: s.run.stats.notesTotal + total,
             cardsLanded: s.run.stats.cardsLanded + (pass ? 1 : 0),
             cardsFailed: s.run.stats.cardsFailed + (pass ? 0 : 1),
+            rounds: s.run.stats.rounds + 1,
           },
         },
       };
     }),
 
-  resolveEncore: (pass, hits, total) =>
+  // PRD §4: after an Encore (pass or fail) it's uncharged until the whole hand has
+  // landed; once the hand is empty it stays charged every round, so a boss that
+  // survives an Encore can always be finished.
+  resolveEncore: (pass, hits, total, simulated) =>
     set((s) => {
       const c = s.combat!;
+      const ev: RunEvent = ['e', fightFloor(s.run), pass ? 1 : 0, hits, total];
       const allLanded = c.hand.every((h) => h.landed);
       const failStreak = pass ? 0 : c.failStreak + 1;
       const heat = (pass ? Math.max(0, c.heat - 1) : Math.min(3, c.heat + 1)) as Combat['heat'];
@@ -262,16 +319,21 @@ export const useGame = create<GameState>((set, get) => ({
           ...c,
           failStreak,
           heat: failStreak >= 2 ? 3 : heat,
-          encore: { failedOnce: c.encore!.failedOnce || !pass, charged: pass ? false : allLanded },
+          encore: { failedOnce: c.encore!.failedOnce || !pass, charged: allLanded },
+          hits: c.hits + hits,
+          total: c.total + total,
         },
         run: {
           ...s.run,
-          score: s.run.score + (pass ? 1500 : 0),
+          score: addScore(s.run.score, ev),
+          log: [...s.run.log, ev],
+          demo: s.run.demo || simulated,
           stats: {
             ...s.run.stats,
             notesHit: s.run.stats.notesHit + hits,
             notesTotal: s.run.stats.notesTotal + total,
             encoresLanded: s.run.stats.encoresLanded + (pass ? 1 : 0),
+            rounds: s.run.stats.rounds + 1,
           },
         },
       };
@@ -289,13 +351,14 @@ export const useGame = create<GameState>((set, get) => ({
     set((s) => {
       const c = s.combat!;
       const tempo = ENEMIES[c.enemyIdx].tempo;
+      const seen = [...c.seen];
       return {
         combat: {
           ...c,
           round: c.round + 1,
-          hand: c.hand.map((card) => (card.landed ? card : { ...card, exercise: makeExercise(card.type, tempo) })),
+          hand: c.hand.map((card) => (card.landed ? card : { ...card, exercise: freshExercise(card.type, tempo, seen) })),
+          seen,
         },
-        run: { ...s.run, stats: { ...s.run.stats, rounds: s.run.stats.rounds + 1 } },
       };
     }),
 
@@ -304,14 +367,16 @@ export const useGame = create<GameState>((set, get) => ({
   winFight: () => {
     const s = get();
     logFight(s, true);
-    const floor = s.run.floor + 1;
+    const floor = fightFloor(s.run);
     const boss = ENEMIES[floor - 1].boss;
+    const ev: RunEvent = ['w', floor, s.run.hp];
     const run: Run = {
       ...s.run,
       floor,
       tips: s.run.tips + TIPS_PER_WIN + (boss ? ACT_BONUS_TIPS : 0),
       xp: s.run.xp + XP_PER_WIN,
-      score: s.run.score + 1000 * floor + 25 * s.run.hp + (boss ? ACT_BONUS_SCORE : 0),
+      score: addScore(s.run.score, ev),
+      log: [...s.run.log, ev],
       hp: stat(s.run, 'maxHp'),
     };
     set({ run });
@@ -332,15 +397,43 @@ export const useGame = create<GameState>((set, get) => ({
   },
 }));
 
-/** Anonymous per-fight record for the bestiary danger stats (no-op without a database). */
+/** Anonymous per-fight record for the bestiary danger stats (no-op without a database). Practice fights are skipped. */
 function logFight(s: GameState, won: boolean) {
   const c = s.combat;
-  if (!c) return;
+  if (!c || s.run.demo) return;
   void fetch('/api/fights', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ enemyId: ENEMIES[c.enemyIdx].id, won, accuracy: accuracy(s.run.stats), rounds: c.round, instrument: s.run.instrument }),
+    body: JSON.stringify({ enemyId: ENEMIES[c.enemyIdx].id, won, accuracy: c.total ? Math.round((c.hits / c.total) * 100) : 0, rounds: Math.min(50, c.round), instrument: s.run.instrument }),
   }).catch(() => {});
+}
+
+interface PendingRun {
+  runId: string;
+  events: RunEvent[];
+  endedBy: 'loss' | 'victory';
+  instrument: InstrumentId;
+  durationMs: number;
+}
+
+/**
+ * Posts the queued finished run. It stays queued until the server answers:
+ * a 2xx or 4xx (rejected, retrying won't help) clears it; 429 (cooldown),
+ * network errors and 5xx keep it for a retry. The server dedupes by runId.
+ */
+async function flushPending() {
+  const p = readJSON<PendingRun>(PENDING_KEY);
+  if (!p || !useGame.getState().user) return;
+  try {
+    const res = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
+    if (res.status === 429) {
+      // Submission cooldown: try once more after the server's Retry-After.
+      const wait = Math.min(120, Number(res.headers.get('Retry-After')) || 60);
+      window.setTimeout(() => void flushPending(), wait * 1000);
+    } else if (res.status < 500) writeJSON(PENDING_KEY, null);
+  } catch {
+    /* offline: try again later */
+  }
 }
 
 function finishRun(run: Run, endedBy: 'loss' | 'victory') {
@@ -348,14 +441,16 @@ function finishRun(run: Run, endedBy: 'loss' | 'victory') {
   const best = readJSON<{ score: number; floor: number }>(BEST_KEY);
   if (!best || run.score > best.score) writeJSON(BEST_KEY, { score: run.score, floor: run.floor });
   useGame.setState({ saved: null, best: readJSON(BEST_KEY) });
+  if (!run.demo && run.log.length) {
+    writeJSON(PENDING_KEY, { runId: run.id, events: run.log, endedBy, instrument: run.instrument, durationMs: Date.now() - run.startedAt } satisfies PendingRun);
+  }
   if (useGame.getState().user) {
     void syncSave(null);
-    void fetch('/api/runs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ run, endedBy }),
-    }).catch(() => {});
+    void flushPending();
   }
 }
+
+/** Retry a queued run submission (e.g. after a reload while signed in). */
+export const retryPendingRun = () => void flushPending();
 
 export const instrumentOf = (run: Run) => INSTRUMENTS.find((i) => i.id === run.instrument)!;

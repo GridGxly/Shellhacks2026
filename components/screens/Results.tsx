@@ -172,7 +172,7 @@ export function Loss() {
         </div>
         <div className="f-body" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 17, color: user ? 'var(--meadow)' : 'var(--muted)', animation: 'fadeIn 300ms 1600ms both' }}>
           {newBest && <span className="f-press" style={{ padding: '4px 8px', background: 'var(--sun)', color: '#101126', fontSize: 11, animation: 'pulseGold 1s steps(3) infinite' }}>NEW BEST</span>}
-          {user ? `Posted to the leaderboard as ${user.username}.` : 'Playing as guest. Sign in on the title to post scores.'}
+          {run.demo ? 'Practice run (demo mode): not ranked.' : user ? `Posted to the leaderboard as ${user.username}.` : 'Playing as guest. Sign in on the title to post scores.'}
         </div>
         <div style={{ marginTop: 18, animation: 'riseIn 300ms 1800ms steps(4) both' }}>
           <YellowButton onClick={again}>TRY AGAIN</YellowButton>
