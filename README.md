@@ -1,7 +1,7 @@
 <div align="center">
 <img src="docs/readme/header.webp" alt="Slay the Choir: a roguelike where every card is music you play into the mic." width="100%">
 <br><br>
-<a href="#"><img src="docs/readme/btn-play.png" alt="Play Demo" width="22.6%"></a><a href="#"><img src="docs/readme/btn-devpost.png" alt="Devpost" width="19.8%"></a><a href="#"><img src="docs/readme/btn-watch.png" alt="Watch Demo" width="24.2%"></a><a href="https://app.paper.design/file/01M3DRNNWNJ9ZYFPFHF5YF6BJQ/p-2-0"><img src="docs/readme/btn-design.png" alt="Design mockups in Paper" width="17.3%"></a>
+<a href="https://slaythechoir.club/"><img src="docs/readme/btn-play.png" alt="Play Demo" width="22.6%"></a><a href="#"><img src="docs/readme/btn-devpost.png" alt="Devpost" width="19.8%"></a><a href="#"><img src="docs/readme/btn-watch.png" alt="Watch Demo" width="24.2%"></a><a href="https://app.paper.design/file/01M3DRNNWNJ9ZYFPFHF5YF6BJQ/p-2-0"><img src="docs/readme/btn-design.png" alt="Design mockups in Paper" width="17.3%"></a>
 </div>
 
 ---
