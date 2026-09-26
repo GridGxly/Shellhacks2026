@@ -17,11 +17,17 @@ export interface Feedback {
 
 const MAJOR = [0, 2, 4, 5, 7, 9, 11];
 
-export function analyzeTake(ex: Exercise, results: NoteResult[], writtenOffset = 0): Feedback {
+/**
+ * `shift` = the instrument's octave shift (grading compares against midi + shift, and
+ * playedMidi is on that scale); `writtenOffset` turns sounding pitch into what's read.
+ */
+export function analyzeTake(ex: Exercise, results: NoteResult[], inst: { shift: number; writtenOffset: number } = { shift: 0, writtenOffset: 0 }): Feedback {
+  const { shift, writtenOffset } = inst;
   const keyPc = ex.keyPc ?? CONCERT_KEY_PC;
   const key = keySigFor(keyPc, writtenOffset);
   const inKey = (m: number) => MAJOR.includes((((m - keyPc) % 12) + 12) % 12);
-  const name = (concert: number) => noteName(concert + writtenOffset, key); // what the player reads
+  const name = (sounding: number) => noteName(sounding + writtenOffset, key); // what the player reads
+  const expected = (i: number) => ex.notes[i].midi + shift;
   const barOf = (i: number) => Math.floor(ex.notes[i].startBeat / ex.beatsPerBar) + 1;
   // Say it like a musician: beat 3.5 is "the & of 3".
   const beatOf = (i: number) => {
@@ -37,7 +43,7 @@ export function analyzeTake(ex: Exercise, results: NoteResult[], writtenOffset =
 
   // Wrong notes, sorted into kinds a teacher would name differently.
   const keySlips = wrong.filter(({ r, i }) => {
-    const exp = ex.notes[i].midi, got = r.playedMidi!;
+    const exp = expected(i), got = r.playedMidi!;
     return Math.abs(got - exp) === 1 && inKey(exp) !== inKey(got); // right letter, wrong sharp/flat
   });
   const misreads = wrong.filter((w) => !keySlips.includes(w));
@@ -61,12 +67,12 @@ export function analyzeTake(ex: Exercise, results: NoteResult[], writtenOffset =
   }
   if (keySlips.length) {
     const { r, i } = keySlips[0];
-    lines.push(`${where(i)}: you played ${name(r.playedMidi!)}, it's ${name(ex.notes[i].midi)}. ${inKey(ex.notes[i].midi) ? 'Check the key signature.' : 'Watch that accidental.'}${keySlips.length > 1 ? ` Same slip ${keySlips.length - 1} more time${keySlips.length > 2 ? 's' : ''}.` : ''}`);
+    lines.push(`${where(i)}: you played ${name(r.playedMidi!)}, it's ${name(expected(i))}. ${inKey(expected(i)) ? 'Check the key signature.' : 'Watch that accidental.'}${keySlips.length > 1 ? ` Same slip ${keySlips.length - 1} more time${keySlips.length > 2 ? 's' : ''}.` : ''}`);
     next ??= 'scale';
   }
   if (misreads.length) {
     const { r, i } = misreads[0];
-    lines.push(`${where(i)}: that's a ${name(ex.notes[i].midi)} — you gave me ${name(r.playedMidi!)}.${misreads.length > 1 ? ` ${misreads.length} wrong notes total; slow down and read ahead.` : ''}`);
+    lines.push(`${where(i)}: that's a ${name(expected(i))} — you gave me ${name(r.playedMidi!)}.${misreads.length > 1 ? ` ${misreads.length} wrong notes total; slow down and read ahead.` : ''}`);
     next ??= 'notes';
   }
   if (offs.length >= 3 && Math.abs(mean) > PERFECT_MS) {

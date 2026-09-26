@@ -67,7 +67,7 @@ export function GeminiLab() {
     setFeedback(null);
     const final = await perf.play(ex, inst.shift);
     if (!final) return;
-    const f = analyzeTake(ex, final, inst.writtenOffset);
+    const f = analyzeTake(ex, final, inst);
     setFeedback(f);
     sfx(f.grade === 'S' || f.grade === 'A' ? 'stampHit' : 'stampMiss');
   };
@@ -138,7 +138,7 @@ export function GeminiLab() {
 
 
   return (
-    <MenuShell title="GEMINI LAB">
+    <MenuShell title="GEMINI LAB" onBack={() => useGame.getState().go('training', 'iris')}>
       {/* ---------- student + analysis ---------- */}
       <div style={{ ...panel, left: 30, top: 145, width: 470, height: 310 }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
