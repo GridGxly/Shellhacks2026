@@ -43,6 +43,25 @@ export interface TrainingReceipt {
   feedback: TrainingFeedback;
   completedAt: number;
 }
+/**
+ * One stop in the end-of-set review: a single missed note, the twin who
+ * explains it, and the beat to pause on. Text is server-generated; the client
+ * never supplies speech (see voiceTicket).
+ */
+export interface ReviewStop {
+  exerciseId: string;
+  exerciseIndex: number;
+  noteIndex: number;
+  startBeat: number;
+  speaker: 'castor' | 'pollux';
+  reason: 'pitch' | 'timing' | 'silent';
+  line: string;
+  voiceToken?: string;
+}
+export interface ReviewSummary {
+  stops: ReviewStop[];
+  perExercise: { exerciseId: string; exerciseIndex: number; role: TrainingExercise['role']; hits: number; total: number }[];
+}
 export type PerformanceSource = 'adventure' | 'tavern' | 'training';
 export interface WeaknessBucket { attempts: number; hits: number }
 export interface WeaknessSummary {

@@ -23,3 +23,16 @@
 @media(prefers-reduced-motion:reduce){.training-dialog,.training-choice,.training-modal,.training-feedback,.training-count{animation:none}}
 
 .training-claimed strong{width:400px;white-space:nowrap}
+.training-review{top:300px;max-height:560px;overflow-y:auto}
+.training-review-list{list-style:none;padding:0;margin:18px 0 6px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.training-review-list li{display:flex;flex-direction:column;gap:6px;background:#F0E5CF;color:#1C213E;padding:12px 14px;border:2px solid #B9AE92}
+.training-review-list li.current{border-color:#C23A7E;background:#F6D9E7}
+.training-review-list li span{font:14px var(--label)}
+.training-review-list li strong{font:24px var(--press)}
+.training-review-list li i{font-style:normal;font-size:19px}
+/* One twin speaks per stop: the card spans the row and takes that twin's colour. */
+.training-review .training-twins-feedback{grid-template-columns:1fr}
+.training-review .training-twins-feedback article[data-twin="castor"]{border-color:#FFD23F}
+.training-review .training-twins-feedback article[data-twin="castor"] h3{color:#FFD23F}
+.training-review .training-twins-feedback article[data-twin="pollux"]{border-color:#FF4FA3}
+.training-review .training-twins-feedback article[data-twin="pollux"] h3{color:#FF7DB8}

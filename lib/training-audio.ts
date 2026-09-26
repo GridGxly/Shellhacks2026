@@ -113,6 +113,48 @@ export async function performTraining(ex: Exercise, shift: number, demo: boolean
   }
 }
 
+const decoded = new WeakMap<object, Promise<AudioBuffer | null>>();
+/** Decode a take once per clip; review replays the same few clips repeatedly. */
+export function decodeTake(clip: { audio?: string }): Promise<AudioBuffer | null> {
+  let buffer = decoded.get(clip);
+  if (!buffer) {
+    buffer = (async () => {
+      if (!clip.audio) return null;
+      try {
+        const binary = atob(clip.audio);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return await ac().decodeAudioData(bytes.buffer);
+      } catch { return null; }
+    })();
+    decoded.set(clip, buffer);
+  }
+  return buffer;
+}
+
+/**
+ * Play one slice of a take. `fromMs`/`toMs` are phrase time (0 = downbeat);
+ * the clip's own offsetMs corrects for the recorder starting late.
+ */
+export async function playTake(clip: { audio?: string; offsetMs: number }, fromMs: number, toMs: number, signal: AbortSignal): Promise<boolean> {
+  const buffer = await decodeTake(clip);
+  if (!buffer || signal.aborted) return false;
+  const ctx = ac(); await resumeContext(ctx, signal);
+  if (signal.aborted) return false;
+  const start = Math.max(0, (fromMs + clip.offsetMs) / 1000);
+  const length = Math.min((toMs - fromMs) / 1000, Math.max(0, buffer.duration - start));
+  if (length <= 0.02) return false;
+  const gain = ctx.createGain(); gain.connect(effectsOutput());
+  const source = ctx.createBufferSource(); source.buffer = buffer; source.connect(gain);
+  await new Promise<void>(resolve => {
+    const stop = () => { try { source.stop(); } catch {} resolve(); };
+    source.onended = () => { signal.removeEventListener('abort', stop); source.disconnect(); gain.disconnect(); resolve(); };
+    signal.addEventListener('abort', stop, { once: true });
+    source.start(ctx.currentTime, start, length);
+  });
+  return !signal.aborted;
+}
+
 /** Voices use decoded buffers so cancellation stops speech immediately, without leaked URLs. */
 export async function speakTraining(body: unknown, signal: AbortSignal): Promise<boolean> {
   if (signal.aborted || !settings.voice) return false;
