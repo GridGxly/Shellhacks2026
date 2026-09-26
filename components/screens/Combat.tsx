@@ -38,13 +38,17 @@ export default function Combat() {
   const [hearing, setHearing] = useState<number | null>(null);
   const [fx, setFx] = useState<{ riff?: 'attack' | 'hurt' | 'encore'; enemy?: 'hit' | 'attack' | 'dissolve'; pop?: { v: number; side: 'enemy' | 'riff'; key: number }; flash?: 'red' | 'white'; barrage?: number; burst?: number; flyoff?: { type: string; key: number } }>({});
   const [taunt, setTaunt] = useState<(Taunt & { heat: number; speaking: boolean }) | null>(null);
-  const [drag, setDrag] = useState<{ idx: number; x: number; y: number; ox: number; oy: number; overEnemy: boolean } | null>(null);
+  const [drag, setDrag] = useState<{ idx: number; x: number; y: number; ox: number; oy: number; sx: number; sy: number; overEnemy: boolean } | null>(null);
+  // Touch: a tapped card is picked up and aimed; tapping the foe (or the card again) plays it.
+  const [picked, setPicked] = useState<number | null>(null);
   const [dealKey, setDealKey] = useState(0);
   const [micReady, setMicReady] = useState(mic.status === 'on');
   const rootRef = useRef<HTMLDivElement>(null);
   const alive = useRef(true);
   const dragRef = useRef(drag);
   dragRef.current = drag;
+  const pickedRef = useRef(picked);
+  pickedRef.current = picked;
   const busy = useRef(false); // one performance at a time
   const performing = useRef(false); // count-in + recording: no voice may start
 
@@ -291,8 +295,13 @@ export default function Combat() {
       const d = dragRef.current;
       setDrag(null);
       if (d?.overEnemy) {
+        setPicked(null);
         sfx('drop');
         void performAction(d.idx);
+      } else if (d && Math.hypot(d.x - d.sx, d.y - d.sy) < 14) {
+        // A tap, not a drag.
+        if (pickedRef.current === d.idx) { setPicked(null); sfx('drop'); void performAction(d.idx); }
+        else { setPicked(d.idx); sfx('hover'); }
       } else if (d) sfx('back');
     };
     window.addEventListener('pointermove', move);
@@ -305,6 +314,14 @@ export default function Combat() {
   }, [drag?.idx]);
 
   const canAct = phase === 'player' && !overlay;
+  useEffect(() => { if (!canAct) setPicked(null); }, [canAct]);
+  const playPicked = () => {
+    if (picked === null || !canAct) return;
+    const i = picked;
+    setPicked(null);
+    sfx('drop');
+    void performAction(i);
+  };
   // Pause/stats/map can only open on the player's turn: nothing is running then.
   useEffect(() => {
     useGame.setState({ combatLocked: phase !== 'player' });
@@ -315,7 +332,7 @@ export default function Combat() {
       if (!canAct) return;
       const live = combat.hand.map((c, i) => ({ c, i })).filter(({ c }) => !c.landed);
       const n = Number(e.key);
-      if (n >= 1 && n <= live.length) { sfx('drop'); void performAction(live[n - 1].i); }
+      if (n >= 1 && n <= live.length) { setPicked(null); sfx('drop'); void performAction(live[n - 1].i); }
       if ((e.key === 'e' || e.key === 'E') && combat.encore?.charged) { sfx('drop'); void performAction('encore'); }
     };
     window.addEventListener('keydown', k);
@@ -330,7 +347,7 @@ export default function Combat() {
   const enemySprite = fx.enemy === 'attack' && enemy.attackSprite ? enemy.attackSprite : enemy.sprite;
   const banner =
     phase === 'enemy' ? { k: 'ENEMY TURN', t: `${enemy.name} hits Riff for ${enemy.damage}`, c: '#FF6B76' }
-    : phase === 'player' ? (combat.encore?.charged ? { k: 'BOSS FIGHT', t: 'Encore is charged. Play the song to end it.', c: 'var(--sun)' } : { k: 'YOUR TURN', t: `Drag a card onto ${enemy.name}`, c: 'var(--sun)' })
+    : phase === 'player' ? (combat.encore?.charged ? { k: 'BOSS FIGHT', t: 'Encore is charged. Play the song to end it.', c: 'var(--sun)' } : { k: 'YOUR TURN', t: picked !== null ? `Tap ${enemy.name} to play it` : `Drag a card onto ${enemy.name}`, c: 'var(--sun)' })
     : phase === 'attack' ? { k: 'CARD LANDS!', t: `${enemy.name} takes the hit`, c: 'var(--sun)' }
     : null;
   const dark = fx.riff === 'encore';
@@ -395,7 +412,7 @@ export default function Combat() {
           }}
         />
         <HpBar hp={combat.enemyHp} max={enemy.hp} width={250} style={{ margin: '4px auto 0' }} />
-        {drag?.overEnemy && <Reticle size={size} />}
+        {(drag?.overEnemy || (picked !== null && !drag)) && <Reticle size={size} />}
         {fx.burst && <ImpactBurst key={fx.burst} x={size / 2} y={size * 0.45} big={fx.riff === 'encore'} />}
         {phase === 'win' && <PixelBurst x={size / 2} y={size / 2} />}
       </div>
@@ -446,26 +463,39 @@ export default function Combat() {
                 if (!canAct) return;
                 const p = toStage(e);
                 sfx('drag');
-                setDrag({ idx: i, x: p.x, y: p.y, ox: p.x - x, oy: p.y - y, overEnemy: false });
+                setDrag({ idx: i, x: p.x, y: p.y, ox: p.x - x, oy: p.y - y, sx: p.x, sy: p.y, overEnemy: false });
               }}
               onMouseEnter={() => canAct && sfx('hover')}
               style={{
                 position: 'absolute', zIndex: dragging ? 40 : 10 + n, touchAction: 'none', cursor: canAct ? 'grab' : 'default',
-                left: dragging ? drag.x - drag.ox : x, top: dragging ? drag.y - drag.oy - 20 : y,
+                left: dragging ? drag.x - drag.ox : x, top: dragging ? drag.y - drag.oy - 20 : picked === i ? y - 44 : y,
                 ['--rot' as string]: `${rot}deg`,
                 transform: dragging ? `rotate(${Math.max(-12, Math.min(12, (drag.x - (x + 100)) / 30))}deg) scale(1.05)` : `rotate(${rot}deg)`,
                 transformOrigin: '50% 100%',
                 transition: dragging ? undefined : 'top 120ms steps(3)',
                 animation: !dragging ? `cardDeal 360ms ${n * 90}ms steps(6) both` : undefined,
-                filter: phase !== 'player' ? 'brightness(0.6)' : undefined,
+                filter: phase !== 'player' ? 'brightness(0.6)' : picked === i ? 'drop-shadow(0 0 14px rgba(255,210,63,0.9))' : undefined,
               }}
               className={canAct && !dragging ? 'card-hover' : undefined}
             >
               <CardView type={card.type} ex={card.exercise} damage={cardDamage} lifted={dragging} />
-              <div className="f-press" style={{ position: 'absolute', right: 8, bottom: 190, width: 20, height: 20, display: 'grid', placeItems: 'center', background: '#101126', color: 'var(--muted)', fontSize: 10 }}>{n + 1}</div>
+              <div className="f-press kbd-only" style={{ position: 'absolute', right: 8, bottom: 190, width: 20, height: 20, display: 'grid', placeItems: 'center', background: '#101126', color: 'var(--muted)', fontSize: 10 }}>{n + 1}</div>
             </div>
           );
         })}
+      {picked !== null && !drag && (() => {
+        const n = live.findIndex(({ i }) => i === picked);
+        if (n < 0) return null;
+        const [x, y] = fan[n];
+        return (
+          <>
+            {/* Tap anywhere else to put the card back; tap the foe to play it. */}
+            <div className="fill" style={{ zIndex: 9 }} onPointerDown={() => { setPicked(null); sfx('back'); }} />
+            <div style={{ position: 'absolute', left: enemyRect.x, top: enemyRect.y, width: enemyRect.w, height: enemyRect.h, zIndex: 36, cursor: 'pointer' }} onPointerDown={playPicked} />
+            <DragArrow from={{ x: x + 100, y: y - 34 }} to={{ x: enemyRect.x + enemyRect.w / 2, y: enemyRect.y + enemyRect.h * 0.4 }} active />
+          </>
+        );
+      })()}
       {drag && <DragArrow from={{ x: drag.x, y: drag.y - 20 }} to={drag.overEnemy ? { x: enemyRect.x + enemyRect.w / 2, y: enemyRect.y + enemyRect.h * 0.4 } : { x: drag.x, y: drag.y - 60 }} active={drag.overEnemy} />}
 
       {/* Bottom-left: mic orb or Encore (boss) */}
@@ -637,7 +667,7 @@ function EncoreButton({ charged, damage, onPlay }: { charged: boolean; damage: n
         </div>
       </button>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span className="f-label" style={{ fontSize: 11, color: charged ? 'var(--sun)' : 'var(--muted)' }}>{charged ? '■ CHARGED · PRESS E' : '□ LAND ALL 3 CARDS'}</span>
+        <span className="f-label" style={{ fontSize: 11, color: charged ? 'var(--sun)' : 'var(--muted)' }}>{charged ? <>■ CHARGED<span className="kbd-only"> · PRESS E</span><span className="touch-only"> · TAP</span></> : '□ LAND ALL 3 CARDS'}</span>
         <span className="f-press" style={{ fontSize: 16, color: '#fff' }}>{damage} DMG</span>
         <span className="f-body" style={{ width: 170, fontSize: 15, lineHeight: '19px', color: 'var(--muted)' }}>Play Gran Vals (the Nokia tune).</span>
       </div>
