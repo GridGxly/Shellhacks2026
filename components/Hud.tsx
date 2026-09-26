@@ -2,6 +2,7 @@
 import { sfx } from '@/lib/audio';
 import { instrumentOf, level, stat, useGame } from '@/lib/store';
 import { STATS } from '@/lib/config';
+import { art } from '@/lib/art';
 
 export default function Hud({ center, pulse }: { center: string; pulse?: 'map' | 'gear' | 'face' }) {
   const run = useGame((s) => s.run);
@@ -35,7 +36,7 @@ export default function Hud({ center, pulse }: { center: string; pulse?: 'map' |
           style={{ position: 'relative', width: 44, height: 44 }}
         >
           <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: '#2A2F55', border: '3px solid var(--sun)', boxShadow: pulse === 'face' ? undefined : '#101126 3px 3px 0', animation: pulse === 'face' ? 'pulseGold 900ms steps(3) infinite' : undefined }}>
-            <div className="sprite" style={{ left: -68, top: 2, width: 150, height: 150, backgroundImage: `url(${inst.sprite})`, backgroundPosition: '50% 0' }} />
+            <div className="sprite" style={{ left: -68, top: 2, width: 150, height: 150, backgroundImage: `url(${art(inst.sprite)})`, backgroundPosition: '50% 0' }} />
           </div>
           <div className="f-press hud-level" style={{ position: 'absolute', left: 4, top: 34, padding: '2px 4px', background: '#101126', border: '2px solid var(--sun)', fontSize: 8, lineHeight: '10px', color: 'var(--sun)' }}>
             LV{level(run)}

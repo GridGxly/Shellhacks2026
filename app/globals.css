@@ -194,7 +194,7 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 /* Native-sized phone controls: never scale a form down with the game artwork. */
 .mobile-surface { position:fixed; inset-inline:0; top:var(--visual-top,0px); height:var(--visual-height,100dvh); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; z-index:50; padding:12px max(16px,env(safe-area-inset-right)) 16px max(16px,env(safe-area-inset-left)); background:#101126; }
 .mobile-surface button { min-height:44px; touch-action:manipulation; }
-.mobile-home { z-index:20; display:grid; grid-template-columns:minmax(160px,35%) minmax(0,1fr); gap:20px; background:linear-gradient(90deg,#10112622,#101126ba),url('/assets/bg/summit.png') center/cover; }
+.mobile-home { z-index:20; display:grid; grid-template-columns:minmax(160px,35%) minmax(0,1fr); gap:20px; background:linear-gradient(90deg,#10112622,#101126ba),url('/assets/bg/m/summit.webp') center/cover; }
 .mobile-home-art { position:relative; min-height:286px; }
 .mobile-home-art>img { width:100%; max-width:310px; display:block; margin:-18px auto 0; }
 .mobile-home-performer { position:absolute; inset:34% 0 0; background-size:contain; background-repeat:no-repeat; background-position:center bottom; image-rendering:pixelated; animation:breathe 1.2s steps(2) infinite; }
@@ -222,7 +222,7 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 .mobile-lobby-back,.mobile-lobby-error { display:none; }
 @media (max-width:1024px), (hover:none) and (pointer:coarse) {
   .viewport { background-image:linear-gradient(#10112644,#10112666),var(--scene-background); background-size:cover; background-position:center; }
-  .tavern-mobile-lobby,.mobile-performer-select { background:linear-gradient(#101126aa,#101126dd),url('/assets/bg/tavern.png') center/cover; }
+  .tavern-mobile-lobby,.mobile-performer-select { background:linear-gradient(#101126aa,#101126dd),url('/assets/bg/m/tavern.webp') center/cover; }
   .tavern-mobile-lobby .tavern-heading { position:static; width:auto; text-shadow:none; }
   .tavern-mobile-lobby .tavern-heading h1 { font-size:18px; margin:0 0 8px; }
   .tavern-mobile-lobby .tavern-heading svg { display:none; }

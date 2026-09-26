@@ -6,6 +6,7 @@ import { Arrow, Bg, FloatingNotes, Sprite, Stars } from '../ui';
 import IntroMontage from './IntroMontage';
 import { MobileSurface, useTouchLayout } from '../MobileSurface';
 import { enterFullscreen, useFullscreenOffer } from '@/lib/viewport';
+import { art } from '@/lib/art';
 
 let introSeen = false;
 
@@ -92,7 +93,7 @@ export default function Title() {
   const secondaryRows = [secondary.slice(0, rowSize), secondary.slice(rowSize)].filter((row) => row.length);
 
   if (touch && shot >= 5) return <MobileSurface className="mobile-home">
-    <div className="mobile-home-art"><img src="/assets/logo.png" alt="Slay the Choir" /><div className="mobile-home-performer" style={{ backgroundImage: `url(${instrumentOf(useGame.getState().run).sprite})` }} /></div>
+    <div className="mobile-home-art"><img src={art('/assets/logo.png')} alt="Slay the Choir" /><div className="mobile-home-performer" style={{ backgroundImage: `url(${art(instrumentOf(useGame.getState().run).sprite)})` }} /></div>
     <div className="mobile-home-content"><AccountChip /><nav aria-label="Main menu">
       <div className="mobile-home-modes">{primary.map(it => <button key={it.label} disabled={startingRun || Boolean(transition)} onClick={() => { sfx('click'); it.act(); }}>{it.label}{it.label === 'GEMS AND I' && <small>TRAINING</small>}</button>)}</div>
       <div className="mobile-home-links">
@@ -113,7 +114,7 @@ export default function Title() {
       <div style={{ position: 'absolute', left: 575, top: 366, width: 280, height: 320, backgroundImage: 'radial-gradient(ellipse 50% 50% at 50% 50%, rgba(255,240,190,0.45) 0%, rgba(255,230,140,0.12) 55%, rgba(255,230,140,0) 75%)', animation: 'glow 3s steps(4) infinite' }} />
       <Sprite src={instrumentOf(useGame.getState().run).sprite} x={545} y={314} size={310} style={{ animation: shot === 4 ? 'slam 500ms steps(6) both' : 'breathe 1.2s steps(2) infinite' }} />
       <img
-        src="/assets/logo.png"
+        src={art('/assets/logo.png')}
         alt="Slay the Choir"
         style={{ position: 'absolute', left: 430, top: -38, width: 580, animation: shot === 4 ? 'slam 600ms 200ms steps(8) both' : undefined }}
       />
@@ -187,7 +188,7 @@ function AccountChip() {
     return (
       <div className="title-account" style={{ position: 'absolute', right: 40, top: 28, display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px 8px 8px', background: 'rgba(16,17,38,0.85)', border: '3px solid #3A3F70', animation: 'dropIn 300ms steps(5) both' }}>
         <div style={{ position: 'relative', width: 44, height: 44, overflow: 'hidden', background: '#2A2F55', border: '3px solid var(--sun)' }}>
-          <div className="sprite" style={{ left: -68, top: 2, width: 150, height: 150, backgroundImage: 'url(/assets/sprites/riff-trumpet.png)', backgroundPosition: '50% 0' }} />
+          <div className="sprite" style={{ left: -68, top: 2, width: 150, height: 150, backgroundImage: `url(${art('/assets/sprites/riff-trumpet.png')})`, backgroundPosition: '50% 0' }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div className="f-press" style={{ fontSize: 13, color: '#fff' }}>{user.username.toUpperCase()}</div>

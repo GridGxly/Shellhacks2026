@@ -4,6 +4,7 @@ import { playMusic, sfx } from '@/lib/audio';
 import { INSTRUMENTS } from '@/lib/content';
 import { useGame } from '@/lib/store';
 import { Arrow, Bg, KeyHint, Sprite, YellowButton } from '../ui';
+import { art } from '@/lib/art';
 
 // instruments.png is 1776x592: six 296px cells, icons centred around y=300.
 const CELL = 296;
@@ -16,7 +17,7 @@ function Icon({ i, scale, style }: { i: number; scale: number; style?: React.CSS
       style={{
         width: w,
         height: 150 * scale,
-        backgroundImage: 'url(/assets/sprites/instruments.png)',
+        backgroundImage: `url(${art('/assets/sprites/instruments.png')})`,
         backgroundSize: `${1776 * k}px ${592 * k}px`,
         backgroundPosition: `${-i * CELL * k}px ${-115 * k}px`,
         backgroundRepeat: 'no-repeat',

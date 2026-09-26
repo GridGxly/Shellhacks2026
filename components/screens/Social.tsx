@@ -6,6 +6,7 @@ import { ENEMIES, INSTRUMENTS } from '@/lib/content';
 import { useGame } from '@/lib/store';
 import { YellowButton } from '../ui';
 import { MenuShell } from './Menus';
+import { art } from '@/lib/art';
 
 export interface BoardRow {
   rank: number;
@@ -183,7 +184,7 @@ function PlayerSearch() {
           {Array.isArray(results) && results.length === 0 && <Empty text="No climbers found." />}
         </div>
         {Array.isArray(results) && results.map((player) => <button type="button" className="climber-row" key={player.username} onClick={() => openProfile(player.username)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 16, textAlign: 'left', padding: '10px 18px', borderBottom: '2px solid #2A2F55' }}>
-          <span className="sprite" style={{ position: 'relative', width: 44, height: 44, flexShrink: 0, backgroundImage: `url(${instIcon(player.best?.instrument ?? 'trumpet')})` }} />
+          <span className="sprite" style={{ position: 'relative', width: 44, height: 44, flexShrink: 0, backgroundImage: `url(${art(instIcon(player.best?.instrument ?? 'trumpet'), 'thumb')})` }} />
           <span className="f-body" style={{ flex: 1, fontSize: 22, color: 'var(--parchment)' }}>{player.username} <span style={{ color: 'var(--muted)', fontSize: 17 }}>· LV {player.level}</span></span>
           <span className="f-press" style={{ fontSize: 14, color: 'var(--sun)' }}>{player.best ? player.best.score.toLocaleString() : 'NO RUNS YET'}</span>
         </button>)}
@@ -220,7 +221,7 @@ function Row({ r, mine, delay, from }: { r: BoardRow; mine: boolean; delay: numb
       <span className="f-body" style={{ fontSize: 19, fontWeight: 600, color: '#fff' }}>{r.username}{mine && <span className="f-label" style={{ fontSize: 10, color: 'var(--sun)', marginLeft: 10 }}>YOU</span>}</span>
       <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ position: 'relative', width: 28, height: 28, overflow: 'hidden', background: '#2A2F55' }}>
-          <span className="sprite" style={{ left: -36, top: 0, width: 100, height: 100, backgroundImage: `url(${instIcon(r.instrument)})`, backgroundPosition: '50% 0' }} />
+          <span className="sprite" style={{ left: -36, top: 0, width: 100, height: 100, backgroundImage: `url(${art(instIcon(r.instrument))})`, backgroundPosition: '50% 0' }} />
         </span>
         <span className="f-body" style={{ fontSize: 15, color: 'var(--soft)' }}>{instName(r.instrument)}</span>
       </span>
@@ -289,7 +290,7 @@ function ProfileCard({ target }: { target: string | null }) {
         {/* Card */}
         <div style={{ width: 340, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: 24, background: 'rgba(16,17,38,0.9)', border: '4px solid var(--sun)', boxShadow: '#101126 8px 8px 0', animation: 'panelIn 400ms steps(6) both' }}>
           <div style={{ position: 'relative', width: 150, height: 150, overflow: 'hidden', background: '#2A2F55', border: '4px solid #101126' }}>
-            <div className="sprite" style={{ left: -30, top: 4, width: 210, height: 210, backgroundImage: `url(${instIcon(data?.favoriteInstrument ?? 'trumpet')})`, backgroundPosition: '50% 0', animation: 'breathe 1.2s steps(2) infinite' }} />
+            <div className="sprite" style={{ left: -30, top: 4, width: 210, height: 210, backgroundImage: `url(${art(instIcon(data?.favoriteInstrument ?? 'trumpet'))})`, backgroundPosition: '50% 0', animation: 'breathe 1.2s steps(2) infinite' }} />
           </div>
           <div className="f-press" style={{ fontSize: Math.min(22, 280 / name.length), color: '#fff' }}>{name}</div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -324,7 +325,7 @@ function ProfileCard({ target }: { target: string | null }) {
                 const seen = (data?.deepest ?? 0) > i;
                 return (
                   <div key={e.id} title={seen ? e.name : '???'} style={{ position: 'relative', height: 70, background: seen ? '#2A2F55' : '#15172E', border: `2px solid ${e.boss ? 'var(--magenta-dark)' : '#3A3F70'}`, overflow: 'hidden', animation: `popIn 200ms ${200 + i * 30}ms steps(3) both` }}>
-                    <div className="sprite" style={{ inset: 4, backgroundImage: `url(${e.sprite})`, filter: seen ? e.spriteFilter : 'brightness(0) opacity(0.5)' }} />
+                    <div className="sprite" style={{ inset: 4, backgroundImage: `url(${art(e.sprite, 'thumb')})`, filter: seen ? e.spriteFilter : 'brightness(0) opacity(0.5)' }} />
                   </div>
                 );
               })}

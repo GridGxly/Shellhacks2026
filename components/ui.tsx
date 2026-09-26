@@ -1,6 +1,7 @@
 'use client';
 import type { CSSProperties, ReactNode } from 'react';
 import { sfx } from '@/lib/audio';
+import { art } from '@/lib/art';
 
 export function Bg({ src, style, dim = 0, blur = 0 }: { src: string; style?: CSSProperties; dim?: number; blur?: number }) {
   return (
@@ -11,7 +12,7 @@ export function Bg({ src, style, dim = 0, blur = 0 }: { src: string; style?: CSS
         top: 0,
         width: 1600,
         height: 900,
-        backgroundImage: `url(${src})`,
+        backgroundImage: `url(${art(src)})`,
         filter: dim || blur ? `brightness(${1 - dim}) ${blur ? `blur(${blur}px)` : ''}` : undefined,
         ...style,
       }}
@@ -23,7 +24,7 @@ export function Sprite({ src, x, y, size, style, className }: { src: string; x: 
   return (
     <div
       className={`sprite ${className ?? ''}`}
-      style={{ left: x, top: y, width: size, height: size, backgroundImage: `url(${src})`, ...style }}
+      style={{ left: x, top: y, width: size, height: size, backgroundImage: `url(${art(src)})`, ...style }}
     />
   );
 }

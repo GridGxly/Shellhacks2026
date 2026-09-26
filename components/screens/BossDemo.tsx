@@ -8,6 +8,7 @@ import { ENEMIES, INSTRUMENTS } from '@/lib/content';
 import { instrumentOf, useGame } from '@/lib/store';
 import { Sprite } from '../ui';
 import { MenuShell } from './Menus';
+import { art } from '@/lib/art';
 
 const BOSSES = ENEMIES.map((e, idx) => ({ e, idx })).filter(({ e }) => e.boss);
 
@@ -41,7 +42,7 @@ export function BossDemo() {
             onClick={() => { sfx('click'); useGame.getState().startBossDemo(idx); }}
             style={{ position: 'relative', height: 230, overflow: 'hidden', textAlign: 'left', border: '4px solid #101126', boxShadow: '#3A3F70 0 0 0 3px inset, rgba(0,0,0,0.5) 8px 8px 0', background: '#14162E' }}
           >
-            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${e.bg})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: `${e.bgFilter ?? ''} brightness(0.45)` }} />
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${art(e.bg)})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: `${e.bgFilter ?? ''} brightness(0.45)` }} />
             <Sprite src={e.sprite} x={190} y={40} size={170} style={{ filter: e.spriteFilter }} />
             <div style={{ position: 'absolute', left: 16, top: 14, display: 'flex', flexDirection: 'column', gap: 8, width: 190 }}>
               <span className="f-label" style={{ fontSize: 11, color: 'var(--sun)' }}>ACT {e.act} · FLOOR {e.floor}</span>

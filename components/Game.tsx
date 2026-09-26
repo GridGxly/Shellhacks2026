@@ -1,10 +1,11 @@
 'use client';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import { useGame, type Screen } from '@/lib/store';
 import { ac, applySettings, playMusic, preload, sfx } from '@/lib/audio';
 import { ENEMIES } from '@/lib/content';
 import { mic } from '@/lib/mic';
 import { applyViewport, enterFullscreen, measureViewport, touchDevice } from '@/lib/viewport';
+import { art } from '@/lib/art';
 import Title from './screens/Title';
 import Tavern from './screens/Tavern';
 import Training from './screens/Training';
@@ -28,6 +29,7 @@ export default function Game() {
   const toast = useGame((s) => s.toast);
   // The ambient backdrop beside the frame on wide phones continues the current scene.
   const scene = useGame((s) => sceneBackground(s.screen, s.combat?.enemyIdx, s.run.floor));
+  useEffect(() => { document.documentElement.style.setProperty('--scene-background', `url(${art(scene)})`); }, [scene]);
 
   useEffect(() => {
     // visualViewport tracks the area left after mobile browser bars show or hide.
@@ -132,7 +134,7 @@ export default function Game() {
   };
 
   return (
-    <div className="viewport" style={{ '--scene-background': `url(${scene})` } as CSSProperties} onPointerDown={boot} onKeyDown={boot} tabIndex={-1}>
+    <div className="viewport" onPointerDown={boot} onKeyDown={boot} tabIndex={-1}>
       <div className="stage" style={{ left: view.x, top: view.y, transform: `translate(-50%, -50%) scale(${view.scale})` }}>
         {!booted ? (
           <BootGate onStart={boot} />

@@ -5,6 +5,7 @@ import { ACTS, ENEMIES } from '@/lib/content';
 import { instrumentOf, useGame } from '@/lib/store';
 import Hud from '../Hud';
 import { Bg, KeyHint, Sprite } from '../ui';
+import { art } from '@/lib/art';
 
 /** Set by the Victory screen so the map plays the M3 path-update beat. */
 export const mapFx = { reveal: false };
@@ -133,7 +134,7 @@ function MapNode({ enemy, state, y, justCleared, justUnlocked, pressed, onClick 
           <div
             className="sprite"
             style={{
-              left: -size * 0.12, top: -4, width: size * 1.15, height: size * 1.15, backgroundImage: `url(${enemy.sprite})`,
+              left: -size * 0.12, top: -4, width: size * 1.15, height: size * 1.15, backgroundImage: `url(${art(enemy.sprite)})`,
               filter: `${enemy.spriteFilter ?? ''} ${state === 'cleared' ? 'grayscale(1) brightness(0.6)' : locked ? (enemy.boss ? 'brightness(0.25) saturate(0.6)' : 'brightness(0)') : ''}`.trim() || undefined,
               transition: 'filter 300ms steps(3)',
             }}
@@ -223,7 +224,7 @@ function NextFightPanel({ onFight, reveal }: { onFight: () => void; reveal: bool
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '20px 24px' }}>
         <div style={{ position: 'relative', width: 96, height: 96, flexShrink: 0, overflow: 'hidden', background: next.boss ? '#3A1B2E' : '#2A2240', border: `3px solid ${next.boss ? '#6A2A4A' : '#43365F'}` }}>
-          <div className="sprite" style={{ left: -12, top: -4, width: 120, height: 120, backgroundImage: `url(${next.sprite})`, animation: 'breathe 1.4s steps(2) infinite' }} />
+          <div className="sprite" style={{ left: -12, top: -4, width: 120, height: 120, backgroundImage: `url(${art(next.sprite)})`, animation: 'breathe 1.4s steps(2) infinite' }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

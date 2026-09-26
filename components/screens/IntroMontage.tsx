@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { sfx } from '@/lib/audio';
+import { art } from '@/lib/art';
 import { Bg, Sprite } from '../ui';
 
 export const INTRO_LAND_MS = 4800;
@@ -26,7 +27,7 @@ export default function IntroMontage({ onLand }: { onLand: () => void }) {
     // Decode every pose before the clock starts: otherwise a cold hurt sprite
     // can disappear for the exact frame where the projectile makes contact.
     const assets = [...scenes.map((scene) => scene.bg), '/assets/bg/summit.png',
-      ...['riff-trumpet', 'riff-attack', 'riff-hurt', 'riff-leap', 'goblin', 'goblin-attack', 'serpent', 'choir'].map((name) => `/assets/sprites/${name}.png`)];
+      ...['riff-trumpet', 'riff-attack', 'riff-hurt', 'riff-leap', 'goblin', 'goblin-attack', 'serpent', 'choir'].map((name) => `/assets/sprites/${name}.png`)].map((src) => art(src));
     void Promise.all(assets.map(async (src) => {
       const image = new Image(); image.src = src;
       await image.decode().catch(() => {});

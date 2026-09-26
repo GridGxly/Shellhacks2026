@@ -6,6 +6,7 @@ import { ACTS, ENEMIES } from '@/lib/content';
 import { accuracy, instrumentOf, stat, useGame } from '@/lib/store';
 import Hud from '../Hud';
 import { Bg, FloatingNotes, Octagon, Ornament, Sprite, Stars, YellowButton } from '../ui';
+import { art } from '@/lib/art';
 
 /** Counts a number up in steps (pixel-game style, not smooth). */
 function useCountUp(to: number, delay = 0, ms = 700) {
@@ -232,14 +233,14 @@ function XStamp({ size, t, at }: { size: number; t: number; at: number }) {
   );
 }
 
-function Portrait({ sprite, spriteFilter, size, boss, t, dropAt, stampAt, dim }: { sprite: string; spriteFilter?: string; size: number; boss?: boolean; t: number; dropAt: number; stampAt: number; dim?: boolean }) {
+function Portrait({ sprite, spriteFilter, size, boss, t, dropAt, stampAt, dim, thumb }: { sprite: string; spriteFilter?: string; size: number; boss?: boolean; t: number; dropAt: number; stampAt: number; dim?: boolean; thumb?: boolean }) {
   if (t < dropAt) return <div style={{ width: size, height: size }} />;
   const drop = stepK(k01(t, dropAt, dropAt + 250), 4);
   const stamped = t >= stampAt;
   return (
     <div style={{ position: 'relative', width: size, height: size, transform: `translateY(${(1 - drop) * -60}px)` }}>
       <Octagon size={size} ring={boss ? '#FF4FA3' : '#3A3F70'} fill={boss ? '#4A1D38' : '#1E2140'}>
-        <div className="sprite" style={{ left: 0, top: 0, width: size - 12, height: size - 12, backgroundImage: `url(${sprite})`, filter: `${spriteFilter ?? ''} ${stamped || dim ? 'grayscale(1) brightness(0.55)' : ''}`.trim() || undefined }} />
+        <div className="sprite" style={{ left: 0, top: 0, width: size - 12, height: size - 12, backgroundImage: `url(${art(sprite, thumb ? 'thumb' : 'full')})`, filter: `${spriteFilter ?? ''} ${stamped || dim ? 'grayscale(1) brightness(0.55)' : ''}`.trim() || undefined }} />
       </Octagon>
       <XStamp size={size} t={t} at={stampAt} />
     </div>
@@ -339,7 +340,7 @@ export function ActClear() {
         </div>
         {/* Riff's pin */}
         <div style={{ position: 'absolute', left: -46, top: 28 + (5 - actIdx - hop) * 92 + 22, width: 36, height: 36, overflow: 'hidden', background: '#2A2F55', border: '3px solid var(--sun)' }}>
-          <div className="sprite" style={{ left: -48, top: 0, width: 130, height: 130, backgroundImage: `url(${instrumentOf(run).sprite})`, backgroundPosition: '50% 0' }} />
+          <div className="sprite" style={{ left: -48, top: 0, width: 130, height: 130, backgroundImage: `url(${art(instrumentOf(run).sprite)})`, backgroundPosition: '50% 0' }} />
         </div>
       </div>
 
@@ -414,7 +415,7 @@ export function FinalVictory() {
               <span className="f-label" style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>ACT {a.n}</span>
               {ENEMIES.slice(ai * 3, ai * 3 + 3).map((e, j) => {
                 const i = ai * 3 + j;
-                return <Portrait key={e.id} sprite={e.sprite} spriteFilter={e.spriteFilter} size={e.boss ? 150 : 118} boss={e.boss} t={t} dropAt={ROLL + i * 40} stampAt={ROLL + 250 + i * STAMP_GAP} />;
+                return <Portrait key={e.id} thumb sprite={e.sprite} spriteFilter={e.spriteFilter} size={e.boss ? 150 : 118} boss={e.boss} t={t} dropAt={ROLL + i * 40} stampAt={ROLL + 250 + i * STAMP_GAP} />;
               })}
             </div>
           ))}

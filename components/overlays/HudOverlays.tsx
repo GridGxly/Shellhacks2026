@@ -7,6 +7,7 @@ import { mic } from '@/lib/mic';
 import { canAfford, instrumentOf, level, stat, useGame } from '@/lib/store';
 import { enterFullscreen, useFullscreenOffer } from '@/lib/viewport';
 import { Sprite, YellowButton } from '../ui';
+import { art } from '@/lib/art';
 
 /** M5: dim fades in, panel pops from the HUD button it came from. */
 function Shell({ children, origin, onClose }: { children: ReactNode; origin: string; onClose?: () => void }) {
@@ -273,7 +274,7 @@ export function MapPeek() {
                     return (
                       <div key={e.id} style={{ display: 'flex', alignItems: 'center', flex: i < 2 ? 1 : undefined }}>
                         <div style={{ position: 'relative', width: e.boss ? 58 : 46, height: e.boss ? 58 : 46, background: here ? 'var(--sun)' : cleared ? '#C9B48A' : '#D8C49A', border: `3px solid ${e.boss ? '#C23A7E' : '#101126'}`, overflow: 'hidden', animation: `popIn 200ms ${300 + f * 30}ms steps(3) both` }}>
-                          <div className="sprite" style={{ inset: 2, backgroundImage: `url(${e.sprite})`, filter: `${e.spriteFilter ?? ''} ${cleared ? 'grayscale(1) opacity(0.5)' : f > run.floor ? 'brightness(0) opacity(0.35)' : ''}`.trim() || undefined }} />
+                          <div className="sprite" style={{ inset: 2, backgroundImage: `url(${art(e.sprite, 'thumb')})`, filter: `${e.spriteFilter ?? ''} ${cleared ? 'grayscale(1) opacity(0.5)' : f > run.floor ? 'brightness(0) opacity(0.35)' : ''}`.trim() || undefined }} />
                           {cleared && <span className="f-press" style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 20, color: '#E8434F' }}>✕</span>}
                         </div>
                         {i < 2 && <div style={{ flex: 1, height: 0, borderTop: `4px dashed ${cleared ? '#8A6A45' : '#C9B48A'}`, margin: '0 6px' }} />}
