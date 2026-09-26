@@ -20,10 +20,10 @@ export interface Exercise {
   chordLabels?: { bar: number; label: string }[];
 }
 
-// B♭ major, concert.
-const BB = 70;
+// A major, concert — the key of Gran Vals (F♯, C♯, G♯).
+const TONIC = 69; // A4
 const SCALE = [0, 2, 4, 5, 7, 9, 11];
-const deg = (d: number) => BB + Math.floor(d / 7) * 12 + SCALE[((d % 7) + 7) % 7]; // d=0 -> B♭4
+const deg = (d: number) => TONIC + Math.floor(d / 7) * 12 + SCALE[((d % 7) + 7) % 7]; // d=0 -> A4
 
 function sequence(pitches: number[], durs: number[]): Note[] {
   let beat = 0;
@@ -34,34 +34,77 @@ function sequence(pitches: number[], durs: number[]): Note[] {
   });
 }
 
-// Ode to Joy, bars 1–8 (public domain), concert B♭.
-const ODE_D = [2, 2, 3, 4, 4, 3, 2, 1, 0, 0, 1, 2];
-const odePitches = [
-  ...ODE_D.map(deg), deg(2), deg(1), deg(1),
-  ...ODE_D.map(deg), deg(1), deg(0), deg(0),
+// Gran Vals / "Nokia Tune" (Tárrega, 1902, public domain), concert A major.
+// Transcribed from the treble-clef melody line (bass-clef chords dropped —
+// PRD: no true chords, one note at a time). The 4-bar phrase repeats 3x =
+// 12 bars, 36 beats. Absolute MIDI, not scale-degree (deg()) based, since
+// this piece is in A major rather than this file's B♭ — see note above
+// makeExercise if adding more absolute-pitch content like this.
+const GRAN_VALS_PHRASE: { midi: number; durBeats: number }[] = [
+  { midi: 80, durBeats: 0.5 }, // G#5
+  { midi: 76, durBeats: 0.5 }, // E5
+  { midi: 69, durBeats: 1 }, // A4
+  { midi: 73, durBeats: 1 }, // C#5
+  { midi: 74, durBeats: 0.5 }, // D5
+  { midi: 73, durBeats: 0.5 }, // C#5
+  { midi: 64, durBeats: 1 }, // E4
+  { midi: 68, durBeats: 1 }, // G#4
+  { midi: 73, durBeats: 0.5 }, // C#5
+  { midi: 71, durBeats: 0.5 }, // B4
+  { midi: 62, durBeats: 1 }, // D4
+  { midi: 66, durBeats: 1 }, // F#4
+  { midi: 69, durBeats: 2 }, // A4, half note + fermata (beat 3 is rest)
 ];
-const odeDurs = [...Array(12).fill(1), 1.5, 0.5, 2, ...Array(12).fill(1), 1.5, 0.5, 2];
+/**
+ * Lay the phrase out on real bar lines. The last note is a half note with a
+ * fermata, so beat 3 of every 4th bar is a rest — sequence() packs notes
+ * end-to-end and cannot express that, which would pull each repeat a beat
+ * early.
+ */
+function granValsNotes(repeats: number): Note[] {
+  const out: Note[] = [];
+  const phraseBeats = 4 * 3; // 4 bars of 3/4
+  for (let r = 0; r < repeats; r += 1) {
+    let beat = r * phraseBeats;
+    GRAN_VALS_PHRASE.forEach((n, i) => {
+      out.push({ midi: n.midi, startBeat: beat, durBeats: n.durBeats });
+      // The held note ends its bar; the following rest is implied by the gap.
+      beat = i === GRAN_VALS_PHRASE.length - 1 ? (r + 1) * phraseBeats : beat + n.durBeats;
+    });
+  }
+  return out;
+}
 
-export const ODE_TO_JOY: Exercise = {
+export const GRAN_VALS: Exercise = {
   id: 'ode-encore',
   type: 'encore',
-  title: 'Ode to Joy · bars 1–8',
-  tempo: 96,
-  beatsPerBar: 4,
-  bars: 8,
-  notes: sequence(odePitches, odeDurs),
+  title: 'Gran Vals · bars 13–16 (Nokia Tune)',
+  tempo: 100, // half the source's 200 BPM (see comment below) at 3/4
+  beatsPerBar: 3,
+  bars: 4,
+  notes: granValsNotes(1),
 };
 
 let uid = 0;
 const rand = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 
 // Chord cards: I / IV / V arpeggios, one note at a time (PRD: no true chords).
+// Scale degrees relative to A: I = A C♯ E A, IV = D F♯ A D, V = E G♯ B E.
 const CHORDS: Record<string, number[]> = {
   I: [0, 2, 4, 7],
   IV: [-4, -2, 0, 3],
   V: [-3, -1, 1, 4],
 };
-const PROGRESSIONS = [['I', 'IV', 'V'], ['I', 'V', 'I'], ['IV', 'V', 'I'], ['I', 'IV', 'I'], ['V', 'IV', 'I']];
+// Gran Vals' own harmony is I · I · IV · V per 4-bar phrase, resolving to I
+// at the end (bars 11-12 are IV → V → I). These 3-bar progressions are drawn
+// from that, so the cards rehearse the song's actual chord movement.
+const PROGRESSIONS = [
+  ['I', 'IV', 'V'], // the phrase's core motion
+  ['I', 'V', 'I'], // V resolving home, as at bar 12
+  ['IV', 'V', 'I'], // the bar 11-12 cadence
+  ['I', 'I', 'IV'], // the phrase's opening two bars into IV
+  ['V', 'I', 'IV'],
+];
 const PATTERNS = [
   [0, 1, 2, 3],
   [3, 2, 1, 0],
@@ -69,58 +112,73 @@ const PATTERNS = [
   [0, 1, 2, 1],
 ];
 
+/**
+ * Chord card: the song's harmony as arpeggios, one note per beat in 3/4.
+ * A · A · D · E — the progression Gran Vals moves through.
+ */
+const CHORD_BARS: { label: string; midi: number[] }[] = [
+  { label: 'A', midi: [69, 73, 76] }, // A4 C♯5 E5
+  { label: 'A', midi: [69, 73, 76] }, // A4 C♯5 E5
+  { label: 'D', midi: [66, 69, 74] }, // F♯4 A4 D5
+  { label: 'E', midi: [68, 71, 76] }, // G♯4 B4 E5
+];
+
 function chordExercise(tempo: number): Exercise {
-  const prog = rand(PROGRESSIONS);
-  const pitches: number[] = [];
-  prog.forEach((c) => {
-    const p = rand(PATTERNS);
-    p.forEach((i) => pitches.push(deg(CHORDS[c][i])));
-  });
   return {
     id: `chord-${uid++}`,
     type: 'chord',
-    title: prog.join(' – '),
+    title: CHORD_BARS.map((b) => b.label).join(' – '),
     tempo,
-    beatsPerBar: 4,
-    bars: 3,
-    notes: sequence(pitches, Array(12).fill(1)),
-    chordLabels: prog.map((label, bar) => ({ bar, label })),
+    beatsPerBar: 3,
+    bars: CHORD_BARS.length,
+    notes: sequence(
+      CHORD_BARS.flatMap((b) => b.midi),
+      Array(CHORD_BARS.length * 3).fill(1),
+    ),
+    chordLabels: CHORD_BARS.map((b, bar) => ({ bar, label: b.label })),
   };
 }
 
-// Highest scale degree any shape reaches is start + 7. Starts above 0 put the top
-// note past B♭5 concert, which is above a trumpet's written C6 (see INSTRUMENTS).
-const SCALE_STARTS = [0, 0, -1, -2, -3];
-
+/**
+ * Scale card: the concert A major scale, one note per beat in 3/4. Up the
+ * octave then back down to the fifth — 12 notes, so it fills 4 bars exactly
+ * and fits one staff line like the other cards.
+ */
 function scaleExercise(tempo: number): Exercise {
-  const start = rand(SCALE_STARTS);
-  const up = Array.from({ length: 8 }, (_, i) => start + i);
-  const shapes = [
-    [...up, ...up.slice(0, 4).reverse().map((d) => d + 4)],
-    [...up.slice().reverse(), ...up.slice(0, 4)],
-    [...up.slice(0, 6), ...up.slice(0, 6).reverse()],
-  ];
-  const degs = rand(shapes).slice(0, 12);
+  const up = Array.from({ length: 8 }, (_, i) => deg(i)); // A4 up to A5
+  const down = [6, 5, 4, 3].map((d) => deg(d)); // G♯5 F♯5 E5 D5
+  const pitches = [...up, ...down];
   return {
     id: `scale-${uid++}`,
     type: 'scale',
-    title: 'B♭ major',
+    title: 'A major',
     tempo,
-    beatsPerBar: 4,
-    bars: 3,
-    notes: sequence(degs.map(deg), Array(12).fill(1)),
+    beatsPerBar: 3,
+    bars: 4,
+    notes: sequence(pitches, Array(pitches.length).fill(1)),
   };
 }
 
-// Rhythm cards: one pitch (concert F), rhythm cells per bar.
-const CELLS = [
-  [1, 1, 1, 1],
-  [1, 0.5, 0.5, 1, 1],
-  [2, 1, 1],
-  [0.5, 0.5, 1, 0.5, 0.5, 1],
-  [1.5, 0.5, 2],
-  [1, 1, 2],
-];
+/**
+ * Rhythm cards sit on concert F (F4). Note this is F♮, outside A major — the
+ * key signature sharps F — so it draws with a natural sign. Chosen for the
+ * player's comfort rather than to fit the harmony.
+ */
+export const RHYTHM_PITCH = 65; // F4 concert
+
+// Rhythm cards: one pitch, rhythm cells per bar.
+// Each cell fills one 3/4 bar. The first is Gran Vals' own bar rhythm
+// (two eighths then two quarters); the rest are waltz variations on it.
+/**
+ * Gran Vals' own bar rhythm: two 8ths on beat 1, then quarters on beats 2 and
+ * 3 (bars 1-3 of the phrase are all identical). Cards use it directly so the
+ * rhythm a player rehearses is the rhythm of the song.
+ */
+export const GRAN_VALS_CELL = [0.5, 0.5, 1, 1];
+
+// Every bar uses the song's figure, so the rhythm a player rehearses is
+// exactly the rhythm of Gran Vals.
+const CELLS = [GRAN_VALS_CELL];
 function rhythmExercise(tempo: number): Exercise {
   const durs = [rand(CELLS), rand(CELLS), rand(CELLS)].flat();
   return {
@@ -128,9 +186,9 @@ function rhythmExercise(tempo: number): Exercise {
     type: 'rhythm',
     title: 'on concert F',
     tempo,
-    beatsPerBar: 4,
+    beatsPerBar: 3,
     bars: 3,
-    notes: sequence(Array(durs.length).fill(deg(-3)), durs),
+    notes: sequence(Array(durs.length).fill(RHYTHM_PITCH), durs),
   };
 }
 
@@ -150,35 +208,109 @@ const SHARP_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A
 const FLAT_NAMES = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
 const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 
+/** Concert key of all playable content: A major (Gran Vals). PRD §5. */
+export const CONCERT_KEY_PC = 9; // A
+
+/** The concert key everything is written in, for display. */
+export const CONCERT_KEY_NAME = 'A';
+
+// Every major key by pitch class, so any instrument transposition lands on a
+// real key signature instead of silently falling back to C.
+const KEYS_BY_PC: Record<number, KeySig> = {
+  0: { name: 'C', accidentals: 0 },
+  7: { name: 'G', accidentals: 1 },
+  2: { name: 'D', accidentals: 2 },
+  9: { name: 'A', accidentals: 3 },
+  4: { name: 'E', accidentals: 4 },
+  11: { name: 'B', accidentals: 5 },
+  6: { name: 'F♯', accidentals: 6 },
+  5: { name: 'F', accidentals: -1 },
+  10: { name: 'B♭', accidentals: -2 },
+  3: { name: 'E♭', accidentals: -3 },
+  8: { name: 'A♭', accidentals: -4 },
+  1: { name: 'D♭', accidentals: -5 },
+};
+
 export function writtenKey(offset: number): KeySig {
-  // Concert B♭ transposed by the instrument's written offset.
-  const pc = (((10 + offset) % 12) + 12) % 12;
-  const table: Record<number, KeySig> = {
-    0: { name: 'C', accidentals: 0 },
-    7: { name: 'G', accidentals: 1 },
-    2: { name: 'D', accidentals: 2 },
-    5: { name: 'F', accidentals: -1 },
-    10: { name: 'B♭', accidentals: -2 },
-    3: { name: 'E♭', accidentals: -3 },
-  };
-  return table[pc] ?? { name: 'C', accidentals: 0 };
+  // The concert key transposed by the instrument's written offset.
+  const pc = (((CONCERT_KEY_PC + offset) % 12) + 12) % 12;
+  return KEYS_BY_PC[pc] ?? { name: 'C', accidentals: 0 };
 }
 
+// Order letters take accidentals in: sharps F C G D A E B, flats the reverse.
+const SHARP_ORDER = ['F', 'C', 'G', 'D', 'A', 'E', 'B'];
+const FLAT_ORDER = ['B', 'E', 'A', 'D', 'G', 'C', 'F'];
+
+/** Which letters the key signature alters, e.g. F♯ major -> F C G D A E. */
+function keyAltered(key: KeySig): Set<string> {
+  const order = key.accidentals > 0 ? SHARP_ORDER : FLAT_ORDER;
+  return new Set(order.slice(0, Math.abs(key.accidentals)));
+}
+
+const LETTER_PC: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+
+/**
+ * Spell a pitch using the key's own letters, so F♯ major yields E♯ rather
+ * than F. A fixed pitch-class table gets this wrong in keys with 6+
+ * accidentals and shifts the note onto the wrong staff line.
+ */
 export function noteName(midi: number, key: KeySig): string {
   const pc = ((midi % 12) + 12) % 12;
-  return (key.accidentals < 0 ? FLAT_NAMES : SHARP_NAMES)[pc];
+  const sharp = key.accidentals >= 0;
+  const altered = keyAltered(key);
+  const sign = sharp ? 1 : -1;
+  const glyph = sharp ? '♯' : '♭';
+
+  // A note in the key keeps the key's own spelling — that is what gives F♯
+  // major its E♯ rather than an out-of-place F♮.
+  for (const letter of Object.keys(LETTER_PC)) {
+    const inKey = altered.has(letter) ? (LETTER_PC[letter] + sign + 12) % 12 : LETTER_PC[letter];
+    if (inKey === pc) return altered.has(letter) ? letter + glyph : letter;
+  }
+  // Otherwise it is chromatic: prefer a plain natural letter (F♮ in A major),
+  // then a letter a semitone away in the key's direction.
+  for (const letter of Object.keys(LETTER_PC)) {
+    if (LETTER_PC[letter] === pc) return letter;
+  }
+  for (const letter of Object.keys(LETTER_PC)) {
+    if ((LETTER_PC[letter] + sign + 12) % 12 === pc) return letter + glyph;
+  }
+  return (sharp ? SHARP_NAMES : FLAT_NAMES)[pc];
 }
 
 /** Diatonic staff step: 0 = E4 (bottom line), each +1 is one line/space up. */
+/**
+ * The accidental this note needs drawn, given what the key signature already
+ * applies to its letter — or '' when the key signature covers it. A natural
+ * is needed when the key alters the letter but this note does not use that
+ * alteration (e.g. F♮ in A major).
+ */
+export function accidentalFor(midi: number, key: KeySig): '' | '♯' | '♭' | '♮' {
+  const name = noteName(midi, key);
+  const letter = name[0];
+  const mark = name.slice(1) as '' | '♯' | '♭';
+  const alteredByKey = keyAltered(key).has(letter);
+  const keyMark = key.accidentals > 0 ? '♯' : '♭';
+  if (alteredByKey) return mark === keyMark ? '' : mark || '♮';
+  return mark;
+}
+
 export function staffStep(midi: number, key: KeySig): number {
   const name = noteName(midi, key);
   const letter = LETTERS.indexOf(name[0]);
-  const octave = Math.floor(midi / 12) - 1;
-  // C♭/B♯ edge cases don't occur in these keys.
+  let octave = Math.floor(midi / 12) - 1;
+  // B♯ sounds in the octave above its letter (and C♭ the octave below), so
+  // derive the octave from the letter rather than the sounding pitch.
+  const pc = ((midi % 12) + 12) % 12;
+  const letterPc = LETTER_PC[name[0]];
+  if (letterPc === 11 && pc === 0) octave -= 1; // B♯ spelled below the C it sounds
+  if (letterPc === 0 && pc === 11) octave += 1; // C♭ spelled above the B it sounds
   const diatonic = octave * 7 + letter;
   const e4 = 4 * 7 + 2;
   return diatonic - e4;
 }
 
-export const SHARP_STEPS = [8, 5, 9, 6, 3]; // F C G D A on treble staff
-export const FLAT_STEPS = [4, 7, 3, 6, 2]; // B E A D G
+// Full orders so keys past 5 accidentals render correctly (alto sax reads
+// Gran Vals in F♯ major = 6 sharps).
+export const SHARP_STEPS = [8, 5, 9, 6, 3, 7, 4]; // F C G D A E B on treble staff
+export const FLAT_STEPS = [4, 7, 3, 6, 2, 5, 1]; // B E A D G C F
