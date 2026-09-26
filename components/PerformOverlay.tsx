@@ -1,5 +1,5 @@
 'use client';
-import { useRef } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 import { settings } from '@/lib/audio';
 import { useStageFit } from '@/lib/viewport';
 import type { Exercise } from '@/lib/music';
@@ -12,6 +12,22 @@ import { art } from '@/lib/art';
 
 export type PerformStage = 'unfold' | 'countin' | 'recording' | 'review';
 
+/** Per-frame sheet state: the cursor beat and the live results, outside React state. */
+export interface LiveSheet {
+  get: () => { beat: number | null; results: (NoteResult | undefined)[] };
+  set: (next: Partial<{ beat: number | null; results: (NoteResult | undefined)[] }>) => void;
+  subscribe: (listener: () => void) => () => void;
+}
+export function createLiveSheet(): LiveSheet {
+  let snapshot: ReturnType<LiveSheet['get']> = { beat: null, results: [] };
+  const listeners = new Set<() => void>();
+  return {
+    get: () => snapshot,
+    set: (next) => { snapshot = { ...snapshot, ...next }; listeners.forEach((l) => l()); },
+    subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+  };
+}
+
 interface Props {
   ex: Exercise;
   inst: Instrument;
@@ -19,14 +35,14 @@ interface Props {
   damage: number;
   stage: PerformStage;
   count: number; // count-in beat shown (1..4)
-  beat: number | null;
-  results: (NoteResult | undefined)[];
+  sheet: LiveSheet;
   hearing: number | null; // concert midi
   passLine: number; // 0..1
   demo: boolean;
 }
 
-export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, beat, results, hearing, passLine, demo }: Props) {
+export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, sheet, hearing, passLine, demo }: Props) {
+  const { beat, results } = useSyncExternalStore(sheet.subscribe, sheet.get, sheet.get);
   const encore = ex.type === 'encore';
   const color = encore ? { body: '#D1307E' } : CARD_STYLE[ex.type as 'chord'];
   const done = results.filter(Boolean) as NoteResult[];

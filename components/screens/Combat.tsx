@@ -10,7 +10,7 @@ import { instrumentOf, stat, useGame } from '@/lib/store';
 import { buildFacts, fetchTaunt, speak, type Taunt } from '@/lib/voice';
 import CardView from '../CardView';
 import Hud from '../Hud';
-import PerformOverlay, { type PerformStage } from '../PerformOverlay';
+import PerformOverlay, { createLiveSheet, type PerformStage } from '../PerformOverlay';
 import { Bg, HpBar, Octagon, Sprite } from '../ui';
 import { mapFx } from './MapScreen';
 import { useViewport } from '@/lib/viewport';
@@ -21,6 +21,8 @@ type Active = number | 'encore';
 const wait = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 const clock = () => performance.now();
 const FLOOR_Y = 590; // fighters stand on this line
+// Live grading cadence while recording (the cursor still moves every frame).
+const LIVE_GRADE_MS = 66;
 // Safety net for a voice clip that never reports its end; real lines finish well before.
 const LINE_LIMIT_MS = 12000;
 const RIFF = { x: 210, size: 320 };
@@ -39,7 +41,10 @@ export default function Combat() {
   const timing = stat(run, 'timingWindow');
 
   const [phase, setPhase] = useState<Phase>('enter');
-  const [perform, setPerform] = useState<{ ex: Exercise; active: Active; stage: PerformStage; count: number; beat: number | null; results: (NoteResult | undefined)[] } | null>(null);
+  const [perform, setPerform] = useState<{ ex: Exercise; active: Active; stage: PerformStage; count: number } | null>(null);
+  // The cursor beat and live grading change every frame; only the sheet listens
+  // to them, so the fight scene is not re-rendered sixty times a second.
+  const [sheet] = useState(createLiveSheet);
   const [hearing, setHearing] = useState<number | null>(null);
   const [fx, setFx] = useState<{ riff?: 'windup' | 'attack' | 'hurt' | 'encore'; enemy?: 'windup' | 'hit' | 'attack' | 'dissolve'; pop?: { v: number; side: 'enemy' | 'riff'; key: number }; flash?: 'red' | 'white'; barrage?: number; enemyBarrage?: number; burst?: number; riffBurst?: number; flyoff?: { type: string; key: number } }>({});
   const [taunt, setTaunt] = useState<(Taunt & { heat: number; speaking: boolean }) | null>(null);
@@ -243,7 +248,8 @@ export default function Combat() {
       setPhase('perform');
       // M1: flip (card grows + scaleX pinch) then unfold into the sheet
       sfx('flip');
-      setPerform({ ex, active, stage: 'unfold', count: 0, beat: null, results: [] });
+      setPerform({ ex, active, stage: 'unfold', count: 0 });
+      sheet.set({ beat: null, results: [] });
       if (active === 'encore') void playFile('/audio/sfx/encore-charge.mp3', 0.8);
       await wait(450);
       if (!alive.current) return;
@@ -262,7 +268,7 @@ export default function Combat() {
       let counting = true;
       const pre = () => {
         if (!counting || !alive.current) return;
-        setPerform((p) => p && { ...p, beat: (clock() - startPerf) / mspb });
+        sheet.set({ beat: (clock() - startPerf) / mspb });
         requestAnimationFrame(pre);
       };
       requestAnimationFrame(pre);
@@ -273,19 +279,26 @@ export default function Combat() {
       if (!alive.current) return;
       mic.beginRecording();
       const totalBeats = ex.notes[ex.notes.length - 1].startBeat + ex.notes[ex.notes.length - 1].durBeats;
+      setPerform((p) => p && { ...p, stage: 'recording' });
       await new Promise<void>((done) => {
+        let graded = -Infinity;
+        let results: (NoteResult | undefined)[] = [];
         const tick = () => {
           if (!alive.current) return done();
           const now = performance.now();
           const beat = (now - startPerf) / mspb;
-          let results: (NoteResult | undefined)[];
-          if (sim) {
-            results = ex.notes.map((n, i) => (beat >= n.startBeat + n.durBeats ? sim[i] : undefined));
-          } else {
-            const g = grade(ex, mic.peek(), startPerf, inst.shift, timing);
-            results = ex.notes.map((n, i) => (now >= startPerf + (n.startBeat + n.durBeats) * mspb + 110 ? g[i] : undefined));
+          // The cursor moves every frame; grading the growing take only needs
+          // ~15 passes a second (a note's result only lands when it ends).
+          if (now - graded >= LIVE_GRADE_MS) {
+            graded = now;
+            if (sim) {
+              results = ex.notes.map((n, i) => (beat >= n.startBeat + n.durBeats ? sim[i] : undefined));
+            } else {
+              const g = grade(ex, mic.peek(), startPerf, inst.shift, timing);
+              results = ex.notes.map((n, i) => (now >= startPerf + (n.startBeat + n.durBeats) * mspb + 110 ? g[i] : undefined));
+            }
           }
-          setPerform((p) => p && { ...p, stage: 'recording', beat: Math.max(0, beat), results });
+          sheet.set({ beat: Math.max(0, beat), results });
           if (now > startPerf + totalBeats * mspb + RECORD_TAIL_MS) return done();
           requestAnimationFrame(tick);
         };
@@ -301,7 +314,8 @@ export default function Combat() {
       const pass = hits / final.length >= (active === 'encore' ? ULTIMATE_PASS_THRESHOLD : passLine);
       performing.current = false;
       if (!alive.current) return;
-      setPerform((p) => p && { ...p, stage: 'review', beat: null, results: final });
+      sheet.set({ beat: null, results: final });
+      setPerform((p) => p && { ...p, stage: 'review' });
       sfx(pass ? 'stampHit' : 'stampMiss');
 
       const st = useGame.getState();
@@ -628,8 +642,7 @@ export default function Combat() {
             damage={perform.active === 'encore' ? encoreDamage : cardDamage}
             stage={perform.stage}
             count={perform.count}
-            beat={perform.beat}
-            results={perform.results}
+            sheet={sheet}
             hearing={perform.stage === 'recording' ? hearing : null}
             passLine={passLine}
             demo={demoMode || !micReady}
