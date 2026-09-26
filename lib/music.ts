@@ -1,5 +1,6 @@
 // Music content (PRD §5): notes are stored in CONCERT pitch, key of B♭ major.
 // Written pitch for display = concert + instrument.writtenOffset.
+import { TAVERN_TEMPO } from './config';
 
 export type CardType = 'chord' | 'scale' | 'rhythm';
 
@@ -85,7 +86,7 @@ export const GRAN_VALS: Exercise = {
   notes: granValsNotes(1),
 };
 
-export const DUET_A: Exercise = { ...GRAN_VALS, id: 'duet-a', title: 'Duet · Part A (melody)' };
+export const DUET_A: Exercise = { ...GRAN_VALS, id: 'duet-a', title: 'Duet · Part A (melody)', tempo: TAVERN_TEMPO };
 // A simpler quarter-note response in a shared playable register. Downbeats
 // form thirds or a unison with A; short melody eighths are passing tones.
 // Both parts finish together, leaving the final beat as the phrase's rest.
