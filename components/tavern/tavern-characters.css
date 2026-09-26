@@ -1,7 +1,8 @@
 .tavern-character-select { position:absolute; inset:0; color:#fff6e0; }
 .tavern-character-select h2 { position:absolute; left:64px; top:132px; width:500px; margin:0; color:#ffd23f; font:28px/44px var(--press); }
-.tavern-character-preview { position:absolute; left:104px; top:236px; width:436px; height:436px; animation:tavern-character-arrive 160ms steps(4) both; }
-.tavern-character-description { position:absolute; left:104px; top:676px; width:436px; min-height:140px; padding:16px; background:#1b1f3b; border:4px solid #ffd23f; text-align:center; }
+.tavern-character-preview { position:absolute; left:104px; top:236px; width:436px; height:436px; }
+.tavern-performer { position:absolute; inset:0; transform-origin:50% 94%; animation:tavern-performer-arrive 260ms cubic-bezier(.2,.9,.3,1) both; }
+.tavern-character-description { position:absolute; left:104px; top:676px; width:436px; min-height:140px; padding:16px; background:#1b1f3b; border:4px solid #ffd23f; text-align:center; animation:tavern-about-in 280ms cubic-bezier(.2,.9,.3,1) both; }
 .tavern-character-description strong { color:#ffd23f; font:28px/36px var(--press); }
 .tavern-character-description p { margin:8px 0 0; font:24px/30px var(--body); }
 .tavern-character-panel { position:absolute; left:608px; top:144px; width:784px; height:620px; background:#1b1f3b; border:4px solid #f0ddb4; }
@@ -29,7 +30,23 @@
 .tavern-character-actions button:focus-visible { outline:4px solid #6ec6ff; outline-offset:4px; }
 .tavern-character-actions button:disabled { opacity:.55; cursor:wait; }
 .tavern-character-actions button:active:not(:disabled) { translate:0 4px; }
-@keyframes tavern-character-arrive { from { opacity:.3; translate:0 -12px; } to { opacity:1; translate:0 0; } }
+/* Picking answers on stage: a new performer drops onto the boards, squashes on
+   landing and settles; a new instrument gets an anticipation squash, a hop and a
+   burst of notes; the chosen tile pops. */
+.tavern-character-preview[data-change=swap] .tavern-performer { animation:tavern-performer-drop 460ms cubic-bezier(.3,.8,.35,1) both; }
+.tavern-character-preview[data-change=swap]::before { content:''; position:absolute; left:8%; right:8%; top:18%; bottom:0; background:radial-gradient(ellipse 50% 60% at 50% 72%,#FFF0BE55,transparent 70%); opacity:0; pointer-events:none; animation:tavern-swap-light 560ms ease-out both; }
+.tavern-performer-flourish { animation:tavern-performer-hop 380ms cubic-bezier(.3,.7,.4,1) both; }
+.tavern-flourish-notes > span { position:absolute; left:58%; top:44%; font:44px/1 var(--body); text-shadow:4px 4px 0 #101126; opacity:0; animation:tavern-flourish-note 720ms cubic-bezier(.2,.8,.3,1) both; }
+.tavern-swap-dust { position:absolute; left:40px; right:40px; bottom:22px; height:24px; pointer-events:none; }
+.tavern-swap-dust i { position:absolute; bottom:0; width:28px; height:16px; background:#BC99704D; opacity:0; animation:tavern-dust 320ms steps(4) both; }
+.tavern-character-option[data-selected=true], .tavern-instrument-option[data-selected=true] { animation:tavern-pick 280ms cubic-bezier(.3,1.5,.5,1) both; }
+@keyframes tavern-performer-arrive { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+@keyframes tavern-performer-drop { 0% { opacity:0; transform:translateY(-64px) scaleY(1.06); } 40% { opacity:1; transform:translateY(0) scaleY(1.04); } 56% { transform:scale(1.07,.9); } 76% { transform:translateY(-8px) scale(.98,1.03); } 100% { transform:none; } }
+@keyframes tavern-performer-hop { 0% { transform:scale(1.05,.93); } 38% { transform:translateY(-22px) scale(.97,1.04); } 72% { transform:scale(1.03,.97); } 100% { transform:none; } }
+@keyframes tavern-flourish-note { 0% { opacity:0; transform:translate(0,0) scale(.4) rotate(-10deg); } 20% { opacity:1; } 100% { opacity:0; transform:translate(var(--dx),var(--dy)) scale(1) rotate(8deg); } }
+@keyframes tavern-swap-light { 0% { opacity:0; } 30% { opacity:1; } 100% { opacity:0; } }
+@keyframes tavern-about-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+@keyframes tavern-pick { 0% { transform:scale(.94); } 60% { transform:scale(1.04); } 100% { transform:none; } }
 @media (hover:hover) { .tavern-character-option:hover, .tavern-instrument-option:hover { border-color:#fff6e0; } }
 @media (hover:none) and (pointer:coarse) {
   .tavern-character-panel legend { font-size:28px; line-height:36px; }
@@ -44,4 +61,4 @@
   .tavern-character-actions button { height:104px; font-size:28px; line-height:36px; }
   .tavern-character-description p { font-size:28px; line-height:32px; }
 }
-@media (prefers-reduced-motion:reduce) { .tavern-character-preview { animation:none; } .tavern-character-actions button:active:not(:disabled) { translate:none; } }
+@media (prefers-reduced-motion:reduce) { .tavern-performer, .tavern-character-description, .tavern-character-option, .tavern-instrument-option, .tavern-flourish-notes > span, .tavern-swap-dust i, .tavern-character-preview::before { animation:none !important; } .tavern-flourish-notes, .tavern-swap-dust { display:none; } .tavern-character-actions button:active:not(:disabled) { translate:none; } }
