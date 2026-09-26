@@ -57,7 +57,8 @@ export const TAVERN_PASS = 0.8;
 export const TAVERN_BUFF_TIPS = 120;
 export const TAVERN_ROOM_TTL_MS = 10 * 60_000;
 export const TAVERN_STALE_MS = 8_000;
-export const TAVERN_START_DELAY_MS = 4_000;
+// One second lets both polling clients prepare before the shared four-second light/count-in beat.
+export const TAVERN_START_DELAY_MS = 5_000;
 export const TAVERN_PLAYBACK_DELAY_MS = 2_500;
 export const TAVERN_DONE_TTL_MS = 30_000;
 export const TAVERN_POLL_MS = 700;
