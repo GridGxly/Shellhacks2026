@@ -8,6 +8,8 @@ import { enterFullscreen, useFullscreenOffer, useViewport } from '@/lib/viewport
 import { art } from '@/lib/art';
 
 let introSeen = false;
+/** ms from shot 4 until Riff's feet hit the summit. */
+const LAND_MS = 340;
 
 type Item = { label: string; act: () => void; primary?: boolean; mode?: boolean };
 
@@ -45,10 +47,11 @@ export default function Title() {
   }, []);
   useEffect(() => {
     if (shot === 4) {
-      sfx('impact');
-      void playFile('/audio/sfx/versus-slam.mp3', 0.8);
-      const menu = window.setTimeout(() => setShot(5), 900);
-      return () => clearTimeout(menu);
+      // Riff falls back in from the intro's leap: the hit lands with his feet.
+      sfx('impact', LAND_MS / 1000);
+      const slam = window.setTimeout(() => void playFile('/audio/sfx/versus-slam.mp3', 0.8), LAND_MS);
+      const menu = window.setTimeout(() => setShot(5), 1050);
+      return () => { clearTimeout(slam); clearTimeout(menu); };
     }
     if (shot >= 5) introSeen = true;
   }, [shot]);
@@ -92,7 +95,7 @@ export default function Title() {
   const pick = (it: Item) => { if (!busy) { sfx('click'); it.act(); } };
 
   return (
-    <div className="fill screen-clip" style={{ background: '#1B1D3A' }}>
+    <div className="fill screen-clip" style={{ background: '#1B1D3A', animation: shot === 4 ? `introShake 320ms ${LAND_MS}ms linear both` : undefined }}>
       <Bg src="/assets/bg/summit.png" />
       <Stars />
       {/* Villain silhouettes (10 Second Ninja X idea) */}
@@ -101,14 +104,17 @@ export default function Title() {
       <div className="fill" style={{ backgroundImage: 'linear-gradient(180deg, rgba(16,17,38,0) 55%, rgba(16,17,38,0.9) 100%)' }} />
       {/* 01 Title: Riff stands on the summit's flat stone, feet on its front edge. */}
       <div style={{ position: 'absolute', left: 575, top: 366, width: 280, height: 320, backgroundImage: 'radial-gradient(ellipse 50% 50% at 50% 50%, rgba(255,240,190,0.45) 0%, rgba(255,230,140,0.12) 55%, rgba(255,230,140,0) 75%)', animation: 'glow 3s steps(4) infinite' }} />
-      <Sprite src={instrumentOf(useGame.getState().run).sprite} x={545} y={356} size={340} style={{ animation: shot === 4 ? 'slam 500ms steps(6) both' : 'breathe 1.2s steps(2) infinite' }} />
+      <Sprite src={instrumentOf(useGame.getState().run).sprite} x={545} y={356} size={340} style={{ transformOrigin: '50% 98%', animation: shot === 4 ? `titleLand ${LAND_MS + 260}ms linear both` : 'breathe 1.2s steps(2) infinite' }} />
       <img
         src={art('/assets/logo.png')}
         alt="Slay the Choir"
-        style={{ position: 'absolute', left: 430, top: 18, width: 580, animation: shot === 4 ? 'slam 600ms 200ms steps(8) both' : undefined }}
+        style={{ position: 'absolute', left: 430, top: 18, width: 580, animation: shot === 4 ? `titleLogo 700ms ${LAND_MS}ms both` : undefined }}
       />
       <FloatingNotes count={8} />
-      {shot === 4 && <div style={{ position: 'absolute', left: 570, top: 677, width: 300, height: 22, background: '#FFF6E0', animation: 'burst 400ms steps(5) forwards', pointerEvents: 'none' }} />}
+      {shot === 4 && <>
+        <div className="title-shock" style={{ left: 715 - 170, top: 688 - 24, width: 340, height: 48, animationDelay: `${LAND_MS}ms` }} />
+        {Array.from({ length: 8 }, (_, i) => <div key={i} className="intro-dust" style={{ left: 600 + i * 30, top: 676, ['--at' as string]: `${LAND_MS + (i % 2) * 30}ms`, ['--dx' as string]: `${(i - 3.5) * 26}px` }} />)}
+      </>}
 
       {/* Desktop: the menu sits below the summit so the stone Riff stands on stays in view. */}
       {shot >= 5 && !handheld && (
