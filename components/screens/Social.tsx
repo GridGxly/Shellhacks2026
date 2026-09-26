@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { sfx } from '@/lib/audio';
+import { weekKey } from '@/lib/week';
 import { ENEMIES, INSTRUMENTS } from '@/lib/content';
 import { useGame } from '@/lib/store';
 import { YellowButton } from '../ui';
@@ -25,16 +26,38 @@ export function Leaderboard() {
   const user = useGame((s) => s.user);
   const best = useGame((s) => s.best);
   const [range, setRange] = useState<'all' | 'week'>('all');
-  const [data, setData] = useState<{ rows: BoardRow[]; me: BoardRow | null } | 'offline' | null>(null);
+  const [data, setData] = useState<{ rows: BoardRow[]; me: BoardRow | null; previous: Record<string, number> } | 'offline' | null>(null);
+  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    let live = true;
-    setData(null);
-    fetch(`/api/leaderboard?range=${range}`)
-      .then((r) => (r.ok ? r.json() : 'offline'))
-      .then((d) => live && setData(d))
-      .catch(() => live && setData('offline'));
-    return () => { live = false; };
+    let mounted = true;
+    let request: AbortController | null = null;
+    let previous: Record<string, number> = {};
+    const refresh = async () => {
+      request?.abort();
+      const current = request = new AbortController();
+      try {
+        const response = await fetch(`/api/leaderboard?range=${range}`, { signal: current.signal });
+        if (!response.ok) throw new Error('Leaderboard unavailable');
+        const next: { rows: BoardRow[]; me: BoardRow | null } = await response.json();
+        if (!mounted || current.signal.aborted) return;
+        setData({ ...next, previous });
+        previous = Object.fromEntries(next.rows.map((row) => [row.username, row.score]));
+      } catch {
+        if (mounted && !current.signal.aborted) setData((last) => last ?? 'offline');
+      }
+    };
+    void refresh();
+    const source = new EventSource('/api/leaderboard/live');
+    source.addEventListener('ready', () => { setConnected(true); void refresh(); });
+    source.addEventListener('run', (event) => {
+      try {
+        const run = JSON.parse(event.data) as { weekKey: string };
+        if (range === 'all' || run.weekKey === weekKey()) void refresh();
+      } catch { /* Ignore an incomplete event; reconnect refreshes the board. */ }
+    });
+    source.onerror = () => setConnected(false);
+    return () => { mounted = false; request?.abort(); source.close(); };
   }, [range]);
 
   const rows = data && data !== 'offline' ? data.rows : [];
@@ -49,15 +72,16 @@ export function Leaderboard() {
               <button
                 key={r}
                 onMouseEnter={() => sfx('hover')}
-                onClick={() => { sfx('click'); setRange(r); }}
+                onClick={() => { if (r !== range) { sfx('click'); setData(null); setConnected(false); setRange(r); } }}
                 className="f-press"
                 style={{ padding: '10px 16px', fontSize: 12, background: range === r ? 'var(--sun)' : '#1E2140', color: range === r ? '#101126' : 'var(--muted)', border: '3px solid #101126' }}
               >
                 {r === 'all' ? 'ALL TIME' : 'THIS WEEK'}
               </button>
             ))}
+            <span role="status" aria-label={connected ? 'Leaderboard live' : 'Leaderboard reconnecting'} className="f-label" style={{ alignSelf: 'center', marginLeft: 10, fontSize: 14, color: connected ? 'var(--meadow)' : 'var(--muted)' }}><span style={{ animation: connected ? 'blink 1.6s steps(2) infinite' : undefined }}>●</span> LIVE</span>
           </div>
-          <span className="f-label" style={{ fontSize: 12, color: 'var(--muted)' }}>SCORE = FLOORS × 1000 + NOTES + ENCORES + HP LEFT</span>
+          <span className="f-label" style={{ fontSize: 11, color: 'var(--muted)' }}>BEST VERIFIED RUN PER CLIMBER</span>
         </div>
 
         <div style={{ background: 'rgba(16,17,38,0.88)', border: '4px solid #3A3F70', boxShadow: '#101126 8px 8px 0', animation: 'unrollDown 400ms steps(8) both' }}>
@@ -68,7 +92,7 @@ export function Leaderboard() {
             {data === null && <Empty text="Tuning up…" />}
             {data === 'offline' && <Empty text="Leaderboard is offline (no database configured). Local best shown below." />}
             {data && data !== 'offline' && rows.length === 0 && <Empty text="No scores yet. Be the first up the spire." />}
-            {rows.map((r, i) => <Row key={r.rank + r.username} r={r} mine={r.username === user?.username} delay={i * 40} />)}
+            {rows.map((r, i) => <Row key={`${r.username}-${r.rank}-${r.score}`} r={r} mine={r.username === user?.username} delay={i * 40} from={data && data !== 'offline' ? data.previous[r.username] ?? 0 : 0} />)}
           </div>
         </div>
 
@@ -95,7 +119,7 @@ function Empty({ text }: { text: string }) {
   return <div className="f-body" style={{ padding: 40, textAlign: 'center', fontSize: 18, color: 'var(--muted)' }}>{text}</div>;
 }
 
-function Row({ r, mine, delay }: { r: BoardRow; mine: boolean; delay: number }) {
+function Row({ r, mine, delay, from }: { r: BoardRow; mine: boolean; delay: number; from: number }) {
   const medal = ['#FFD23F', '#C9CDE8', '#E0A060'][r.rank - 1];
   return (
     <div
@@ -116,9 +140,25 @@ function Row({ r, mine, delay }: { r: BoardRow; mine: boolean; delay: number }) 
       </span>
       <span className="f-press" style={{ fontSize: 13, color: r.floor >= 18 ? 'var(--sun)' : '#fff' }}>{r.floor >= 18 ? '★ 18' : r.floor}</span>
       <span className="f-press" style={{ fontSize: 13, color: 'var(--meadow)' }}>{r.accuracy}%</span>
-      <span className="f-press" style={{ fontSize: 16, color: '#fff', textAlign: 'right' }}>{r.score.toLocaleString()}</span>
+      <span className="f-press" style={{ fontSize: 16, color: '#fff', textAlign: 'right' }}><Score from={from} to={r.score} /></span>
     </div>
   );
+}
+
+function Score({ from, to }: { from: number; to: number }) {
+  const [value, setValue] = useState(from);
+  useEffect(() => {
+    const start = performance.now();
+    let frame = 0;
+    const tick = () => {
+      const progress = Math.min(1, (performance.now() - start) / 650);
+      setValue(Math.round(from + (to - from) * (1 - (1 - progress) ** 3)));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [from, to]);
+  return value.toLocaleString();
 }
 
 // ---------------------------------------------------------------- H5 Profile
