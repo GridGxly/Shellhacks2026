@@ -82,7 +82,7 @@ export default function MapScreen() {
 
       {phase === 'idle' && (
         <>
-          <div style={{ position: 'absolute', left: 40, top: 96, display: 'flex', flexDirection: 'column', gap: 6, animation: 'slideInLeft 300ms steps(5) both' }}>
+          <div className="map-act-heading" style={{ position: 'absolute', left: 40, top: 96, display: 'flex', flexDirection: 'column', gap: 6, animation: 'slideInLeft 300ms steps(5) both' }}>
             <div className="f-label" style={{ fontSize: 13, color: 'var(--sun)' }}>ACT {act + 1} OF 6</div>
             <div className="f-press" style={{ fontSize: 20, color: '#fff', textShadow: '#101126 3px 3px 0' }}>{ACTS[act].name.toUpperCase()}</div>
           </div>

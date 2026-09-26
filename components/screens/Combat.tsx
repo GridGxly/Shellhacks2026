@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ac, clickAt, muteMusic, playFile, playMusic, playVoice, settings, sfx, stopVoices } from '@/lib/audio';
 import { COUNT_IN_BEATS, RECORD_TAIL_MS, REVIEW_DURATION_MS, TAUNT_ON_HIT_CHANCE, ULTIMATE_PASS_THRESHOLD } from '@/lib/config';
 import { ENEMIES } from '@/lib/content';
@@ -46,9 +46,8 @@ export default function Combat() {
   const rootRef = useRef<HTMLDivElement>(null);
   const alive = useRef(true);
   const dragRef = useRef(drag);
-  dragRef.current = drag;
   const pickedRef = useRef(picked);
-  pickedRef.current = picked;
+  useLayoutEffect(() => { dragRef.current = drag; pickedRef.current = picked; }, [drag, picked]);
   const busy = useRef(false); // one performance at a time
   const performing = useRef(false); // count-in + recording: no voice may start
 
@@ -73,8 +72,10 @@ export default function Combat() {
     mic.listeners.add(l);
     return () => {
       alive.current = false;
+      performing.current = false;
       clearTimeout(t);
       mic.listeners.delete(l);
+      mic.endRecording();
       muteMusic(false);
       stopVoices();
     };
@@ -97,104 +98,44 @@ export default function Combat() {
     [enemy, inst],
   );
 
-  // ---------- one card / encore performance ----------
-  const performAction = useCallback(
-    async (active: Active) => {
-      const s = useGame.getState();
-      const c = s.combat;
-      if (busy.current || s.overlay || !c) return;
-      if (active === 'encore' ? !c.encore?.charged : !c.hand[active] || c.hand[active].landed) return;
-      busy.current = true;
-      performing.current = true;
-      setPicked(null);
-      setDrag(null);
-      const ex = active === 'encore' ? c.encoreExercise : c.hand[active].exercise;
-      setTaunt(null);
-      stopVoices();
-      setPhase('perform');
-      // M1: flip (card grows + scaleX pinch) then unfold into the sheet
-      sfx('flip');
-      setPerform({ ex, active, stage: 'unfold', count: 0, beat: null, results: [] });
-      if (active === 'encore') void playFile('/audio/sfx/encore-charge.mp3', 0.8);
-      await wait(450);
-      // Count-in: music + voices hard-muted so nothing leaks into the mic.
-      muteMusic(true);
-      const mspb = 60000 / ex.tempo;
-      const beats = settings.countIn || COUNT_IN_BEATS;
-      const ctx = ac();
-      const t0 = ctx.currentTime + 0.12;
-      for (let b = 0; b < beats; b++) clickAt(t0 + (b * mspb) / 1000, b === 0);
-      const startPerf = performance.now() + 120 + beats * mspb;
-      for (let b = 0; b < beats; b++) {
-        window.setTimeout(() => alive.current && setPerform((p) => p && { ...p, stage: 'countin', count: b + 1 }), 120 + b * mspb);
-      }
-      // Feed negative beats through the count-in so follow-along circles for the
-      // first notes are already closing when the downbeat arrives.
-      let counting = true;
-      const pre = () => {
-        if (!counting || !alive.current) return;
-        setPerform((p) => p && { ...p, beat: (clock() - startPerf) / mspb });
-        requestAnimationFrame(pre);
-      };
-      requestAnimationFrame(pre);
-      const demo = useGame.getState().demoMode || mic.status !== 'on';
-      const sim = demo ? simulate(ex, inst.shift, 0.82) : null;
-      await wait(120 + beats * mspb - 30);
-      counting = false;
-      mic.beginRecording();
-      const totalBeats = ex.notes[ex.notes.length - 1].startBeat + ex.notes[ex.notes.length - 1].durBeats;
-      await new Promise<void>((done) => {
-        const tick = () => {
-          if (!alive.current) return done();
-          const now = performance.now();
-          const beat = (now - startPerf) / mspb;
-          let results: (NoteResult | undefined)[];
-          if (sim) {
-            results = ex.notes.map((n, i) => (beat >= n.startBeat + n.durBeats ? sim[i] : undefined));
-          } else {
-            const g = grade(ex, mic.peek(), startPerf, inst.shift, timing);
-            results = ex.notes.map((n, i) => (now >= startPerf + (n.startBeat + n.durBeats) * mspb + 110 ? g[i] : undefined));
-          }
-          setPerform((p) => p && { ...p, stage: 'recording', beat: Math.max(0, beat), results });
-          if (now > startPerf + totalBeats * mspb + RECORD_TAIL_MS) return done();
-          requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      });
-      const readings = mic.endRecording();
-      const final: NoteResult[] = sim ?? grade(ex, readings, startPerf, inst.shift, timing);
-      const hits = final.filter((r) => r.status === 'hit').length;
-      const pass = hits / final.length >= (active === 'encore' ? ULTIMATE_PASS_THRESHOLD : passLine);
-      performing.current = false;
-      muteMusic(false);
-      if (!alive.current) return;
-      setPerform((p) => p && { ...p, stage: 'review', beat: null, results: final });
-      sfx(pass ? 'stampHit' : 'stampMiss');
+  // ---------- M4: K.O. ----------
+  async function ko() {
+    setPhase('ko');
+    setTaunt(null);
+    stopVoices();
+    muteMusic(true);
+    setFx({ flash: 'white' });
+    await wait(120);
+    setFx({ riff: 'hurt' });
+    await wait(600);
+    void playFile('/audio/sfx/ko-slam.mp3');
+    if (enemy.ko) void playVoice(enemy.ko, enemy.voice === 'choir');
+    await wait(enemy.ko ? 2400 : 1600);
+    if (!alive.current) return;
+    muteMusic(false);
+    if (useGame.getState().bossDemo) return useGame.getState().endBossDemo();
+    useGame.getState().loseRun();
+    useGame.getState().go('loss', 'iris');
+  };
 
-      const st = useGame.getState();
-      const failCount = active === 'encore' ? 0 : c.hand[active].fails + (pass ? 0 : 1);
-      if (active === 'encore') st.resolveEncore(pass, hits, final.length, !!sim);
-      else st.resolveCard(active, pass, hits, final.length, !!sim);
-
-      // Miss: the enemy heckles during the review (PRD §7a).
-      const talk = !pass ? say('miss', ex, final, failCount) : Promise.resolve();
-      await wait(REVIEW_DURATION_MS);
-      setPerform(null);
-
-      if (pass) {
-        await attack(active === 'encore' ? encoreDamage : cardDamage, active);
-      }
-      if (!alive.current) return;
-      if (useGame.getState().combat!.enemyHp <= 0) return win();
-      await talk;
-      await enemyTurn(pass, ex, final, failCount);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [inst, passLine, timing, cardDamage, encoreDamage, say],
-  );
+  // ---------- win ----------
+  async function win() {
+    setPhase('win');
+    setTaunt(null);
+    setFx({ enemy: 'dissolve' });
+    if (enemy.defeat) void playVoice(enemy.defeat, enemy.voice === 'choir');
+    void playFile('/audio/sfx/victory-sting.mp3', 0.9);
+    await wait(enemy.defeat ? 2600 : 1600);
+    if (!alive.current) return;
+    if (useGame.getState().bossDemo) return useGame.getState().endBossDemo();
+    const final = useGame.getState().run.floor + 1 >= ENEMIES.length;
+    useGame.getState().winFight();
+    mapFx.reveal = true;
+    useGame.getState().go(final ? 'final' : enemy.boss ? 'actclear' : 'victory', final || enemy.boss ? 'iris' : 'wipe');
+  };
 
   // ---------- 09a: Riff attacks ----------
-  const attack = async (dmg: number, active: Active) => {
+  async function attack(dmg: number, active: Active) {
     setPhase('attack');
     const encore = active === 'encore';
     setFx({ riff: encore ? 'encore' : 'attack' });
@@ -215,7 +156,7 @@ export default function Combat() {
   };
 
   // ---------- 09b: enemy turn ----------
-  const enemyTurn = async (lastPass: boolean, ex: Exercise, results: NoteResult[], failCount: number) => {
+  async function enemyTurn(lastPass: boolean, ex: Exercise, results: NoteResult[], failCount: number) {
     if (!alive.current) return;
     setPhase('enemy');
     const c = useGame.getState().combat!;
@@ -244,41 +185,106 @@ export default function Combat() {
     [0, 1, 2].forEach((i) => window.setTimeout(() => sfx('deal'), i * 90));
   };
 
-  // ---------- win ----------
-  const win = async () => {
-    setPhase('win');
-    setTaunt(null);
-    setFx({ enemy: 'dissolve' });
-    if (enemy.defeat) void playVoice(enemy.defeat, enemy.voice === 'choir');
-    void playFile('/audio/sfx/victory-sting.mp3', 0.9);
-    await wait(enemy.defeat ? 2600 : 1600);
-    if (!alive.current) return;
-    if (useGame.getState().bossDemo) return useGame.getState().endBossDemo();
-    const final = useGame.getState().run.floor + 1 >= ENEMIES.length;
-    useGame.getState().winFight();
-    mapFx.reveal = true;
-    useGame.getState().go(final ? 'final' : enemy.boss ? 'actclear' : 'victory', final || enemy.boss ? 'iris' : 'wipe');
-  };
+  // ---------- one card / encore performance ----------
+  const performAction = useCallback(
+    async (active: Active) => {
+      const s = useGame.getState();
+      const c = s.combat;
+      if (busy.current || s.overlay || !c) return;
+      if (active === 'encore' ? !c.encore?.charged : !c.hand[active] || c.hand[active].landed) return;
+      busy.current = true;
+      performing.current = true;
+      setPicked(null);
+      setDrag(null);
+      const ex = active === 'encore' ? c.encoreExercise : c.hand[active].exercise;
+      setTaunt(null);
+      stopVoices();
+      // The sheet stays quiet from the card pick through the final review.
+      muteMusic(true);
+      setPhase('perform');
+      // M1: flip (card grows + scaleX pinch) then unfold into the sheet
+      sfx('flip');
+      setPerform({ ex, active, stage: 'unfold', count: 0, beat: null, results: [] });
+      if (active === 'encore') void playFile('/audio/sfx/encore-charge.mp3', 0.8);
+      await wait(450);
+      if (!alive.current) return;
+      // Count-in: music + voices stay muted so nothing leaks into the mic.
+      const mspb = 60000 / ex.tempo;
+      const beats = settings.countIn || COUNT_IN_BEATS;
+      const ctx = ac();
+      const t0 = ctx.currentTime + 0.12;
+      for (let b = 0; b < beats; b++) clickAt(t0 + (b * mspb) / 1000, b === 0);
+      const startPerf = performance.now() + 120 + beats * mspb;
+      for (let b = 0; b < beats; b++) {
+        window.setTimeout(() => alive.current && setPerform((p) => p && { ...p, stage: 'countin', count: b + 1 }), 120 + b * mspb);
+      }
+      // Feed negative beats through the count-in so follow-along circles for the
+      // first notes are already closing when the downbeat arrives.
+      let counting = true;
+      const pre = () => {
+        if (!counting || !alive.current) return;
+        setPerform((p) => p && { ...p, beat: (clock() - startPerf) / mspb });
+        requestAnimationFrame(pre);
+      };
+      requestAnimationFrame(pre);
+      const demo = useGame.getState().demoMode || mic.status !== 'on';
+      const sim = demo ? simulate(ex, inst.shift, 0.82) : null;
+      await wait(120 + beats * mspb - 30);
+      counting = false;
+      if (!alive.current) return;
+      mic.beginRecording();
+      const totalBeats = ex.notes[ex.notes.length - 1].startBeat + ex.notes[ex.notes.length - 1].durBeats;
+      await new Promise<void>((done) => {
+        const tick = () => {
+          if (!alive.current) return done();
+          const now = performance.now();
+          const beat = (now - startPerf) / mspb;
+          let results: (NoteResult | undefined)[];
+          if (sim) {
+            results = ex.notes.map((n, i) => (beat >= n.startBeat + n.durBeats ? sim[i] : undefined));
+          } else {
+            const g = grade(ex, mic.peek(), startPerf, inst.shift, timing);
+            results = ex.notes.map((n, i) => (now >= startPerf + (n.startBeat + n.durBeats) * mspb + 110 ? g[i] : undefined));
+          }
+          setPerform((p) => p && { ...p, stage: 'recording', beat: Math.max(0, beat), results });
+          if (now > startPerf + totalBeats * mspb + RECORD_TAIL_MS) return done();
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+      if (!alive.current) return;
+      const readings = mic.endRecording();
+      const final: NoteResult[] = sim ?? grade(ex, readings, startPerf, inst.shift, timing);
+      const hits = final.filter((r) => r.status === 'hit').length;
+      const pass = hits / final.length >= (active === 'encore' ? ULTIMATE_PASS_THRESHOLD : passLine);
+      performing.current = false;
+      if (!alive.current) return;
+      setPerform((p) => p && { ...p, stage: 'review', beat: null, results: final });
+      sfx(pass ? 'stampHit' : 'stampMiss');
 
-  // ---------- M4: K.O. ----------
-  const ko = async () => {
-    setPhase('ko');
-    setTaunt(null);
-    stopVoices();
-    muteMusic(true);
-    setFx({ flash: 'white' });
-    await wait(120);
-    setFx({ riff: 'hurt' });
-    await wait(600);
-    void playFile('/audio/sfx/ko-slam.mp3');
-    if (enemy.ko) void playVoice(enemy.ko, enemy.voice === 'choir');
-    await wait(enemy.ko ? 2400 : 1600);
-    if (!alive.current) return;
-    muteMusic(false);
-    if (useGame.getState().bossDemo) return useGame.getState().endBossDemo();
-    useGame.getState().loseRun();
-    useGame.getState().go('loss', 'iris');
-  };
+      const st = useGame.getState();
+      const failCount = active === 'encore' ? 0 : c.hand[active].fails + (pass ? 0 : 1);
+      if (active === 'encore') st.resolveEncore(pass, hits, final.length, !!sim);
+      else st.resolveCard(active, pass, hits, final.length, !!sim);
+
+      // Miss: the enemy heckles during the review (PRD §7a).
+      const talk = !pass ? say('miss', ex, final, failCount) : Promise.resolve();
+      await wait(REVIEW_DURATION_MS);
+      if (!alive.current) return;
+      setPerform(null);
+      muteMusic(false);
+
+      if (pass) {
+        await attack(active === 'encore' ? encoreDamage : cardDamage, active);
+      }
+      if (!alive.current) return;
+      if (useGame.getState().combat!.enemyHp <= 0) return win();
+      await talk;
+      await enemyTurn(pass, ex, final, failCount);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [inst, passLine, timing, cardDamage, encoreDamage, say],
+  );
 
   // ---------- input: drag a card onto the enemy (05) ----------
   const toStage = (e: { clientX: number; clientY: number }) => {
@@ -332,6 +338,8 @@ export default function Combat() {
   useEffect(() => {
     if (!canAct) {
       dragRef.current = null;
+      // An overlay cancels the external pointer gesture before controls can re-open.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDrag(null);
       setPicked(null);
     }
@@ -368,7 +376,7 @@ export default function Combat() {
   const enemySprite = fx.enemy === 'attack' && enemy.attackSprite ? enemy.attackSprite : enemy.sprite;
   const banner =
     phase === 'enemy' ? { k: 'ENEMY TURN', t: `${enemy.name} hits Riff for ${enemy.damage}`, c: '#FF6B76' }
-    : phase === 'player' ? (combat.encore?.charged ? { k: 'BOSS FIGHT', t: 'Encore is charged. Play the song to end it.', c: 'var(--sun)' } : { k: 'YOUR TURN', t: picked !== null ? `Tap ${enemy.name} to play it` : `Drag a card onto ${enemy.name}`, c: 'var(--sun)' })
+    : phase === 'player' ? (combat.encore?.charged ? { k: 'BOSS FIGHT', t: 'Encore is charged. Play the song to end it.', c: 'var(--sun)' } : { k: 'YOUR TURN', t: picked !== null ? `Tap ${enemy.name} to play it` : <><span className="kbd-only">Drag a card onto {enemy.name}</span><span className="touch-only">Tap a card, then tap {enemy.name}</span></>, c: 'var(--sun)' })
     : phase === 'attack' ? { k: 'CARD LANDS!', t: `${enemy.name} takes the hit`, c: 'var(--sun)' }
     : null;
   const dark = fx.riff === 'encore';
@@ -460,7 +468,7 @@ export default function Combat() {
 
       {/* Turn banner */}
       {banner && (
-        <div key={banner.k} style={{ position: 'absolute', left: 0, top: 92, width: 1440, display: 'flex', justifyContent: 'center', zIndex: 8, animation: 'dropIn 260ms steps(4) both' }}>
+        <div key={banner.k} className="combat-turn-banner" style={{ position: 'absolute', left: 0, top: 92, width: 1440, display: 'flex', justifyContent: 'center', zIndex: 8, animation: 'dropIn 260ms steps(4) both' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 28px', backgroundImage: 'linear-gradient(90deg, rgba(27,29,58,0), rgba(27,29,58,0.85) 18%, rgba(27,29,58,0.85) 82%, rgba(27,29,58,0))' }}>
             <span className="f-press" style={{ fontSize: 16, color: banner.c }}>{banner.k}</span>
             <span style={{ width: 6, height: 6, background: 'var(--muted)' }} />

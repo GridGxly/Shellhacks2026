@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useGame } from '@/lib/store';
 import { ac, applySettings, playMusic, preload, sfx } from '@/lib/audio';
 import { ENEMIES } from '@/lib/content';
+import { mic } from '@/lib/mic';
 import Title from './screens/Title';
 import { Credits, HowToPlay, MicCheck } from './screens/Menus';
 import { PitchLab } from './screens/PitchLab';
@@ -93,9 +94,11 @@ export default function Game() {
   }, []);
 
   const boot = () => {
+    // Resume both contexts inside a new gesture after a phone returns from the background.
+    ac();
+    mic.resume();
     if (booted) return;
     if (touchDevice()) void enterFullscreen(); // needs this first tap as its user gesture
-    ac();
     preload([
       ...new Set(ENEMIES.map((e) => e.attackSfx)),
       '/audio/sfx/ko-slam.mp3', '/audio/sfx/versus-slam.mp3', '/audio/sfx/encore-charge.mp3',
@@ -202,11 +205,11 @@ function BootGate({ onStart }: { onStart: () => void }) {
     <button className="fill" onClick={onStart} style={{ display: 'grid', placeItems: 'center', background: '#07070f' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28 }}>
         <img src="/assets/logo.png" alt="Slay the Choir" width={520} style={{ animation: 'fadeIn 800ms both' }} />
-        <div className="f-press" style={{ fontSize: 16, color: 'var(--sun)', animation: 'blink 1.1s steps(1) infinite' }}>
+        <div className="f-press boot-start" style={{ fontSize: 16, color: 'var(--sun)', animation: 'blink 1.1s steps(1) infinite' }}>
           <span className="kbd-only">PRESS ANY KEY</span>
           <span className="touch-only">TAP TO START</span>
         </div>
-        <div className="f-label" style={{ fontSize: 12, color: 'var(--muted)' }}>
+        <div className="f-label boot-hint" style={{ fontSize: 12, color: 'var(--muted)' }}>
           HEADPHONES RECOMMENDED · MIC REQUIRED TO PLAY FOR REAL
         </div>
       </div>

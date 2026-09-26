@@ -43,7 +43,7 @@ export function ac(): AudioContext {
     musicGain.connect(ctx.destination);
     sfxGain.connect(ctx.destination);
   }
-  if (ctx.state === 'suspended') void ctx.resume();
+  if (ctx.state !== 'running' && ctx.state !== 'closed') void ctx.resume().catch(() => {});
   return ctx;
 }
 

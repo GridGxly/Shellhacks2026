@@ -105,3 +105,42 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 .rotate-hint { display: none; }
 @media (orientation: portrait) and (pointer: coarse) { .rotate-hint { display: grid; } }
 @keyframes rotatePhone { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+
+/* Preserve the 1440×900 composition; increase important type before phone scaling. */
+@media (hover: none) and (pointer: coarse) {
+  .game-hud { height: 108px !important; padding: 0 20px !important; gap: 20px; }
+  .hud-party { gap: 20px !important; flex-shrink: 0; }
+  .hud-avatar, .hud-button { width: 96px !important; height: 96px !important; flex-shrink: 0; }
+  .hud-avatar .sprite { width: 300px !important; height: 300px !important; left: -136px !important; top: 4px !important; }
+  .combat-turn-banner, .map-act-heading { top: 126px !important; }
+  .combat-turn-banner .f-press { font-size: 24px !important; }
+  .combat-turn-banner .f-body { font-size: 28px !important; }
+  .hud-button svg { width: 44px; height: 44px; }
+  .hud-level { top: 70px !important; font-size: 18px !important; line-height: 20px !important; }
+  .hud-identity { display: none !important; }
+  .hud-value { font-size: 28px !important; white-space: nowrap; }
+  .hud-center { font-size: 26px !important; line-height: 32px; letter-spacing: .03em !important; text-align: center; }
+  .game-card .card-title { height: 44px !important; flex-shrink: 0; }
+  .game-card .card-title .f-press { font-size: 26px !important; }
+  .game-card .card-damage { width: 54px !important; height: 54px !important; }
+  .game-card .card-damage .f-press { font-size: 24px !important; }
+  .game-card .card-art { height: 70px !important; flex-shrink: 0; }
+  .game-card .card-art svg { height: 60px; }
+  .game-card .card-bars { font-size: 22px !important; letter-spacing: .03em !important; white-space: nowrap; }
+  .game-card .card-description { font-size: 28px !important; line-height: 30px !important; }
+  .performance-panel .f-label { font-size: 24px !important; letter-spacing: .03em !important; }
+  .performance-panel .f-body { font-size: 26px !important; line-height: 30px; }
+  .performance-note-total { width: 270px !important; flex-shrink: 0; }
+  .performance-tempo { font-size: 22px !important; }
+  .performance-tempo .f-music { font-size: 24px !important; }
+  .performance-title { font-size: 28px !important; }
+  .performance-tag { font-size: 22px !important; white-space: nowrap; }
+  .performance-value { font-size: 30px !important; }
+  .performance-key-detail { display: none; }
+  .performance-footer { min-height: 160px !important; }
+  .performance-recording { width: 360px !important; flex-shrink: 0; }
+  .performance-hearing { width: 230px !important; flex-shrink: 0; }
+  .boot-hint { font-size: 26px !important; line-height: 34px; max-width: 1000px; text-align: center; }
+  .boot-start { font-size: 32px !important; }
+  .mobile-audio-hint { font-size: 24px !important; line-height: 28px; }
+}

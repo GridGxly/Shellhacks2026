@@ -193,6 +193,10 @@ export function MicCheck() {
       >
         {demo ? '■ DEMO MODE ON: NOTES ARE SIMULATED, NO INSTRUMENT NEEDED' : '□ NO INSTRUMENT? TURN ON DEMO MODE'}
       </button>
+      <div className="f-body touch-only mobile-audio-hint" style={{ position: 'absolute', left: 220, top: 720, width: 1000, textAlign: 'center', color: 'var(--soft)' }}>
+        Use headphones on iPhone: the mic can send sound to the earpiece.
+        <br />After returning to the game, tap once to wake the audio.
+      </div>
     </MenuShell>
   );
 }
