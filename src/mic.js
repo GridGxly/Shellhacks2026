@@ -7,6 +7,9 @@ import { PitchStabilizer } from './stabilizer.js';
  * enough to disturb pitch tracking.
  */
 export class MicPitchTracker {
+  /**
+   * @param {{fftSize?: number, clarityThreshold?: number, onReading?: (reading: {accepted: boolean, frequency: number|null, clarity: number, rms: number, timestamp: number, stableNote: string|null, stableFreq: number|null}) => void}} [options]
+   */
   constructor({ fftSize = DEFAULT_FFT_SIZE, clarityThreshold, onReading } = {}) {
     this.fftSize = fftSize;
     this.clarityThreshold = clarityThreshold;
