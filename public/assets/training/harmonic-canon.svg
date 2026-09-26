@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="576" height="208" viewBox="0 0 576 208" shape-rendering="crispEdges">
+  <path d="M20 24H556V112H20Z" fill="#5E332E" />
+  <path d="M8 12H568V32H8Z" fill="#B86D47" />
+  <path d="M32 100H548V120H32Z" fill="#8D4837" />
+  <path d="M52 116H72V204H44V192H52zM504 116H524V192H532V204H504Z" fill="#704032" />
+  <path d="M36 28H280V96H36Z M296 28H540V96H296Z" fill="#D9B778" />
+  <path d="M44 36H272V88H44Z M304 36H532V88H304Z" fill="#A7814E" />
+  <path d="M48 40H268M308 40H528" fill="#000000" stroke="#F0DDB4" stroke-width="1.5" />
+  <path d="M48 44H268M308 44H528" fill="#000000" stroke="#F0DDB4" stroke-width="1.5" />
+  <path d="M48 48H268M308 48H528" fill="#000000" stroke="#F0DDB4" stroke-width="1.5" />
+  <path d="M48 52H268M308 52H528" fill="#000000" stroke="#F0DDB4" stroke-width="1.5" />
+  <path d="M48 56H268M308 56H528" fill="#000000" stroke="#F0DDB4" stroke-width="1.5" />
+  <path d="M48 60H268M308 60H528" fill="#000000" stroke="#F0DDB4" stroke-width="1.5" />
+  <path d="M48 64H268M308 64H528" fill="#000000" stroke="#F0DDB4" stroke-width="1.5" />
+  <path d="M48 68H268M308 68H528" fill="#000000" stroke="#F0DDB4" stroke-width="1.5" />
+  <path d="M48 72H268M308 72H528" fill="#000000" stroke="#F0DDB4" stroke-width="1.5" />
+  <path d="M48 76H268M308 76H528" fill="#000000" stroke="#F0DDB4" stroke-width="1.5" />
+  <path d="M48 80H268M308 80H528" fill="#000000" stroke="#F0DDB4" stroke-width="1.5" />
+  <path d="M48 84H268M308 84H528" fill="#000000" stroke="#F0DDB4" stroke-width="1.5" />
+  <path d="M96 42h8v16h-8Z" fill="#634D39" />
+  <path d="M96 42h8v4h-8Z" fill="#FFF6E0" />
+  <path d="M160 66h8v16h-8Z" fill="#634D39" />
+  <path d="M160 66h8v4h-8Z" fill="#FFF6E0" />
+  <path d="M232 46h8v16h-8Z" fill="#634D39" />
+  <path d="M232 46h8v4h-8Z" fill="#FFF6E0" />
+  <path d="M348 62h8v16h-8Z" fill="#634D39" />
+  <path d="M348 62h8v4h-8Z" fill="#FFF6E0" />
+  <path d="M416 46h8v16h-8Z" fill="#634D39" />
+  <path d="M416 46h8v4h-8Z" fill="#FFF6E0" />
+  <path d="M488 70h8v16h-8Z" fill="#634D39" />
+  <path d="M488 70h8v4h-8Z" fill="#FFF6E0" />
+  <path d="M28 108H552V116H28Z" fill="#D4905C" />
+  <path d="M264 108H312V124H264Z" fill="#FFD23F" />
+</svg>

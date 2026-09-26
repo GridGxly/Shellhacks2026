@@ -1,0 +1,16 @@
+.training-stage { position: absolute; inset: 0; overflow: hidden; isolation: isolate; background: #11162d; }
+.training-stage-art { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; image-rendering: pixelated; }
+.training-stage-overlay { position: absolute; inset: 0; z-index: 20; }
+.training-mentor-label text, .training-instrument-label text { font: 24px var(--label), monospace; letter-spacing: 2px; }
+.training-input-meter text { font: 16px var(--label), monospace; }
+.training-torch-glow { animation: training-torch-glow 1200ms steps(2, end) infinite; }
+.training-torch-spark { animation: training-torch-spark 1200ms steps(3, end) infinite; }
+.training-stage-art > g:nth-of-type(2) .training-torch-glow, .training-stage-art > g:nth-of-type(2) .training-torch-spark { animation-delay: -600ms; }
+.training-stage[data-phase="paused"] .training-stage-art *, .training-stage[data-phase="performing"] .training-stage-art *, .training-stage[data-phase="countin"] .training-stage-art * { animation-play-state: paused; }
+@keyframes training-torch-glow { 0%, 100% { opacity: .025; } 50% { opacity: .07; } }
+@keyframes training-torch-spark { 0% { opacity: .8; transform: translateY(0); } 75%, 100% { opacity: 0; transform: translateY(-20px); } }
+@media (prefers-reduced-motion: reduce) {
+  .training-stage-art *, .training-stage-art *::before, .training-stage-art *::after { animation: none !important; transition: none !important; }
+  .training-stage .training-motion, .training-stage .training-torch-spark { display: none; }
+  .training-stage .training-playing-arm { transform: none; }
+}
