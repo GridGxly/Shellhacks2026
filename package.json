@@ -1,0 +1,28 @@
+{
+  "name": "kill-the-squire",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Sight-Reading Spire — a Slay-the-Spire-style browser game where every card is a sight-reading exercise (ShellHacks 2026).",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "abcjs": "^6.4.4",
+    "pitchy": "^4.1.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "tone": "^15.1.22",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5"
+  }
+}
