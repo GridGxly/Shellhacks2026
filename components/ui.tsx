@@ -98,7 +98,7 @@ export function YellowButton({ children, onClick, style, small }: { children: Re
 
 export function KeyHint({ k }: { k: string }) {
   return (
-    <span className="f-label" style={{ padding: '2px 6px', border: '2px solid #6B6F8E', fontSize: 11, lineHeight: '13px', color: 'var(--muted)', letterSpacing: '0.1em' }}>
+    <span className="f-label kbd-only" style={{ padding: '2px 6px', border: '2px solid #6B6F8E', fontSize: 11, lineHeight: '13px', color: 'var(--muted)', letterSpacing: '0.1em' }}>
       {k}
     </span>
   );

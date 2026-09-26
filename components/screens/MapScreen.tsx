@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { playFile, playMusic, playVoice, sfx } from '@/lib/audio';
 import { ACTS, ENEMIES } from '@/lib/content';
 import { instrumentOf, useGame } from '@/lib/store';
@@ -24,6 +24,10 @@ export default function MapScreen() {
     return r;
   });
   const [phase, setPhase] = useState<'idle' | 'press' | 'dive' | 'versus'>('idle');
+  const [revealed, setRevealed] = useState(!reveal);
+  const departing = useRef(false);
+  const fightTimers = useRef<number[]>([]);
+  useEffect(() => () => fightTimers.current.forEach(clearTimeout), []);
 
   useEffect(() => playMusic('map'), []);
   useEffect(() => {
@@ -32,25 +36,27 @@ export default function MapScreen() {
     const t2 = window.setTimeout(() => sfx('lockShatter'), 900);
     const t3 = window.setTimeout(() => {
       sfx('pop');
+      setRevealed(true);
       useGame.getState().showToast(`Floor ${run.floor} cleared · ${run.score.toLocaleString()} pts · safe to quit`);
     }, 1400);
     return () => [t1, t2, t3].forEach(clearTimeout);
   }, [reveal, run.floor, run.score]);
 
   const fight = () => {
-    if (phase !== 'idle' || overlay) return;
+    if (departing.current || phase !== 'idle' || overlay || !revealed) return;
+    departing.current = true;
     sfx('click');
     setPhase('press');
-    window.setTimeout(() => { setPhase('dive'); sfx('wipe'); }, 220);
+    fightTimers.current = [window.setTimeout(() => { setPhase('dive'); sfx('wipe'); }, 200),
     window.setTimeout(() => {
       setPhase('versus');
       void playFile('/audio/sfx/versus-slam.mp3', 0.9);
       if (next.intro) void playVoice(next.intro, next.voice === 'choir');
-    }, 640);
+    }, 400),
     window.setTimeout(() => {
       useGame.getState().startFight();
       useGame.getState().go('combat', null);
-    }, next.intro ? 3000 : 2100);
+    }, 900)];
   };
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Enter' && fight();
@@ -67,11 +73,12 @@ export default function MapScreen() {
         style={{
           transformOrigin: `${nodeCenter.x}px ${nodeCenter.y}px`,
           transform: phase === 'dive' || phase === 'versus' ? 'scale(3)' : phase === 'press' ? 'scale(1.03)' : 'scale(1)',
-          transition: phase === 'dive' ? 'transform 420ms steps(3)' : 'transform 200ms steps(2)',
+          transition: phase === 'dive' ? 'transform 200ms steps(3)' : 'transform 200ms steps(2)',
         }}
       >
         <Bg src="/assets/bg/map.png" />
         <div className="fill" style={{ background: 'radial-gradient(ellipse 70% 70% at 50% 50%, rgba(16,17,38,0) 40%, rgba(16,17,38,0.7) 100%)' }} />
+        {reveal && [0, 1, 2].map((i) => <div key={i} aria-hidden="true" style={{ position: 'absolute', left: 709, top: inAct > 0 ? NODE_Y[inAct - 1] : 875, width: 22, height: 22, background: 'var(--sun)', transform: 'rotate(45deg)', ['--rise' as string]: `${NODE_Y[inAct] - (inAct > 0 ? NODE_Y[inAct - 1] : 875)}px`, animation: `mapUnlockFlow 300ms ${500 + i * 50}ms steps(4) both` }} />)}
         {enemies.map((e, i) => {
           const state = i < inAct ? 'cleared' : i === inAct ? 'available' : e.boss ? 'boss' : 'locked';
           const justCleared = reveal && i === inAct - 1;
@@ -82,15 +89,16 @@ export default function MapScreen() {
 
       {phase === 'idle' && (
         <>
-          <div style={{ position: 'absolute', left: 40, top: 96, display: 'flex', flexDirection: 'column', gap: 6, animation: 'slideInLeft 300ms steps(5) both' }}>
+          <div className="map-act-heading" style={{ position: 'absolute', left: 40, top: 96, display: 'flex', flexDirection: 'column', gap: 6, animation: 'slideInLeft 300ms steps(5) both' }}>
             <div className="f-label" style={{ fontSize: 13, color: 'var(--sun)' }}>ACT {act + 1} OF 6</div>
             <div className="f-press" style={{ fontSize: 20, color: '#fff', textShadow: '#101126 3px 3px 0' }}>{ACTS[act].name.toUpperCase()}</div>
           </div>
-          <NextFightPanel onFight={fight} />
+          <NextFightPanel onFight={fight} reveal={reveal} />
         </>
       )}
       <Hud center={`THE CLIMB · FLOOR ${run.floor + 1} OF 18`} />
       {phase === 'versus' && <Versus />}
+      <style>{`@keyframes mapUnlockFlow{0%{transform:translateY(0) rotate(45deg);opacity:0}20%{opacity:1}100%{transform:translateY(var(--rise)) rotate(45deg);opacity:0}} @keyframes mapNodeUnlock{from{filter:grayscale(1) brightness(.25)}to{filter:none}}`}</style>
     </div>
   );
 }
@@ -121,12 +129,12 @@ function MapNode({ enemy, state, y, justCleared, justUnlocked, pressed, onClick 
           cursor: state === 'available' ? 'pointer' : 'default',
         }}
       >
-        <div style={{ position: 'absolute', left: 5, top: 5, width: size - 10, height: size - 10, overflow: 'hidden', background: fill, clipPath: clip(size - 10) }}>
+        <div style={{ position: 'absolute', left: 5, top: 5, width: size - 10, height: size - 10, overflow: 'hidden', background: fill, clipPath: clip(size - 10), animation: justUnlocked ? 'mapNodeUnlock 200ms 900ms steps(3) both' : undefined }}>
           <div
             className="sprite"
             style={{
               left: -size * 0.12, top: -4, width: size * 1.15, height: size * 1.15, backgroundImage: `url(${enemy.sprite})`,
-              filter: state === 'cleared' ? 'grayscale(1) brightness(0.6)' : locked ? (enemy.boss ? 'brightness(0.25) saturate(0.6)' : 'brightness(0)') : undefined,
+              filter: `${enemy.spriteFilter ?? ''} ${state === 'cleared' ? 'grayscale(1) brightness(0.6)' : locked ? (enemy.boss ? 'brightness(0.25) saturate(0.6)' : 'brightness(0)') : ''}`.trim() || undefined,
               transition: 'filter 300ms steps(3)',
             }}
           />
@@ -196,7 +204,7 @@ function SuperLock({ size }: { size: number }) {
 type Danger = { attempts: number; fellRate: number; accuracy: number };
 let dangerCache: Record<string, Danger> | null = null;
 
-function NextFightPanel({ onFight }: { onFight: () => void }) {
+function NextFightPanel({ onFight, reveal }: { onFight: () => void; reveal: boolean }) {
   const run = useGame((s) => s.run);
   const next = ENEMIES[run.floor];
   const [danger, setDanger] = useState(dangerCache);
@@ -208,7 +216,7 @@ function NextFightPanel({ onFight }: { onFight: () => void }) {
   }, []);
   const d = danger?.[next.id];
   return (
-    <div style={{ position: 'absolute', right: 40, bottom: 64, width: 392, display: 'flex', flexDirection: 'column', background: 'rgba(16,17,38,0.94)', border: '4px solid #101126', boxShadow: '#3A3F70 0 0 0 3px inset, rgba(0,0,0,0.4) 6px 6px 0', animation: 'slideInRight 300ms 150ms steps(5) both' }}>
+    <div style={{ position: 'absolute', right: 40, bottom: 64, width: 392, display: 'flex', flexDirection: 'column', background: 'rgba(16,17,38,0.94)', border: '4px solid #101126', boxShadow: '#3A3F70 0 0 0 3px inset, rgba(0,0,0,0.4) 6px 6px 0', animation: `slideInRight 300ms ${reveal ? 1400 : 150}ms steps(5) both` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 24px 0' }}>
         <span className="f-label" style={{ fontSize: 13, color: next.boss ? '#FF7DB8' : 'var(--sun)' }}>{next.boss ? 'BOSS FIGHT' : 'NEXT FIGHT'}</span>
         <span className="f-label" style={{ fontSize: 13, color: 'var(--muted)' }}>{run.floor + 1} / 18</span>
@@ -259,14 +267,14 @@ function Versus() {
     <div className="fill" style={{ zIndex: 60, background: '#101126', overflow: 'hidden' }}>
       <div className="fill" style={{ background: '#D1307E', clipPath: 'polygon(0 0, 780px 0, 640px 900px, 0 900px)', animation: 'slideInLeft 220ms steps(4) both' }} />
       <div className="fill" style={{ background: e.boss ? '#3A1B2E' : '#1E2140', clipPath: 'polygon(800px 0, 1440px 0, 1440px 900px, 660px 900px)', animation: 'slideInRight 220ms steps(4) both' }} />
-      <Sprite src={inst.sprite} x={60} y={200} size={560} style={{ animation: 'slideInLeft 300ms 80ms steps(5) both' }} />
-      <Sprite src={e.sprite} x={800} y={170} size={600} style={{ animation: 'slideInRight 300ms 80ms steps(5) both' }} />
-      <div className="f-press" style={{ position: 'absolute', left: 620, top: 380, fontSize: 96, color: 'var(--sun)', textShadow: '#101126 8px 8px 0', animation: 'slam 380ms 260ms steps(6) both' }}>VS</div>
-      <div style={{ position: 'absolute', right: 60, top: 80, textAlign: 'right', animation: 'dropIn 300ms 400ms steps(5) both' }}>
+      <Sprite src={inst.sprite} x={60} y={200} size={560} style={{ animation: 'slideInLeft 220ms 40ms steps(3) both' }} />
+      <Sprite src={e.sprite} x={800} y={170} size={600} style={{ filter: e.spriteFilter, animation: 'slideInRight 220ms 40ms steps(3) both' }} />
+      <div className="f-press" style={{ position: 'absolute', left: 620, top: 380, fontSize: 96, color: 'var(--sun)', textShadow: '#101126 8px 8px 0', animation: 'slam 220ms 100ms steps(3) both' }}>VS</div>
+      <div style={{ position: 'absolute', right: 60, top: 80, textAlign: 'right', animation: 'dropIn 160ms 220ms steps(2) both' }}>
         <div className="f-label" style={{ fontSize: 14, color: e.boss ? '#FF7DB8' : 'var(--sun)' }}>FLOOR {e.floor}{e.boss ? ' · BOSS' : ''} · {e.place.toUpperCase()}</div>
         <div className="f-press" style={{ marginTop: 10, fontSize: 34, color: '#fff', textShadow: '#101126 4px 4px 0' }}>{e.name.toUpperCase()}</div>
       </div>
-      <div style={{ position: 'absolute', left: 60, bottom: 80, animation: 'riseIn 300ms 400ms steps(5) both' }}>
+      <div style={{ position: 'absolute', left: 60, bottom: 80, animation: 'riseIn 160ms 220ms steps(2) both' }}>
         <div className="f-label" style={{ fontSize: 14, color: 'var(--parchment)' }}>RIFF · THE {inst.name.toUpperCase()}</div>
       </div>
     </div>

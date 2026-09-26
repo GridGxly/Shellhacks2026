@@ -1,0 +1,47 @@
+.tavern-character-select { position:absolute; inset:0; color:#fff6e0; }
+.tavern-character-select h2 { position:absolute; left:64px; top:132px; width:500px; margin:0; color:#ffd23f; font:28px/44px var(--press); }
+.tavern-character-preview { position:absolute; left:104px; top:236px; width:436px; height:436px; animation:tavern-character-arrive 160ms steps(4) both; }
+.tavern-character-description { position:absolute; left:104px; top:676px; width:436px; min-height:140px; padding:16px; background:#1b1f3b; border:4px solid #ffd23f; text-align:center; }
+.tavern-character-description strong { color:#ffd23f; font:28px/36px var(--press); }
+.tavern-character-description p { margin:8px 0 0; font:24px/30px var(--body); }
+.tavern-character-panel { position:absolute; left:608px; top:144px; width:784px; height:620px; background:#1b1f3b; border:4px solid #f0ddb4; }
+.tavern-character-panel fieldset { position:absolute; margin:0; padding:0; border:0; min-width:0; }
+.tavern-character-panel legend { padding:0; font:24px/32px var(--label); white-space:nowrap; }
+.tavern-character-roster { left:28px; top:24px; width:708px; }
+.tavern-character-options { display:grid; grid-template-columns:repeat(4,168px); gap:12px; margin-top:20px; }
+.tavern-character-option { position:relative; height:260px; display:flex; flex-direction:column; align-items:center; border:4px solid #6b6f8e; background:#121427; font:24px/32px var(--label); cursor:pointer; }
+.tavern-character-thumbnail { position:relative; display:block; flex-shrink:0; width:160px; height:200px; }
+.tavern-character-thumbnail > .tavern-avatar { top:20px!important; }
+.tavern-character-option[data-selected=true] { border-color:#ffd23f; color:#ffd23f; }
+.tavern-character-instruments { left:28px; top:364px; width:704px; }
+.tavern-instrument-options { display:grid; grid-template-columns:repeat(3,224px); gap:16px; margin-top:12px; }
+.tavern-instrument-option { position:relative; height:56px; border:4px solid #6b6f8e; display:flex; align-items:center; justify-content:center; text-align:center; font:20px/28px var(--label); cursor:pointer; }
+.tavern-instrument-option[data-selected=true] { border-color:#ffd23f; background:#ffd23f; color:#1b1f3b; }
+.tavern-character-select input[type=radio] { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:inherit; }
+.tavern-character-option:focus-within, .tavern-instrument-option:focus-within { outline:4px solid #6ec6ff; outline-offset:4px; }
+.tavern-character-panel fieldset:disabled { opacity:.55; }
+.tavern-character-panel fieldset:disabled label { cursor:wait; }
+.tavern-character-explanation { position:absolute; left:28px; top:556px; width:716px; margin:0; color:#f0ddb4; font:24px/28px var(--body); }
+.tavern-character-actions { position:absolute; display:flex; gap:24px; left:608px; top:800px; width:784px; }
+.tavern-character-actions button { height:60px; border:4px solid #1b1f3b; padding:8px 16px; font:24px/30px var(--label); cursor:pointer; color:#1b1f3b; }
+.tavern-character-back { flex:0 0 248px; background:#fff6e0; }
+.tavern-character-continue { flex:1; background:#ffd23f; }
+.tavern-character-actions button:focus-visible { outline:4px solid #6ec6ff; outline-offset:4px; }
+.tavern-character-actions button:disabled { opacity:.55; cursor:wait; }
+.tavern-character-actions button:active:not(:disabled) { translate:0 4px; }
+@keyframes tavern-character-arrive { from { opacity:.3; translate:0 -12px; } to { opacity:1; translate:0 0; } }
+@media (hover:hover) { .tavern-character-option:hover, .tavern-instrument-option:hover { border-color:#fff6e0; } }
+@media (hover:none) and (pointer:coarse) {
+  .tavern-character-panel legend { font-size:28px; line-height:36px; }
+  .tavern-character-option { height:224px; font-size:28px; line-height:36px; }
+  .tavern-character-thumbnail { height:166px; }
+  .tavern-character-thumbnail > .tavern-avatar { top:0!important; }
+  .tavern-character-instruments { top:316px; }
+  .tavern-instrument-options { margin-top:12px; }
+  .tavern-instrument-option { height:104px; font-size:28px; line-height:36px; }
+  .tavern-character-explanation { display:none; }
+  .tavern-character-actions { top:784px; }
+  .tavern-character-actions button { height:104px; font-size:28px; line-height:36px; }
+  .tavern-character-description p { font-size:28px; line-height:32px; }
+}
+@media (prefers-reduced-motion:reduce) { .tavern-character-preview { animation:none; } .tavern-character-actions button:active:not(:disabled) { translate:none; } }

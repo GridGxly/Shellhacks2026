@@ -44,6 +44,14 @@ class Mic {
   status: 'off' | 'on' | 'denied' | 'unsupported' = 'off';
   deviceLabel = '';
 
+  // Reuse the same permission and input for ephemeral tavern takes.
+  get mediaStream(): MediaStream | null { return this.stream; }
+
+  /** Called from a tap/key gesture so an interrupted mobile context can resume. */
+  resume() {
+    if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') void this.ctx.resume().catch(() => {});
+  }
+
   async start(): Promise<boolean> {
     if (this.status === 'on') return true;
     if (!navigator.mediaDevices?.getUserMedia) {

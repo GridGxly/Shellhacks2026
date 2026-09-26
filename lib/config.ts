@@ -52,6 +52,20 @@ export const MAX_ACTIONS_PER_FIGHT = 40;
 export const RUN_SUBMIT_COOLDOWN_MS = 60_000;
 
 export const TIPS_START = 120;
+// Tavern shows are ephemeral. startAt is the shared downbeat, after the lights/count-in.
+export const TAVERN_PASS = 0.8;
+export const TAVERN_BUFF_TIPS = 120;
+export const TAVERN_ROOM_TTL_MS = 10 * 60_000;
+export const TAVERN_STALE_MS = 8_000;
+// One second lets both polling clients prepare before the shared four-second light/count-in beat.
+export const TAVERN_START_DELAY_MS = 5_000;
+export const TAVERN_PLAYBACK_DELAY_MS = 2_500;
+export const TAVERN_DONE_TTL_MS = 30_000;
+export const TAVERN_POLL_MS = 700;
+export const TAVERN_WAITING_POLL_MS = 1_500;
+export const TAVERN_RESULT_MAX_BYTES = 600 * 1024;
+export const TAVERN_AUDIO_MAX_BYTES = 400 * 1024;
+export const TAVERN_MAX_RECORD_OFFSET_MS = 2_000;
 export const TIPS_PER_WIN = 40;
 export const ACT_BONUS_TIPS = 60; // extra tips for beating an act boss
 export const ACT_BONUS_SCORE = 2500;

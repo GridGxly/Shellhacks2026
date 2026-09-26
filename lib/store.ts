@@ -1,13 +1,16 @@
 'use client';
 import { create } from 'zustand';
-import { ACT_BONUS_TIPS, ENCORE_TEMPO_BASE, ENCORE_TEMPO_PER_ACT, STATS, TIPS_PER_WIN, TIPS_START, XP_PER_LEVEL, XP_PER_WIN, LOW_HP_TAUNT, type StatId } from './config';
+import { ACT_BONUS_TIPS, ENCORE_TEMPO_BASE, ENCORE_TEMPO_PER_ACT, STATS, TAVERN_BUFF_TIPS, TIPS_PER_WIN, TIPS_START, XP_PER_LEVEL, XP_PER_WIN, LOW_HP_TAUNT, type StatId } from './config';
 import { ENEMIES, INSTRUMENTS, type InstrumentId } from './content';
 import { exerciseKey, makeExercise, GRAN_VALS, type CardType, type Exercise } from './music';
 import { addScore, type RunEvent } from './score';
+import { resetTrainingMemory } from './training';
+import { TRAINING_BUFF_TIPS } from './training-core';
+import type { RewardClaim } from './training-types';
 
 export type Screen =
   | 'title' | 'howto' | 'mic' | 'lab' | 'gemlab' | 'bossdemo' | 'credits' | 'instrument' | 'map' | 'combat'
-  | 'victory' | 'actclear' | 'loss' | 'final' | 'leaderboard' | 'profile';
+  | 'victory' | 'actclear' | 'loss' | 'final' | 'leaderboard' | 'profile' | 'tavern' | 'training';
 export type Overlay = null | 'stats' | 'pause' | 'mappeek' | 'signin' | 'overwrite';
 export type Transition = null | 'wipe' | 'iris';
 
@@ -61,11 +64,21 @@ export interface User {
   username: string;
   level: number;
   rank?: number;
+  tavernBuff?: boolean;
+  trainingBuff?: boolean;
 }
 
 const SAVE_KEY = 'stc.save.v1';
 const BEST_KEY = 'stc.best.v1';
 const PENDING_KEY = 'stc.pending.v1'; // a finished run the server hasn't acknowledged yet
+const REWARD_KEY = 'stc.reward-start.v1';
+let rewardStarting = false;
+interface PendingRewardStart { username: string; run: Run }
+// Keep retries safe within this tab even when browser storage is unavailable.
+// A null entry also prevents a failed storage removal from reviving a used id.
+const pendingRewardStarts = new Map<string, PendingRewardStart | null>();
+const rewardAccount = (username: string) => username.toLowerCase();
+const rewardStorageKey = (username: string) => `${REWARD_KEY}:${rewardAccount(username)}`;
 
 const freshLevels = (): Record<StatId, number> => ({ maxHp: 0, cardDamage: 0, encoreDamage: 0, timingWindow: 0, passLine: 0 });
 
@@ -155,6 +168,37 @@ function writeJSON(key: string, v: unknown) {
   }
 }
 
+function readRewardStart(username: string): PendingRewardStart | null {
+  const account = rewardAccount(username);
+  if (pendingRewardStarts.has(account)) return pendingRewardStarts.get(account) ?? null;
+  const saved = readJSON<PendingRewardStart>(rewardStorageKey(username));
+  const legacy = readJSON<PendingRewardStart>(REWARD_KEY);
+  const previous = [saved, legacy].find(record =>
+    typeof record?.username === 'string' && rewardAccount(record.username) === account &&
+    typeof record.run?.id === 'string' && /^[A-Za-z0-9-]{1,64}$/.test(record.run.id) &&
+    INSTRUMENTS.some(instrument => instrument.id === record.run.instrument));
+  if (!previous) return null;
+  // Only a fresh climb is resumed here; never restore altered tips or levels.
+  const run = { ...freshRun(previous.run.instrument), id: previous.run.id };
+  if (Number.isFinite(previous.run.startedAt)) run.startedAt = previous.run.startedAt;
+  const pending = { username, run };
+  pendingRewardStarts.set(account, pending);
+  return pending;
+}
+
+function saveRewardStart(username: string, run: Run) {
+  const pending = { username, run };
+  pendingRewardStarts.set(rewardAccount(username), pending);
+  writeJSON(rewardStorageKey(username), pending);
+}
+
+function clearRewardStart(username: string) {
+  pendingRewardStarts.set(rewardAccount(username), null);
+  writeJSON(rewardStorageKey(username), null);
+  const legacy = readJSON<PendingRewardStart>(REWARD_KEY);
+  if (typeof legacy?.username === 'string' && rewardAccount(legacy.username) === rewardAccount(username)) writeJSON(REWARD_KEY, null);
+}
+
 async function syncSave(run: Run | null) {
   try {
     await fetch('/api/save', {
@@ -178,6 +222,10 @@ interface GameState {
   saved: Run | null;
   best: { score: number; floor: number } | null;
   user: User | null;
+  tavernBuff: boolean; // guests keep this only in memory; accounts claim the server's boolean
+  trainingBuff: boolean;
+  startingRun: boolean;
+  viewProfile: string | null;
   toast: string | null;
   combatLocked: boolean; // a performance/attack/enemy turn is running: no pause overlays
   // Set during a Boss Demo fight: the real run + checkpoint to hand back after.
@@ -189,7 +237,7 @@ interface GameState {
   setOverlay: (o: Overlay) => void;
   setDemo: (v: boolean) => void;
   chooseInstrument: (id: InstrumentId) => void;
-  newRun: () => void;
+  newRun: () => Promise<boolean>;
   continueRun: () => void;
   adoptSave: (run: Run) => void;
   startFight: () => void;
@@ -219,17 +267,23 @@ export const useGame = create<GameState>((set, get) => ({
   saved: null,
   best: null,
   user: null,
+  tavernBuff: false,
+  trainingBuff: false,
+  startingRun: false,
+  viewProfile: null,
   toast: null,
   combatLocked: false,
   bossDemo: null,
 
   hydrate: () => set({ saved: migrateRun(readJSON<Run>(SAVE_KEY)), best: readJSON(BEST_KEY) }),
   setUser: (user) => {
-    set({ user });
+    resetTrainingMemory(user?.username ?? null);
+    set((previous) => ({ user, tavernBuff: user ? user.tavernBuff === true : previous.user ? false : previous.tavernBuff, trainingBuff: user ? user.trainingBuff === true : previous.user ? false : previous.trainingBuff }));
     if (user) void flushPending();
   },
 
   go: (screen, transition = 'wipe') => {
+    if (screen !== 'profile') set({ viewProfile: null });
     if (!transition) return set({ screen, overlay: null });
     set({ transition });
     window.setTimeout(() => set({ screen, overlay: null }), transition === 'iris' ? 520 : 380);
@@ -239,10 +293,48 @@ export const useGame = create<GameState>((set, get) => ({
   setDemo: (demoMode) => set({ demoMode }),
   chooseInstrument: (id) => set((s) => ({ run: { ...s.run, instrument: id } })),
 
-  newRun: () => {
-    writeJSON(SAVE_KEY, null);
-    if (get().user) void syncSave(null);
-    set((s) => ({ run: freshRun(s.run.instrument), combat: null, lossBy: null, saved: null }));
+  newRun: async () => {
+    if (rewardStarting || get().transition) return false;
+    rewardStarting = true; set({ startingRun: true });
+    const { user, tavernBuff, trainingBuff } = get();
+    let run = freshRun(get().run.instrument);
+    let tips = 0;
+    let pending = { tavernBuff: false, trainingBuff: false };
+    try {
+      if (!user) {
+        // Yield with the guard held so simultaneous guest clicks share the same
+        // protection as the account request instead of replacing its bonus run.
+        await Promise.resolve();
+        if (get().user) return false;
+        tips = (tavernBuff ? TAVERN_BUFF_TIPS : 0) + (trainingBuff ? TRAINING_BUFF_TIPS : 0);
+      } else {
+        // Each account retains its own id after a lost response or sign-out.
+        // Another account or a guest climb must not discard that receipt.
+        const previous = readRewardStart(user.username);
+        if (previous) run = previous.run;
+        saveRewardStart(user.username, run);
+        const response = await fetch('/api/rewards/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId: run.id }), signal: AbortSignal.timeout(10000) });
+        if (!response.ok) throw new Error('Reward confirmation unavailable');
+        const receipt = await response.json() as RewardClaim;
+        if (receipt.runId !== run.id || typeof receipt.tavern !== 'boolean' || typeof receipt.training !== 'boolean' || receipt.tips !== (receipt.tavern ? TAVERN_BUFF_TIPS : 0) + (receipt.training ? TRAINING_BUFF_TIPS : 0)) throw new Error('Invalid reward confirmation');
+        if (get().user?.username !== user.username) return false;
+        tips = receipt.tips;
+        pending = { tavernBuff: tavernBuff && !receipt.tavern, trainingBuff: trainingBuff && !receipt.training };
+        const me = await fetch('/api/me', { signal: AbortSignal.timeout(4000), cache: 'no-store' }).then(r => r.ok ? r.json() as Promise<User | null> : null).catch(() => null);
+        if (get().user?.username !== user.username) return false;
+        if (me?.username === user.username) pending = { tavernBuff: me.tavernBuff === true, trainingBuff: me.trainingBuff === true };
+      }
+      run = { ...run, tips: run.tips + tips };
+      if (user) clearRewardStart(user.username);
+      writeJSON(SAVE_KEY, null);
+      if (user) void syncSave(null);
+      set(s => ({ run, combat: null, lossBy: null, saved: null, ...pending, user: s.user ? { ...s.user, ...pending } : null }));
+      if (tips) get().showToast(`Banked rewards: +${tips} tips for this climb`);
+      return true;
+    } catch {
+      get().showToast('Could not start the climb. Your reward is safe; select New Climb again to retry.');
+      return false;
+    } finally { rewardStarting = false; set({ startingRun: false }); }
   },
   continueRun: () => {
     const saved = migrateRun(get().saved);

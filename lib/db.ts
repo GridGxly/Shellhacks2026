@@ -14,6 +14,8 @@ export interface UserDoc {
   passwordHash: string;
   createdAt: Date;
   xp: number;
+  tavernBuff?: boolean;
+  trainingBuff?: boolean;
 }
 export interface SessionDoc {
   _id: string; // sha256(token)
@@ -62,6 +64,11 @@ export function db(): Promise<Db> {
         d.collection('rateLimits').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
         d.collection('runs').createIndex({ userId: 1, at: -1 }),
         d.collection('fights').createIndex({ enemyId: 1 }),
+        d.collection('tavernRooms').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+        d.collection('trainingDaily').createIndex({ userId: 1, day: 1 }, { unique: true }),
+        d.collection('trainingDaily').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+        d.collection('performanceEvents').createIndex({ userId: 1, source: 1, attemptId: 1 }, { unique: true }),
+        d.collection('rewardClaims').createIndex({ userId: 1, runId: 1 }, { unique: true }),
       ]);
       return d;
     });
@@ -109,7 +116,7 @@ export async function currentUser(): Promise<UserDoc | null> {
   return d.collection<UserDoc>('users').findOne({ _id: s.userId });
 }
 
-export const publicUser = (u: UserDoc) => ({ username: u.username, level: 1 + Math.floor(u.xp / 100) });
+export const publicUser = (u: UserDoc) => ({ username: u.username, level: 1 + Math.floor(u.xp / 100), tavernBuff: u.tavernBuff === true, trainingBuff: u.trainingBuff === true });
 
 export async function transaction<T>(work: (d: Db, session: ClientSession) => Promise<T>) {
   const d = await db();

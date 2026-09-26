@@ -45,24 +45,26 @@ export default function CardView({ type, ex, damage, style, lifted, dim }: { typ
   const c = CARD_STYLE[type];
   return (
     <div
+      className="game-card"
       style={{
         position: 'relative', width: 200, height: 280, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 8,
         background: c.body, border: '4px solid #101126', boxShadow: `${c.inner} 0 0 0 3px inset, rgba(16,17,38,0.6) 6px ${lifted ? 18 : 8}px 0`,
         filter: dim ? 'brightness(0.5) saturate(0.5)' : undefined, ...style,
       }}
     >
-      <div style={{ position: 'absolute', left: -16, top: -16, width: 42, height: 42, display: 'grid', placeItems: 'center', background: 'var(--sun)', border: '4px solid #101126', boxShadow: '#E0A91F -4px -4px 0 inset', rotate: '45deg', zIndex: 3 }}>
+      <div className="card-damage" style={{ position: 'absolute', left: -16, top: -16, width: 42, height: 42, display: 'grid', placeItems: 'center', background: 'var(--sun)', border: '4px solid #101126', boxShadow: '#E0A91F -4px -4px 0 inset', rotate: '45deg', zIndex: 3 }}>
         <span className="f-press" style={{ rotate: '-45deg', fontSize: 13, color: '#101126' }}>{damage}</span>
       </div>
-      <div style={{ width: 196, height: 34, display: 'grid', placeItems: 'center', background: 'var(--parchment)', border: '3px solid #101126', translate: '0 4px', position: 'relative', zIndex: 2 }}>
+      <div className="card-title" style={{ width: 196, height: 34, display: 'grid', placeItems: 'center', background: 'var(--parchment)', border: '3px solid #101126', translate: '0 4px', position: 'relative', zIndex: 2 }}>
         <span className="f-press" style={{ fontSize: 13, color: '#101126' }}>{type.toUpperCase()}</span>
       </div>
-      <div style={{ width: 172, height: 98, display: 'grid', placeItems: 'center', background: c.art, border: '3px solid #101126' }}>
+      <div className="card-art" style={{ width: 172, height: 98, display: 'grid', placeItems: 'center', background: c.art, border: '3px solid #101126' }}>
         <Art type={type} color={c.staff} />
       </div>
-      <div className="f-label" style={{ padding: '3px 8px', background: '#101126', fontSize: 10, color: c.tag, translate: '0 -8px', letterSpacing: '0.14em' }}>ATTACK · {ex.bars} BARS</div>
-      <div className="f-body" style={{ flex: 1, width: 172, display: 'grid', placeItems: 'center', padding: '0 8px', background: '#FFF1E6', border: '3px solid #101126', fontSize: 15, fontWeight: 600, lineHeight: '20px', color: '#101126', textAlign: 'center' }}>
-        {DESC[type](ex)}
+      <div className="f-label card-bars" style={{ padding: '3px 8px', background: '#101126', fontSize: 10, color: c.tag, translate: '0 -8px', letterSpacing: '0.14em' }}><span className="kbd-only">ATTACK · </span>{ex.bars} BARS</div>
+      <div className="f-body card-description" style={{ flex: 1, width: 172, display: 'grid', placeItems: 'center', padding: '0 8px', background: '#FFF1E6', border: '3px solid #101126', fontSize: 15, fontWeight: 600, lineHeight: '20px', color: '#101126', textAlign: 'center' }}>
+        <span className="kbd-only">{DESC[type](ex)}</span>
+        <span className="touch-only">{type === 'rhythm' ? 'Follow the rhythm' : ex.title}</span>
       </div>
     </div>
   );

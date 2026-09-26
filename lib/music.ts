@@ -86,6 +86,16 @@ export const GRAN_VALS: Exercise = {
   notes: granValsNotes(1),
 };
 
+export const DUET_A: Exercise = { ...GRAN_VALS, id: 'duet-a', title: 'Duet · Part A (melody)' };
+// A simpler quarter-note response in a shared playable register. Downbeats
+// form thirds or a unison with A; short melody eighths are passing tones.
+// Both parts finish together, leaving the final beat as the phrase's rest.
+export const DUET_B: Exercise = {
+  id: 'duet-b', type: 'encore', title: 'Duet · Part B (harmony)',
+  tempo: DUET_A.tempo, beatsPerBar: 3, bars: 4,
+  notes: sequence([76, 66, 69, 71, 68, 64, 69, 66, 69, 69], [1, 1, 1, 1, 1, 1, 1, 1, 1, 2]),
+};
+
 let uid = 0;
 const rand = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 
@@ -232,15 +242,15 @@ const KEYS_BY_PC: Record<number, KeySig> = {
   1: { name: 'D♭', accidentals: -5 },
 };
 
-/** A concert major key (pitch class) transposed by the instrument's written offset. */
-export function keySigFor(concertPc: number, offset: number): KeySig {
-  const pc = (((concertPc + offset) % 12) + 12) % 12;
+export function writtenKey(offset: number, concertKey = CONCERT_KEY_PC, spelling?: 'sharps' | 'flats'): KeySig {
+  // The concert key transposed by the instrument's written offset.
+  const pc = (((concertKey + offset) % 12) + 12) % 12;
+  if (pc === 6 && spelling === 'flats') return { name: 'G♭', accidentals: -6 };
   return KEYS_BY_PC[pc] ?? { name: 'C', accidentals: 0 };
 }
 
-export function writtenKey(offset: number): KeySig {
-  return keySigFor(CONCERT_KEY_PC, offset);
-}
+/** A concert major key (pitch class) transposed by the instrument's written offset. */
+export const keySigFor = (concertPc: number, offset: number): KeySig => writtenKey(offset, concertPc);
 
 // Order letters take accidentals in: sharps F C G D A E B, flats the reverse.
 const SHARP_ORDER = ['F', 'C', 'G', 'D', 'A', 'E', 'B'];

@@ -117,11 +117,11 @@ export function SignIn() {
 
 export function Overwrite() {
   const saved = useGame((s) => s.saved);
-  const confirm = () => {
+  const startingRun = useGame(s => s.startingRun || Boolean(s.transition));
+  const confirm = async () => {
     sfx('click');
     const s = useGame.getState();
-    s.newRun();
-    s.go('instrument');
+    if (await s.newRun()) s.go('instrument');
   };
   return (
     <Modal width={620}>
@@ -132,7 +132,7 @@ export function Overwrite() {
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 14 }}>
           <button className="f-press hoverable" onClick={() => { sfx('back'); useGame.getState().setOverlay(null); }} style={{ padding: '12px 18px', fontSize: 13, background: '#2A2F55', border: '3px solid #101126' }}>KEEP IT</button>
-          <button className="f-press hoverable pressable" onClick={confirm} style={{ padding: '12px 18px', fontSize: 13, background: 'var(--hp)', border: '3px solid #101126', boxShadow: '#101126 4px 4px 0' }}>ERASE &amp; CLIMB</button>
+          <button className="f-press hoverable pressable" disabled={startingRun} onClick={confirm} style={{ padding: '12px 18px', fontSize: 13, background: 'var(--hp)', border: '3px solid #101126', boxShadow: '#101126 4px 4px 0' }}>{startingRun ? 'PREPARING…' : 'ERASE & CLIMB'}</button>
         </div>
       </div>
     </Modal>
