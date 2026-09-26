@@ -31,6 +31,12 @@ export interface Reading {
   stableMidi: number | null; // stabilizer output for display; null while unsettled
 }
 
+/** Listener set that wakes the analysis loop when a screen starts listening. */
+class Watchers extends Set<(r: Reading) => void> {
+  constructor(private readonly wake: () => void) { super(); }
+  add(listener: (r: Reading) => void) { super.add(listener); this.wake(); return this; }
+}
+
 class Mic {
   private stream: MediaStream | null = null;
   private ctx: AudioContext | null = null;
@@ -40,7 +46,7 @@ class Mic {
   private buf = new Float32Array(DEFAULT_FFT_SIZE);
   private raf: number | null = null;
   private recording: Reading[] | null = null;
-  listeners = new Set<(r: Reading) => void>();
+  listeners = new Watchers(() => this.wake());
   status: 'off' | 'on' | 'denied' | 'unsupported' = 'off';
   deviceLabel = '';
 
@@ -78,15 +84,29 @@ class Mic {
     src.connect(this.analyser);
     this.stabilizer.reset();
     this.status = 'on';
-    const loop = () => {
-      this.raf = requestAnimationFrame(loop);
-      this.analyser!.getFloatTimeDomainData(this.buf);
-      const r = this.analyze();
-      this.recording?.push(r);
-      this.listeners.forEach((l) => l(r));
-    };
-    loop();
+    this.wake();
     return true;
+  }
+
+  // The stream stays open between fights (no new permission prompt), but pitch
+  // analysis only runs while a screen listens or a take is being recorded, so
+  // menus and the map don't burn a phone's CPU on a detector nobody reads.
+  private loop = () => {
+    if (!this.analyser || (!this.listeners.size && !this.recording)) {
+      this.raf = null;
+      return;
+    }
+    this.raf = requestAnimationFrame(this.loop);
+    this.analyser.getFloatTimeDomainData(this.buf);
+    const r = this.analyze();
+    this.recording?.push(r);
+    this.listeners.forEach((l) => l(r));
+  };
+
+  private wake() {
+    if (this.raf !== null || !this.analyser) return;
+    this.stabilizer.reset();
+    this.loop();
   }
 
   stop() {
@@ -116,6 +136,7 @@ class Mic {
 
   beginRecording() {
     this.recording = [];
+    this.wake();
   }
   peek(): Reading[] {
     return this.recording ?? [];
