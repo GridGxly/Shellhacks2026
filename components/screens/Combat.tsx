@@ -104,14 +104,16 @@ export default function Combat() {
       const ex = active === 'encore' ? c.encoreExercise : c.hand[active].exercise;
       setTaunt(null);
       stopVoices();
+      // Silence from the moment a card is picked until the review is over: the
+      // battle loop's tempo and key fight the sheet the player is reading.
+      muteMusic(true);
       setPhase('perform');
       // M1: flip (card grows + scaleX pinch) then unfold into the sheet
       sfx('flip');
       setPerform({ ex, active, stage: 'unfold', count: 0, beat: null, results: [] });
       if (active === 'encore') void playFile('/audio/sfx/encore-charge.mp3', 0.8);
       await wait(450);
-      // Count-in: music + voices hard-muted so nothing leaks into the mic.
-      muteMusic(true);
+      // Count-in: music + voices stay hard-muted so nothing leaks into the mic.
       const mspb = 60000 / ex.tempo;
       const beats = settings.countIn || COUNT_IN_BEATS;
       const ctx = ac();
@@ -159,7 +161,6 @@ export default function Combat() {
       const hits = final.filter((r) => r.status === 'hit').length;
       const pass = hits / final.length >= (active === 'encore' ? ULTIMATE_PASS_THRESHOLD : passLine);
       performing.current = false;
-      muteMusic(false);
       if (!alive.current) return;
       setPerform((p) => p && { ...p, stage: 'review', beat: null, results: final });
       sfx(pass ? 'stampHit' : 'stampMiss');
@@ -173,6 +174,7 @@ export default function Combat() {
       const talk = !pass ? say('miss', ex, final, failCount) : Promise.resolve();
       await wait(REVIEW_DURATION_MS);
       setPerform(null);
+      muteMusic(false);
 
       if (pass) {
         await attack(active === 'encore' ? encoreDamage : cardDamage, active);
