@@ -1,56 +1,181 @@
-# Slay the Quire
+<div align="center">
 
-**Sight-Reading Spire** — a Slay-the-Spire-style browser game for ShellHacks 2026,
-where every card is a short sight-reading exercise you play on a real instrument
-into your mic. Pitch detection grades each note.
+<h1>Slay the Choir</h1>
 
-> **The full design lives in [`PRD.md`](./PRD.md) — that's the source of truth.**
-> All tunable numbers live in [`src/config.ts`](./src/config.ts); never hard-code
-> them elsewhere.
+<p><strong>A roguelike rhythm battler where every run becomes a performance.</strong></p>
 
-## Getting started
+<p>
+  <a href="#">Play Demo</a>
+  &nbsp; · &nbsp;
+  <a href="#">Devpost</a>
+  &nbsp; · &nbsp;
+  <a href="#">Watch Demo</a>
+</p>
 
-```bash
-npm install      # install dependencies
-npm run dev      # start the dev server (http://localhost:5173)
-npm run build    # typecheck + production build
-npm run typecheck
-```
+<br>
 
-You need **Node 20+**. Mic access requires `https://` (or `localhost`, which
-browsers treat as secure — so `npm run dev` works for mic testing).
+<p><strong>[ HERO GIF GOES HERE ]</strong></p>
+<p><sub>Final version: one full-width 16:9 GIF</sub></p>
 
-## Tech stack (PRD §10)
+<br>
 
-React + Vite + **TypeScript**, [Zustand](https://github.com/pmndrs/zustand) for
-state, [abcjs](https://www.abcjs.net/) for notation, [Pitchy](https://github.com/ianprime0509/pitchy)
-for pitch detection, [Tone.js](https://tonejs.github.io/) for audio timing.
-Hosting: Vercel (static, free HTTPS for the mic).
+<p>
+  Slay the Choir is a roguelike rhythm battler that fuses deckbuilding with music.
+  Build your choir, compose powerful combos, and battle through each run.
+</p>
 
-## Project layout (PRD §8)
+</div>
 
-```
-src/
-  config.ts          # ALL tunable numbers — change balance here only
-  types.ts           # shared data model (Note, Exercise, Level, GameState, ...)
-  store.ts           # Zustand store (run state + navigation; combat actions TODO)
-  App.tsx            # screen router (switch on store.screen)
-  content/levels.ts  # exercise pools + main-song excerpt  [TODO: author music]
-  audio/             # clock.ts, pitch.ts, onset.ts, grade.ts  [TODO]
-  notation/          # toAbc.ts, Staff.tsx  [TODO]
-  screens/           # Title, KeySelect, Map, Combat, Victory, FinalVictory, Loss
-  components/        # Card, HpBar, Sprite, UltimateButton, RecordingOverlay, Review
-  styles/palette.css # single color/style file
-```
+<br>
 
-## What's done vs TODO
+<table>
+  <tr>
+    <td width="33%" align="center" valign="top">
+      <h3>♫ Build Your Choir</h3>
+      <p><sub>Recruit unique voices, each with their own style.</sub></p>
+      <br>
+      <strong>[ FEATURE 01 ]</strong>
+      <br><br>
+    </td>
+    <td width="33%" align="center" valign="top">
+      <h3>⚔ Battle Through Each Run</h3>
+      <p><sub>Every encounter is a new arrangement.</sub></p>
+      <br>
+      <strong>[ FEATURE 02 ]</strong>
+      <br><br>
+    </td>
+    <td width="33%" align="center" valign="top">
+      <h3>✦ Turn Strategy Into Performance</h3>
+      <p><sub>Time your plays and build the perfect performance.</sub></p>
+      <br>
+      <strong>[ FEATURE 03 ]</strong>
+      <br><br>
+    </td>
+  </tr>
+</table>
 
-- **Done:** runnable app, screen routing, full `config.ts`, all shared types, the
-  store's run state + reset, title → key select → map flow, `HpBar`.
-- **TODO (see the `[TODO]` markers + PRD sections):** the audio pipeline
-  (clock/mic/onset/grading — build the **audio spike first**, PRD §11), abcjs
-  staff rendering, combat logic in the store, the music content, and card/combat
-  UI.
+<br>
 
-Your friend's pitch-detection spike is on the `pitch-detection` branch — reuse
-that code inside `src/audio/pitch.ts` rather than rewriting it.
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h2>〉_ Run it locally</h2>
+      <p><sub>Get the project running on your machine.</sub></p>
+      <pre><code>git clone https://github.com/GridGxy/Shellhacks2026.git
+cd Shellhacks2026
+
+npm install
+npm run dev</code></pre>
+    </td>
+    <td width="50%" valign="top">
+      <h2>&lt;/&gt; Built with</h2>
+      <p><sub>The stack behind the project.</sub></p>
+
+      <p>
+        <strong>React</strong><br>
+        <sub>Frontend + UI</sub>
+      </p>
+
+      <p>
+        <strong>TypeScript</strong><br>
+        <sub>Type safety + DX</sub>
+      </p>
+
+      <p>
+        <strong>Vite</strong><br>
+        <sub>Build tooling</sub>
+      </p>
+
+      <p>
+        <strong>Tailwind CSS</strong><br>
+        <sub>UI styling</sub>
+      </p>
+    </td>
+  </tr>
+</table>
+
+<br>
+
+<h2>Architecture</h2>
+<p><sub>A simple view of how the pieces connect.</sub></p>
+
+<table>
+  <tr>
+    <td width="22%" align="center">
+      <br>
+      <strong>Client</strong><br>
+      <sub>React + TypeScript</sub>
+      <br><br>
+    </td>
+
+    <td width="4%" align="center">→</td>
+
+    <td width="22%" align="center">
+      <br>
+      <strong>Game Engine</strong><br>
+      <sub>Rhythm + Combat</sub>
+      <br><br>
+    </td>
+
+    <td width="4%" align="center">→</td>
+
+    <td width="22%" align="center">
+      <br>
+      <strong>Audio System</strong><br>
+      <sub>Music + SFX</sub>
+      <br><br>
+    </td>
+
+    <td width="4%" align="center">→</td>
+
+    <td width="22%" align="center">
+      <br>
+      <strong>Assets</strong><br>
+      <sub>Art + Data</sub>
+      <br><br>
+    </td>
+  </tr>
+</table>
+
+<br>
+
+<h2>Meet the Team</h2>
+
+<table>
+  <tr>
+    <td width="33%" valign="top" align="center">
+      <h3>Ralph</h3>
+      <p><sub>Project Lead</sub></p>
+      <p><strong>Game Design · Full Stack</strong></p>
+      <p><sub>Turning the core idea into the game.</sub></p>
+    </td>
+
+    <td width="33%" valign="top" align="center">
+      <h3>Joshua</h3>
+      <p><sub>Team Member</sub></p>
+      <p><strong>Role placeholder</strong></p>
+      <p><sub>Contribution placeholder.</sub></p>
+    </td>
+
+    <td width="33%" valign="top" align="center">
+      <h3>Team Member</h3>
+      <p><sub>Role placeholder</sub></p>
+      <p><strong>Contribution placeholder</strong></p>
+      <p><sub>Contribution placeholder.</sub></p>
+    </td>
+  </tr>
+</table>
+
+<br>
+
+<hr>
+
+<div align="center">
+
+<h2>Every voice matters.</h2>
+
+<p><strong>Slay the Choir.</strong></p>
+
+<p><a href="#">★ Star this repository</a></p>
+
+</div>
