@@ -19,6 +19,9 @@ import { Ornament } from '../ui';
 import { MobileSurface } from '../MobileSurface';
 import './tavern-screen.css';
 
+/** Every verdict gag and the continue button have played by then. */
+const VERDICT_SETTLED_MS = 6000;
+
 export default function Tavern() {
   const user = useGame((s) => s.user);
   const [instrument, setInstrument] = useState<InstrumentId>(() => useGame.getState().run.instrument);
@@ -71,12 +74,23 @@ export default function Tavern() {
   useEffect(() => {
     const controller = lifetime.current = new AbortController();
     playMusic('tavern'); stopVoices(); muteMusic(false); preloadTavernCrowd();
-    const clock = window.setInterval(() => setNow(Date.now()), 50);
     return () => {
-      stopCrowd.current?.(); controller.abort(); window.clearInterval(clock); recording.current?.cancel();
+      stopCrowd.current?.(); controller.abort(); recording.current?.cancel();
       mic.endRecording(); mic.stop(); muteMusic(false);
     };
   }, []);
+
+  // The show clock only runs while something on stage is timed. The lobby,
+  // performer select and waiting room are static, so they no longer re-render
+  // the whole tavern twenty times a second.
+  const ticking = ['countdown', 'performing', 'uploading', 'waiting', 'duet'].includes(phase) || (phase === 'verdict' && verdictElapsed < VERDICT_SETTLED_MS);
+  useEffect(() => {
+    if (!ticking) return;
+    const tick = () => setNow(Date.now());
+    const first = window.setTimeout(tick, 0);
+    const clock = window.setInterval(tick, 50);
+    return () => { window.clearTimeout(first); window.clearInterval(clock); };
+  }, [ticking]);
 
   useEffect(() => {
     if (phase !== 'verdict' || !verdictAt || pass === null) return;
