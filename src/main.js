@@ -1,5 +1,6 @@
 import { MicPitchTracker } from './mic.js';
 import { analyzeArrayBuffer, summarizeRuns } from './analyze-file.js';
+import { NoteRecorder } from './note-recorder.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -16,6 +17,11 @@ let tracker = null;
 let logLines = [];
 let frameCount = 0;
 let lastFpsAt = performance.now();
+
+// Mock note log for the tempo feature: { time, pitch } per settled note.
+// Exposed on window for now so it can be inspected in devtools during testing.
+const noteRecorder = new NoteRecorder();
+window.noteRecorder = noteRecorder;
 
 els.clarity.addEventListener('input', () => {
   els.clarityValue.textContent = Number(els.clarity.value).toFixed(2);
@@ -35,6 +41,7 @@ els.clearLog.addEventListener('click', () => {
 });
 
 function renderReading(r) {
+  noteRecorder.push(r);
   frameCount += 1;
   const now = performance.now();
   if (now - lastFpsAt >= 500) {
@@ -94,9 +101,11 @@ els.toggle.addEventListener('click', async () => {
     els.status.textContent = 'Stopped.';
     els.note.textContent = '—';
     els.note.classList.add('silent');
+    console.log('Recorded notes (for tempo feature):', noteRecorder.getNotes());
     return;
   }
 
+  noteRecorder.reset();
   tracker = new MicPitchTracker({
     fftSize: Number(els.fftSize.value),
     clarityThreshold: Number(els.clarity.value),
