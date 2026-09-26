@@ -22,8 +22,8 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; overflow: hidden; background: #07070f; color: var(--parchment); }
-body { font-family: var(--body); -webkit-font-smoothing: none; user-select: none; }
+html, body { height: 100%; overflow: hidden; background: #07070f; color: var(--parchment); overscroll-behavior: none; }
+body { font-family: var(--body); -webkit-font-smoothing: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 img { image-rendering: pixelated; -webkit-user-drag: none; }
 
@@ -86,7 +86,7 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 @keyframes scrollDown { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
 
 .hoverable { transition: transform 80ms steps(2); }
-.hoverable:hover { transform: translateY(-2px); }
+@media (hover: hover) { .hoverable:hover { transform: translateY(-2px); } }
 .pressable:active { transform: translateY(3px); }
 
 @keyframes curtainUp { to { transform: translateY(-100%); } }
@@ -95,4 +95,13 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 @keyframes unrollDown { from { clip-path: inset(0 0 100% 0); transform: translateY(-10px); } to { clip-path: inset(0 0 0 0); transform: none; } }
 @keyframes panelIn { 0% { transform: translateY(40px) scale(0.96); opacity: 0; } 70% { transform: translateY(-4px) scale(1.01); opacity: 1; } 100% { transform: none; } }
 @keyframes errShake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-10px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(4px); } }
-.card-hover:hover > div:first-child { translate: 0 -18px; }
+@media (hover: hover) { .card-hover:hover > div:first-child { translate: 0 -18px; } }
+
+/* Keyboard hints on desktop, tap wording on phones and tablets. */
+@media (hover: none) and (pointer: coarse) { .kbd-only { display: none !important; } }
+@media (hover: hover), (pointer: fine) { .touch-only { display: none !important; } }
+
+/* The stage is landscape: phones held upright get a rotate card instead. */
+.rotate-hint { display: none; }
+@media (orientation: portrait) and (pointer: coarse) { .rotate-hint { display: grid; } }
+@keyframes rotatePhone { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }

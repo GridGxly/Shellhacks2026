@@ -280,7 +280,7 @@ export function MapPeek() {
               </div>
             ))}
           </div>
-          <div className="f-label" style={{ marginTop: 16, textAlign: 'center', fontSize: 11, color: '#6A5420' }}>PRESS M OR ESC TO CLOSE</div>
+          <div className="f-label" style={{ marginTop: 16, textAlign: 'center', fontSize: 11, color: '#6A5420' }}><span className="kbd-only">PRESS M OR ESC TO CLOSE</span><span className="touch-only">TAP OUTSIDE TO CLOSE</span></div>
         </div>
         <div style={{ width: 980, height: 26, background: '#8A6A45', border: '4px solid #101126', animation: 'dropIn 420ms steps(8) both' }} />
       </div>

@@ -110,7 +110,7 @@ export default function ChooseInstrument() {
       <div style={{ position: 'absolute', left: 0, top: 808, width: 1440, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 40 }}>
         <button className="f-label" onClick={() => { sfx('back'); go('title'); }} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, color: 'var(--muted)' }}><KeyHint k="ESC" /> BACK</button>
         <YellowButton onClick={choose}>CHOOSE {inst.name.toUpperCase()}</YellowButton>
-        <div className="f-label" style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, color: 'var(--muted)' }}><KeyHint k="← →" /> BROWSE</div>
+        <div className="f-label kbd-only" style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, color: 'var(--muted)' }}><KeyHint k="← →" /> BROWSE</div>
       </div>
     </div>
   );
