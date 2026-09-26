@@ -152,9 +152,11 @@ export function Loss() {
   const score = useCountUp(run.score, 700, 900);
   const newBest = best && best.score === run.score && run.score > 0;
 
+  const startingRun = useGame((s) => s.startingRun || Boolean(s.transition));
   useEffect(() => playMusic('none'), []);
-  const again = () => {
-    useGame.getState().go('title');
+  // Straight back to the climb with the same instrument; the title is one pause-menu tap away.
+  const again = async () => {
+    if (await useGame.getState().newRun()) useGame.getState().go('map');
   };
 
   return (
@@ -185,7 +187,7 @@ export function Loss() {
           {run.demo ? 'Practice run (demo mode): not ranked.' : user ? `Posted to the leaderboard as ${user.username}.` : 'Playing as guest. Sign in on the title to post scores.'}
         </div>
         <div style={{ marginTop: 18, animation: 'riseIn 300ms 1800ms steps(4) both' }}>
-          <YellowButton onClick={again}>TRY AGAIN</YellowButton>
+          <YellowButton onClick={() => { if (!startingRun) void again(); }}>{startingRun ? 'PREPARING…' : 'TRY AGAIN'}</YellowButton>
         </div>
       </div>
     </div>
