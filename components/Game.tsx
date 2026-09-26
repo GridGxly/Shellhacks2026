@@ -16,7 +16,7 @@ import { MapPeek, Pause, StatsOverlay } from './overlays/HudOverlays';
 import { Overwrite, SignIn } from './overlays/Account';
 
 export default function Game() {
-  const [scale, setScale] = useState(1);
+  const [view, setView] = useState({ scale: 1, x: 720, y: 450 });
   const [booted, setBooted] = useState(false);
   const screen = useGame((s) => s.screen);
   const overlay = useGame((s) => s.overlay);
@@ -27,11 +27,18 @@ export default function Game() {
     // visualViewport tracks the area left after mobile browser bars show or hide.
     const fit = () => {
       const v = window.visualViewport;
-      setScale(Math.min((v?.width ?? window.innerWidth) / 1440, (v?.height ?? window.innerHeight) / 900));
+      const width = v?.width ?? window.innerWidth;
+      const height = v?.height ?? window.innerHeight;
+      setView({
+        scale: Math.min(width / 1440, height / 900),
+        x: (v?.offsetLeft ?? 0) + width / 2,
+        y: (v?.offsetTop ?? 0) + height / 2,
+      });
     };
     fit();
     window.addEventListener('resize', fit);
     window.visualViewport?.addEventListener('resize', fit);
+    window.visualViewport?.addEventListener('scroll', fit);
     useGame.getState().hydrate();
     // Dev only: window.__stc.setState({...}) to jump around while building.
     if (process.env.NODE_ENV !== 'production') (window as unknown as { __stc: typeof useGame }).__stc = useGame;
@@ -56,6 +63,7 @@ export default function Game() {
     return () => {
       window.removeEventListener('resize', fit);
       window.visualViewport?.removeEventListener('resize', fit);
+      window.visualViewport?.removeEventListener('scroll', fit);
     };
   }, []);
 
@@ -100,7 +108,7 @@ export default function Game() {
 
   return (
     <div className="viewport" onPointerDown={boot} onKeyDown={boot} tabIndex={-1}>
-      <div className="stage" style={{ transform: `translate(-50%, -50%) scale(${scale})` }}>
+      <div className="stage" style={{ left: view.x, top: view.y, transform: `translate(-50%, -50%) scale(${view.scale})` }}>
         {!booted ? (
           <BootGate onStart={boot} />
         ) : (
@@ -145,7 +153,7 @@ const touchDevice = () => typeof window !== 'undefined' && window.matchMedia('(h
 async function enterFullscreen() {
   try {
     if (!document.fullscreenElement && document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
-    await (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape');
+    await (screen.orientation as (ScreenOrientation & { lock?: (o: string) => Promise<void> }) | undefined)?.lock?.('landscape');
   } catch { /* not supported: the stage still scales to fit */ }
 }
 
