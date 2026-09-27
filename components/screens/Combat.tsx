@@ -102,10 +102,10 @@ export default function Combat() {
 
   // ---------- trash talk ----------
   const say = useCallback(
-    async (moment: 'miss' | 'enemyTurn' | 'hit', ex: Exercise, results: NoteResult[], failCount: number) => {
+    async (moment: 'miss' | 'enemyTurn' | 'hit', ex: Exercise, results: NoteResult[], failCount: number, hp = useGame.getState().run.hp) => {
       const s = useGame.getState();
       const c = s.combat!;
-      const facts = buildFacts(ex, results, inst.shift, inst.writtenOffset, s.run.hp, failCount);
+      const facts = buildFacts(ex, results, inst.shift, inst.writtenOffset, hp, failCount);
       const t = await fetchTaunt(enemy, c.heat, moment, facts, c.used);
       if (!t) return;
       // One heckle at a time: a new line waits for the current one to finish
@@ -201,7 +201,9 @@ export default function Combat() {
     const c = useGame.getState().combat!;
     // One more line if they're fired up (heat 1 after a pass, heat 3 after a miss), sometimes after a hit.
     const wantLine = lastPass ? c.heat >= 1 || Math.random() < TAUNT_ON_HIT_CHANCE : c.heat >= 3;
-    const talking = wantLine ? say(lastPass ? (c.heat >= 1 ? 'enemyTurn' : 'hit') : 'enemyTurn', ex, results, failCount) : Promise.resolve();
+    // The line lands with the hit, so it quotes the HP Riff is left with.
+    const hpAfter = Math.max(0, useGame.getState().run.hp - enemy.damage);
+    const talking = wantLine ? say(lastPass ? (c.heat >= 1 ? 'enemyTurn' : 'hit') : 'enemyTurn', ex, results, failCount, hpAfter) : Promise.resolve();
     await wait(500);
     if (!alive.current) return;
     setFx({ enemy: 'windup' });
