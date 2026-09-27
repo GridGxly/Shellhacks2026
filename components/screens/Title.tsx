@@ -17,7 +17,7 @@ type Item = { label: string; act: () => void; note?: string };
 /**
  * S1 / S2 home: the modes stack on the left under the logo, the utilities sit
  * under them (desktop) or on the right rail (phones), and Riff stands alone on
- * the summit. Idle, the only thing that moves is Riff's breathing.
+ * the summit. Idle, nothing on this screen is animated.
  */
 export default function Title() {
   const fullscreen = useFullscreenOffer();
