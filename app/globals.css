@@ -341,3 +341,19 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 /* Instrument showroom: the tile row and the choose bar both grow up from their bottoms, so lift the tiles clear. */
 :root[data-handheld] .inst-tiles { top:calc(690px - 96px * (var(--ui-soft) - 1)) !important; }
 :root[data-handheld] .inst-back { font-size:20px !important; color:var(--soft) !important; }
+
+/* Typing on a landscape phone: the keyboard leaves ~70px. Cover the game behind the keyboard bar and
+   collapse each form to the one row you're typing in. */
+:root[data-typing] .mobile-surface { box-shadow:0 0 0 100vmax #101126; background:#101126; padding-top:4px; padding-bottom:4px; align-items:flex-start; }
+:root[data-typing] .account-mobile .account-tab,
+:root[data-typing] .account-mobile .account-lede,
+:root[data-typing] .account-mobile .account-form-body label > span,
+:root[data-typing] .account-mobile .account-actions > button:first-child { display:none; }
+:root[data-typing] .account-mobile .account-form-body { display:grid!important; grid-template-columns:1fr 1fr auto; align-items:center; gap:8px!important; padding:6px 8px!important; }
+:root[data-typing] .account-mobile .account-actions { grid-column:auto!important; margin:0!important; }
+:root[data-typing] .account-mobile .account-error { grid-column:1 / -1; padding:4px 8px!important; font-size:14px!important; }
+:root[data-typing] .tavern-mobile-lobby > :not(.tavern-lobby-cards) { display:none; }
+:root[data-typing] .tavern-mobile-lobby .tavern-lobby-cards { grid-template-columns:1fr; }
+:root[data-typing] .tavern-mobile-lobby .tavern-board:first-child,
+:root[data-typing] .tavern-mobile-lobby .tavern-board :is(h2, label) { display:none; }
+:root[data-typing] .tavern-mobile-lobby .tavern-board { flex-direction:row; padding:6px 8px; }

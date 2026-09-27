@@ -38,6 +38,9 @@ export default function Game() {
       const editing = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement;
       if (!editing) stableHeight = visibleHeight;
       const height = editing ? Math.max(stableHeight, visibleHeight) : visibleHeight;
+      // A landscape keyboard leaves a thin band: forms collapse to one row while typing (globals.css).
+      if (editing && visibleHeight < 240) document.documentElement.dataset.typing = '';
+      else delete document.documentElement.dataset.typing;
       document.documentElement.style.setProperty('--visual-height', `${visibleHeight}px`);
       document.documentElement.style.setProperty('--visual-top', `${v?.offsetTop ?? 0}px`);
 
@@ -55,6 +58,7 @@ export default function Game() {
     };
     fit();
     document.addEventListener('focusin', revealInput);
+    document.addEventListener('focusout', revealInput);
     window.addEventListener('resize', fit);
     window.visualViewport?.addEventListener('resize', fit);
     window.visualViewport?.addEventListener('scroll', fit);
@@ -82,6 +86,7 @@ export default function Game() {
     return () => {
       cancelAnimationFrame(focusFrame);
       document.removeEventListener('focusin', revealInput);
+      document.removeEventListener('focusout', revealInput);
       window.removeEventListener('resize', fit);
       window.visualViewport?.removeEventListener('resize', fit);
       window.visualViewport?.removeEventListener('scroll', fit);

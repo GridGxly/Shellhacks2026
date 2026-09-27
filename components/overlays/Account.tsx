@@ -99,8 +99,8 @@ export function SignIn() {
           <div className="f-body account-lede" style={{ fontSize: 17, color: 'var(--soft)' }}>
             {tab === 'login' ? 'Pick up your checkpoint on any device.' : 'Save checkpoints and post your scores to the leaderboard.'}
           </div>
-          {input({ label: 'USERNAME', value: username, onChange: (e) => setUsername(e.target.value), maxLength: 16, autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false, autoComplete: 'username', innerRef: first })}
-          {input({ label: 'PASSWORD', type: 'password', value: password, onChange: (e) => setPassword(e.target.value), autoComplete: tab === 'login' ? 'current-password' : 'new-password' })}
+          {input({ label: 'USERNAME', placeholder: 'Username', value: username, onChange: (e) => setUsername(e.target.value), maxLength: 16, autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false, autoComplete: 'username', innerRef: first })}
+          {input({ label: 'PASSWORD', placeholder: 'Password', type: 'password', value: password, onChange: (e) => setPassword(e.target.value), autoComplete: tab === 'login' ? 'current-password' : 'new-password' })}
           {error && <div className="f-body account-error" style={{ padding: '8px 12px', background: 'rgba(232,67,79,0.15)', border: '2px solid var(--hp)', fontSize: 16, color: '#FF8A93' }}>{error}</div>}
           <div className="account-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
             <button className="f-label hoverable" onClick={() => { sfx('back'); useGame.getState().setOverlay(null); }} style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'underline' }}>
