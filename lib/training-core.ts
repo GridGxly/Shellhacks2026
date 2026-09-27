@@ -157,14 +157,17 @@ export function buildReview(state: TrainingState): ReviewSummary {
         stops.push({ ...at, speaker: 'castor', reason: 'silent', line: `At ${where} the ${writtenExpected(note.midi)} did not sound. Take a full breath and start the note firmly.` });
         continue;
       }
+      // A note the staff shows green is a hit: never interrupt playback for it,
+      // however early or late the attack was. Only wrong notes stop the take.
+      if (result.status !== 'wrong') continue;
       // playedMidi is shifted space; the written note is concert + shift.
       const apart = result.playedMidi === null ? 0 : result.playedMidi - (note.midi + shift);
       const folded = IGNORE_OCTAVE ? apart - 12 * Math.round(apart / 12) : apart;
-      if (result.status === 'wrong' && folded !== 0) {
+      if (folded !== 0) {
         const distance = Math.abs(folded) === 1 ? 'a semitone' : `${Math.abs(folded)} semitones`;
         stops.push({ ...at, speaker: 'castor', reason: 'pitch', line: `At ${where} you played ${writtenPlayed(result.playedMidi!)} instead of ${writtenExpected(note.midi)} — ${distance} ${folded > 0 ? 'above' : 'below'}. Hear the ${writtenExpected(note.midi)} before you play it.` });
       } else if (result.onsetOffsetMs !== null && Math.abs(result.onsetOffsetMs) > 120) {
-        // A correct pitch can still arrive off the beat — that is Pollux's note.
+        // Right pitch but graded wrong: the attack is what went astray.
         const early = result.onsetOffsetMs < 0;
         stops.push({ ...at, speaker: 'pollux', reason: 'timing', line: `At ${where} your ${ordinal(result.index + 1)} note came in ${Math.round(Math.abs(result.onsetOffsetMs))} milliseconds ${early ? 'early' : 'late'}. ${early ? 'Let the beat arrive before you start.' : 'Prepare the breath a moment sooner.'}` });
       }

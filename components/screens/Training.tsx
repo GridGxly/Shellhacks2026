@@ -9,7 +9,7 @@ import { defaultRegiment, makeOfflinePlan, TRAINING_BUFF_TIPS } from '@/lib/trai
 import { TavernRecorder, type TavernClip } from '@/lib/tavern';
 import { TrainingClient, TrainingError } from '@/lib/training';
 import { performTraining, playTake, previewTraining, speakTraining, type TrainingFrame } from '@/lib/training-audio';
-import type { ReviewSummary, TrainingFeedback, TrainingRegiment, TrainingState } from '@/lib/training-types';
+import type { ReviewStop, ReviewSummary, TrainingFeedback, TrainingRegiment, TrainingState } from '@/lib/training-types';
 import Staff from '../Staff';
 import TrainingStage from '../training/TrainingStage';
 import './training-screen.css';
@@ -17,6 +17,8 @@ import './training-screen.css';
 type Phase = 'welcome' | 'choose' | 'configure' | 'ready' | 'countin' | 'performing' | 'feedback' | 'complete' | 'paused' | 'claimed' | 'review';
 const KEYS = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5];
 const blankFrame: TrainingFrame = { phase: 'countin', beat: -4, count: 1, results: [], activity: 0, pitch: null };
+/** Date.now() epoch ms -> the performance.now() timeline performTraining uses. */
+const toPerfClock = (epochMs: number) => performance.now() + epochMs - Date.now();
 
 export default function Training() {
   const username = useGame(s => s.user?.username ?? null);
@@ -45,10 +47,15 @@ export default function Training() {
   // Which exercises have a take to play back, mirrored into state so render
   // never reads the clips ref.
   const [recorded, setRecorded] = useState<string[]>([]);
+  const [playingExercise, setPlayingExercise] = useState<number | null>(null);
+  const [playBeat, setPlayBeat] = useState<number | null>(null);
+  const [pausedStop, setPausedStop] = useState<ReviewStop | null>(null);
   const client = useRef<TrainingClient | null>(null);
   // Takes are kept only for this session's review; never uploaded or persisted.
   const clips = useRef(new Map<string, TavernClip>());
   const recorder = useRef<TavernRecorder | null>(null);
+  // Set while guided playback is paused on a miss; calling it resumes the take.
+  const resumePlayback = useRef<(() => void) | null>(null);
   const lifetime = useRef<AbortController | null>(null);
   const audio = useRef<AbortController | null>(null);
   const operation = useRef(0);
@@ -69,7 +76,7 @@ export default function Training() {
   };
   const stopAudio = () => {
     audio.current?.abort(); audio.current = null; stopVoices(); mic.endRecording(); mic.stop();
-    muteMusic(false); setSpeaker(null); setPreviewAt(0);
+    muteMusic(false); setSpeaker(null); setPreviewAt(0); setPlayingExercise(null); setPausedStop(null); setPlayBeat(null);
   };
   useEffect(() => {
     const operations = operation;
@@ -172,8 +179,10 @@ export default function Training() {
       // performTraining works in performance.now(); the recorder needs the same clock.
       recorder.current?.cancel();
       const take = recorder.current = new TavernRecorder();
-      take.start(demo ? null : mic.mediaStream, performance.now() + downbeat - Date.now());
-      const notes = await performTraining(ex.music, inst.shift, demo, downbeat, controller.signal, next => { setFrame(next); setPhase(next.phase); });
+      take.start(demo ? null : mic.mediaStream, toPerfClock(downbeat));
+      // performTraining stops the take before it stops the mic; stop() resolves
+      // the same clip if it has already run.
+      const notes = await performTraining(ex.music, inst.shift, demo, downbeat, controller.signal, next => { setFrame(next); setPhase(next.phase); }, take);
       const clip = await take.stop();
       if (recorder.current === take) recorder.current = null;
       if (clip.audio) { clips.current.set(ex.id, clip); setRecorded(ids => ids.includes(ex.id) ? ids : [...ids, ex.id]); }
@@ -235,6 +244,52 @@ export default function Training() {
     } catch { if (!controller.signal.aborted) setVoiceStatus('Voice unavailable · read the note below.'); }
     finally { if (audio.current === controller) { setSpeaker(null); setReviewing(false); } }
   };
+  /**
+   * Play one exercise's take end to end, pausing at each miss so the twin can
+   * explain before the take resumes. `guided` false just plays it straight.
+   */
+  const playExercise = async (exerciseIndex: number, guided = true) => {
+    const current = stateRef.current;
+    if (!current?.plan) return;
+    const exercise = current.plan.exercises[exerciseIndex];
+    const clip = clips.current.get(exercise.id);
+    if (!clip) return;
+    stopAudio(); const op = ++operation.current;
+    const controller = audio.current = new AbortController();
+    setPlayingExercise(exerciseIndex); setPausedStop(null); setVoiceStatus('');
+    try {
+      const beatMs = 60000 / exercise.music.tempo;
+      const endBeat = Math.max(...exercise.music.notes.map(n => n.startBeat + n.durBeats));
+      const summary = review ?? await client.current!.review(current);
+      if (op !== operation.current || controller.signal.aborted) return;
+      if (!review) setReview(summary);
+      const marks = guided ? summary.stops.filter(s => s.exerciseIndex === exerciseIndex) : [];
+      const follow = (phraseMs: number) => setPlayBeat(phraseMs / beatMs);
+      let fromBeat = 0;
+      for (const mark of marks) {
+        // Play up to and including the missed note, then hand over to the twin.
+        const untilBeat = mark.startBeat + 1;
+        if (untilBeat > fromBeat) await playTake(clip, fromBeat * beatMs, untilBeat * beatMs, controller.signal, follow);
+        if (op !== operation.current || controller.signal.aborted) return;
+        // Hold the cursor on the missed note while the twin explains it.
+        setPlayBeat(mark.startBeat); setPausedStop(mark); setSpeaker(mark.speaker);
+        try { await speakTraining({ voiceToken: mark.voiceToken, speaker: mark.speaker }, controller.signal); } catch {}
+        if (op !== operation.current || controller.signal.aborted) return;
+        setSpeaker(null);
+        // Playback waits here until the player says they are ready to go on.
+        await new Promise<void>(resolve => {
+          resumePlayback.current = resolve;
+          controller.signal.addEventListener('abort', () => resolve(), { once: true });
+        });
+        resumePlayback.current = null;
+        if (op !== operation.current || controller.signal.aborted) return;
+        setPausedStop(null);
+        fromBeat = untilBeat;
+      }
+      if (endBeat > fromBeat) await playTake(clip, fromBeat * beatMs, endBeat * beatMs, controller.signal, follow);
+    } catch { /* leaving the screen or a failed decode just ends playback */ }
+    finally { if (audio.current === controller) { setSpeaker(null); setPlayingExercise(null); setPausedStop(null); setPlayBeat(null); } }
+  };
   const claim = async () => {
     if (!state || busy) return;
     stopAudio(); const op = ++operation.current; setBusy(true); setError('');
@@ -250,7 +305,9 @@ export default function Training() {
   const completeFeedback = feedback ?? state?.finalFeedback;
   const notes = state?.receipts.flatMap(r => r.notes) ?? [];
   const measured = notes.filter(n => n.onsetOffsetMs !== null);
-  const stagePhase = recording ? phase : previewAt ? 'preview' : phase === 'claimed' ? 'complete' : phase === 'review' ? 'feedback' : ['choose', 'configure', 'ready'].includes(phase) ? 'configure' : phase;
+  // 'feedback' is the stage's twin-addresses-you pose, which is also what a
+  // paused playback wants.
+  const stagePhase = recording ? phase : pausedStop ? 'feedback' : previewAt ? 'preview' : phase === 'claimed' ? 'complete' : phase === 'review' ? 'feedback' : ['choose', 'configure', 'ready'].includes(phase) ? 'configure' : phase;
 
   return <TrainingStage phase={stagePhase as 'welcome' | 'configure' | 'preview' | 'countin' | 'performing' | 'feedback' | 'complete' | 'paused'} activeMentor={speaker} introElapsed={now - enteredAt} playbackElapsed={previewAt ? now - previewAt : -1} previewNotes={exercise.music.notes.map(n => ({ atMs: 160 + n.startBeat * 60000 / exercise.music.tempo, durationMs: n.durBeats * 60000 / exercise.music.tempo }))} rewardTarget={rewardTarget} rewardElapsed={rewardAt ? now - rewardAt : -1} activity={frame.activity}>
     <header className="training-header"><div><h1>GEMS AND I</h1><p>TRAINING WITH THE DISCO-CURI</p></div><button onClick={() => void pause('end', true)} disabled={busy && !recording}>END TRAINING</button><strong className="training-source">{source}</strong></header>
@@ -268,7 +325,18 @@ export default function Training() {
     {state && phase === 'ready' && <section className="training-modal training-plan"><h2>{shownPlan.regiment.mode === 'recommended' ? 'YOUR RECOMMENDED SET' : 'YOUR PRACTICE SET'}</h2><p>{shownPlan.focusSummary}</p><ol>{shownPlan.exercises.map((ex, i) => <li key={ex.id} className={i === state.nextIndex ? 'current' : ''}><span>{i < state.nextIndex ? '✓' : String(i + 1).padStart(2, '0')}</span><div><strong>{ex.role === 'final' ? 'FINAL PHRASE' : `SHORT EXERCISE ${i + 1}`}</strong><p>{ex.goal}</p></div></li>)}</ol><div className="training-ready-controls"><label>PLAY AS<select value={demo ? 'demo' : 'mic'} onChange={e => setDemo(e.target.value === 'demo')}><option value="mic">Real microphone</option><option value="demo">Demo practice</option></select></label><button disabled={busy} onClick={() => previewAt ? stopAudio() : void preview()}>{previewAt ? 'STOP PREVIEW' : 'HEAR NEXT EXERCISE'}</button><button className="training-primary" disabled={busy} onClick={() => void perform()}>{busy ? 'GETTING READY…' : `PLAY EXERCISE ${state.nextIndex + 1} →`}</button></div><p className="training-small">{inst.name} · written {key.name} major · {shownPlan.regiment.tempo} BPM · Headphones recommended.<br />{demo ? 'DEMO: simulated notes do not update your learning history.' : 'Music and mentor voices are silent while you play.'}</p></section>}
     {state && recording && <><section className="training-sheet"><header><strong>{exercise.role === 'final' ? 'FINAL PHRASE' : `EXERCISE ${activeIndex + 1} / 4`}</strong><span>{demo ? 'DEMO' : 'YOUR TURN'} · {inst.name} · ♩ {exercise.music.tempo}</span></header><h2>{exercise.goal}</h2><Staff ex={exercise.music} shift={inst.shift} writtenOffset={inst.writtenOffset} keySig={key} width={1160} barsPerLine={2} beat={frame.beat} results={frame.results} approach /><footer><span>{phase === 'countin' ? 'GET READY' : 'PLAYING · MUSIC MUTED'}</span><span>{frame.pitch === null ? '—' : noteName(Math.round(frame.pitch) + inst.writtenOffset, key)} · {frame.results.filter(n => n?.status === 'hit').length}/{frame.results.filter(Boolean).length} NOTES</span></footer><div className="training-input-meter"><i style={{ width: `${frame.activity * 100}%` }} /></div></section>{phase === 'countin' && <div className="training-count" key={frame.count}>{frame.count}</div>}<button className="training-pause-action" onClick={() => void pause('pause')}>PAUSE PRACTICE</button></>}
     {state && phase === 'feedback' && feedback && <section className="training-feedback"><h2>ONE STEP STRONGER</h2><p className="training-small">{feedback.source === 'offline' ? 'BUILT-IN COACHING' : 'GEMINI COACHING'} · {state.receipts.at(-1)?.simulated ? 'DEMO RESULTS' : 'MEASURED RESULTS'}</p><Feedback feedback={feedback} speaker={speaker} /><div className="training-actions"><button onClick={() => void playFeedback(state, false, voiceToken)}>REPLAY VOICES</button><button className="training-primary" onClick={() => { stopAudio(); operation.current++; setPhase('ready'); }}>NEXT EXERCISE →</button></div><p className="training-small">{voiceStatus || `${state.receipts.at(-1)!.hits}/${state.receipts.at(-1)!.total} matching notes. There is no pass mark.`}</p></section>}
-    {state && phase === 'complete' && <section className="training-feedback training-complete"><h2>YOUR SET IS COMPLETE</h2><p className="training-small">{state.receipts.some(r => r.simulated) ? 'INCLUDES DEMO RESULTS' : 'MEASURED RESULTS'} · {notes.filter(n => n.status === 'hit').length}/{notes.length} matching notes · {measured.length} measured attacks</p>{completeFeedback && <Feedback feedback={completeFeedback} speaker={speaker} />}<div className="training-reward"><div><strong>DAILY TRAINING TIPS · +120</strong><p>{state.claimed ? 'Today’s reward is already claimed.' : state.pendingBuff ? 'Use your banked training reward in a new campaign before claiming this one.' : 'One reward for your next campaign. Tavern tips can be banked separately.'}</p></div><button className="training-primary" disabled={busy || state.claimed || state.pendingBuff} onClick={() => void claim()}>{state.claimed ? 'CLAIMED ✓' : state.pendingBuff ? 'ALREADY BANKED' : 'CLAIM +120 →'}</button></div><div className="training-actions"><button onClick={() => void playFeedback(state, true, voiceToken)}>REPLAY VOICES</button><button disabled={busy} onClick={() => void openReview()}>REVIEW MY MISSES</button><button onClick={() => { stopAudio(); operation.current++; setPhase('choose'); }}>CONTINUE TRAINING</button><button onClick={() => void pause('pause', true)}>HOME</button></div><p className="training-small">Daily resets at 00:00 UTC. Unused rewards remain banked. {voiceStatus}</p></section>}
+    {state && phase === 'complete' && <section className="training-feedback training-complete"><h2>YOUR SET IS COMPLETE</h2><p className="training-small">{state.receipts.some(r => r.simulated) ? 'INCLUDES DEMO RESULTS' : 'MEASURED RESULTS'} · {notes.filter(n => n.status === 'hit').length}/{notes.length} matching notes · {measured.length} measured attacks</p>{completeFeedback && <Feedback feedback={completeFeedback} speaker={speaker} />}<div className="training-reward"><div><strong>DAILY TRAINING TIPS · +120</strong><p>{state.claimed ? 'Today’s reward is already claimed.' : state.pendingBuff ? 'Use your banked training reward in a new campaign before claiming this one.' : 'One reward for your next campaign. Tavern tips can be banked separately.'}</p></div><button className="training-primary" disabled={busy || state.claimed || state.pendingBuff} onClick={() => void claim()}>{state.claimed ? 'CLAIMED ✓' : state.pendingBuff ? 'ALREADY BANKED' : 'CLAIM +120 →'}</button></div><div className="training-takes"><strong>YOUR<br />RECORDINGS</strong><ol>{state.plan!.exercises.map((ex, i) => <li key={ex.id}><span>{ex.role === 'final' ? 'FINAL' : `EX ${i + 1}`}</span><button disabled={!recorded.includes(ex.id)} onClick={() => playingExercise === i ? stopAudio() : void playExercise(i)}>{playingExercise === i ? '■ STOP' : recorded.includes(ex.id) ? '▶ PLAY' : '—'}</button></li>)}</ol></div><div className="training-actions"><button onClick={() => void playFeedback(state, true, voiceToken)}>REPLAY VOICES</button><button disabled={busy} onClick={() => void openReview()}>REVIEW MY MISSES</button><button onClick={() => { stopAudio(); operation.current++; setPhase('choose'); }}>CONTINUE TRAINING</button><button onClick={() => void pause('pause', true)}>HOME</button></div><p className="training-small">Daily resets at 00:00 UTC. Unused rewards remain banked. {voiceStatus}</p></section>}
+    {state && playingExercise !== null && state.plan && (() => {
+      const ex = state.plan.exercises[playingExercise];
+      const receipt = state.receipts.find(r => r.exerciseId === ex.id);
+      return <section className="training-sheet training-playback">
+        <header><strong>{ex.role === 'final' ? 'FINAL PHRASE' : `EXERCISE ${playingExercise + 1} / 4`}</strong><span>YOUR RECORDING · {inst.name} · ♩ {ex.music.tempo}</span></header>
+        <h2>{pausedStop ? (pausedStop.speaker === 'castor' ? 'CASTOR STEPS IN' : 'POLLUX STEPS IN') : ex.goal}</h2>
+        <Staff ex={ex.music} shift={inst.shift} writtenOffset={inst.writtenOffset} keySig={key} width={1160} barsPerLine={2} beat={playBeat} results={receipt?.notes ?? []} />
+        <footer><span>{pausedStop ? `PAUSED · ${pausedStop.speaker === 'castor' ? 'CASTOR' : 'POLLUX'} IS EXPLAINING` : 'PLAYING YOUR TAKE'}</span><button onClick={() => stopAudio()}>■ STOP</button></footer>
+        {pausedStop && <div className="training-twins-feedback"><article data-twin={pausedStop.speaker} className={speaker === pausedStop.speaker ? 'speaking' : ''}><h3>{pausedStop.speaker === 'castor' ? 'CASTOR · PITCH' : 'POLLUX · PULSE'}</h3><p>{pausedStop.line}</p><button className="training-primary training-resume" onClick={() => resumePlayback.current?.()}>{speaker ? 'SKIP AHEAD →' : 'CONTINUE →'}</button></article></div>}
+      </section>;
+    })()}
     {state && phase === 'review' && review && (() => {
       const stop = review.stops[stopIndex];
       const music = stop ? state.plan!.exercises[stop.exerciseIndex].music : null;
