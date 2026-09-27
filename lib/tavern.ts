@@ -2,10 +2,9 @@
 import { useEffect, useState } from 'react';
 import { ac, duetTone, effectsOutput } from './audio';
 import { INSTRUMENTS } from './content';
-import type { Exercise } from './music';
 import { tavernDurationMs, tavernExercise } from './tavern-exercise';
 import { TAVERN_POLL_MS, TAVERN_WAITING_POLL_MS } from './config';
-import type { PublicTavernPlayer, PublicTavernRoom, TavernEntry, TavernPart } from './tavern-types';
+import type { PublicTavernPlayer, PublicTavernRoom, TavernEntry } from './tavern-types';
 
 let sessionGuestName = '';
 export function tavernGuestName() {
@@ -13,8 +12,6 @@ export function tavernGuestName() {
 }
 
 export type TavernSeat = Pick<TavernEntry, 'code' | 'token' | 'part'>;
-export const duetPart = (part: TavernPart): Exercise => tavernExercise('duet', part);
-export const duetDurationMs = () => tavernDurationMs('duet');
 export class TavernError extends Error {
   constructor(message: string, public status: number) { super(message); }
 }
@@ -45,7 +42,7 @@ export function leaveTavern(seat: TavernSeat) {
   void fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
 }
 
-export class TavernClock {
+class TavernClock {
   private samples: number[] = [];
   offset = 0;
   observe(serverNow: number, sent: number, received: number) {

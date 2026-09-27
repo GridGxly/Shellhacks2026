@@ -2,7 +2,7 @@ import { guarded } from '@/lib/server/api-guard';
 import bcrypt from 'bcryptjs';
 import { createSession, db, dbConfigured, offline, publicUser, type UserDoc } from '@/lib/db';
 import { bad, mutation, readJson } from '@/lib/server/http';
-import { limit } from '@/lib/server/ratelimit';
+import { clientIp, limit } from '@/lib/server/ratelimit';
 import { credentials } from '@/lib/server/validation';
 
 const DUMMY = '$2b$12$.fQAPdB0RHiRCYe81H3iiOCLTszHpZtgpM91MAkYK2DP/Yls5Bq4e';
@@ -13,6 +13,8 @@ export async function POST(request: Request) {
     // Sign-in accepts accounts made under the older 6-character rule; the 8+ policy applies at signup.
     if (!credentials(b.username, b.password, 1)) return bad('Wrong username or password.', 401);
     if (!dbConfigured()) return offline();
+    // Spend a per-IP allowance before bcrypt, so parallel guesses can't all pass the account check below.
+    const perIp = await limit(`login-ip:${clientIp(request)}`, 30, 600_000); if (perIp) return perIp;
     const key = `login:${b.username.toLowerCase()}`;
     const blocked = await limit(key, 5, 600_000, false); if (blocked) return blocked;
     const d = await db();

@@ -1,15 +1,16 @@
 import { IGNORE_OCTAVE } from './config';
+import { isInt, isObject } from './validation';
 import { INSTRUMENTS, type InstrumentId } from './content';
 import type { NoteResult } from './mic';
-import type { Exercise, Note } from './music';
-import type { PerformanceSource, TrainingFeedback, TrainingPlan, TrainingRegiment, TrainingResult, TrainingState, WeaknessSummary } from './training-types';
+import { noteName, writtenKey, type Exercise, type Note } from './music';
+import type { PerformanceSource, ReviewStop, ReviewSummary, TrainingFeedback, TrainingPlan, TrainingRegiment, TrainingResult, TrainingState, WeaknessSummary } from './training-types';
 
-export const TRAINING_BUFF_TIPS = 120;
+export { TRAINING_BUFF_TIPS } from './config'; // kept here for existing imports
 export const TRAINING_START_DELAY_MS = 4000;
 export const utcDay = (now = Date.now()) => new Date(now).toISOString().slice(0, 10);
 export const nextUtcMidnight = (now = Date.now()) => (Math.floor(now / 86400000) + 1) * 86400000;
-const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-const integer = (v: unknown, lo: number, hi: number): v is number => Number.isSafeInteger(v) && Number(v) >= lo && Number(v) <= hi;
+const object = isObject;
+const integer = (v: unknown, lo: number, hi: number) => isInt(v, lo, hi);
 const plain = (v: unknown, max: number): v is string => typeof v === 'string' && v.length > 0 && v.length <= max && !/[<>\u0000-\u001f]/.test(v);
 const pc = (m: number) => ((m % 12) + 12) % 12;
 const id = () => globalThis.crypto.randomUUID();
@@ -119,6 +120,65 @@ export function offlineFeedback(ex: Exercise, notes: NoteResult[], final = false
   const average = offsets.length ? offsets.reduce((a, b) => a + b, 0) / offsets.length : null;
   return { source: 'offline', castor: `${final ? 'Across this set, ' : ''}${hits} of ${notes.length} notes matched. ${silent ? 'Give each note a clear start and enough breath.' : hits === notes.length ? 'Keep that clear pitch as you connect the phrase.' : 'Isolate the missed notes slowly, then reconnect them.'}`, pollux: average === null ? `Try a relaxed count at ${ex.tempo} beats per minute before you begin.` : average < -60 ? 'Your measured attacks leaned early. Let the beat arrive before starting each note.' : average > 60 ? 'Your measured attacks leaned late. Prepare the breath before the beat.' : 'Your measured attacks stayed close to the pulse. Keep the spaces between notes even.' };
 }
+function ordinal(n: number): string {
+  if (n % 100 >= 11 && n % 100 <= 13) return `${n}th`;
+  return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
+}
+
+/**
+ * Turn measured misses into the review's stops. Castor speaks to pitch (he
+ * owns pitch in the twins' feedback), Pollux to pulse. Every line is derived
+ * from NoteResult data only — never from audio the server cannot hear.
+ */
+export function buildReview(state: TrainingState): ReviewSummary {
+  const plan = state.plan;
+  if (!plan) return { stops: [], perExercise: [] };
+  const inst = INSTRUMENTS.find(i => i.id === plan.regiment.instrument);
+  const shift = inst?.shift ?? 0, offset = inst?.writtenOffset ?? 0;
+  const key = writtenKey(offset, plan.regiment.concertKey, plan.regiment.spelling);
+  // Staff.tsx spells written pitch as concert + shift + writtenOffset, while
+  // grade() already returns playedMidi in shifted space. Name both the same way.
+  const writtenExpected = (midi: number) => noteName(midi + shift + offset, key);
+  const writtenPlayed = (midi: number) => noteName(midi + offset, key);
+  const perExercise: ReviewSummary['perExercise'] = [];
+  const stops: ReviewStop[] = [];
+  for (const [exerciseIndex, exercise] of plan.exercises.entries()) {
+    const receipt = state.receipts.find(r => r.exerciseId === exercise.id);
+    if (!receipt) continue;
+    perExercise.push({ exerciseId: exercise.id, exerciseIndex, role: exercise.role, hits: receipt.hits, total: receipt.total });
+    if (receipt.simulated) continue; // demo takes are not the player's playing
+    for (const result of receipt.notes) {
+      const note = exercise.music.notes[result.index];
+      if (!note) continue;
+      const beat = note.startBeat;
+      const where = `bar ${Math.floor(beat / exercise.music.beatsPerBar) + 1}, beat ${Math.floor(beat % exercise.music.beatsPerBar) + 1}`;
+      const at = { exerciseId: exercise.id, exerciseIndex, noteIndex: result.index, startBeat: beat };
+      if (result.status === 'silent') {
+        stops.push({ ...at, speaker: 'castor', reason: 'silent', line: `At ${where} the ${writtenExpected(note.midi)} did not sound. Take a full breath and start the note firmly.` });
+        continue;
+      }
+      // A note the staff shows green is a hit: never interrupt playback for it,
+      // however early or late the attack was. Only wrong notes stop the take.
+      if (result.status !== 'wrong') continue;
+      // playedMidi is shifted space; the written note is concert + shift.
+      const apart = result.playedMidi === null ? 0 : result.playedMidi - (note.midi + shift);
+      const folded = IGNORE_OCTAVE ? apart - 12 * Math.round(apart / 12) : apart;
+      if (folded !== 0) {
+        const distance = Math.abs(folded) === 1 ? 'a semitone' : `${Math.abs(folded)} semitones`;
+        stops.push({ ...at, speaker: 'castor', reason: 'pitch', line: `At ${where} you played ${writtenPlayed(result.playedMidi!)} instead of ${writtenExpected(note.midi)} — ${distance} ${folded > 0 ? 'above' : 'below'}. Hear the ${writtenExpected(note.midi)} before you play it.` });
+      } else if (result.onsetOffsetMs !== null && Math.abs(result.onsetOffsetMs) > 120) {
+        // Right pitch but graded wrong: the attack is what went astray.
+        const early = result.onsetOffsetMs < 0;
+        stops.push({ ...at, speaker: 'pollux', reason: 'timing', line: `At ${where} your ${ordinal(result.index + 1)} note came in ${Math.round(Math.abs(result.onsetOffsetMs))} milliseconds ${early ? 'early' : 'late'}. ${early ? 'Let the beat arrive before you start.' : 'Prepare the breath a moment sooner.'}` });
+      }
+    }
+  }
+  // Worst exercise first, then in playing order inside each exercise.
+  const accuracy = new Map(perExercise.map(e => [e.exerciseId, e.total ? e.hits / e.total : 1]));
+  stops.sort((a, b) => (accuracy.get(a.exerciseId)! - accuracy.get(b.exerciseId)!) || a.exerciseIndex - b.exerciseIndex || a.startBeat - b.startBeat);
+  return { stops, perExercise };
+}
+
 export function newGuestTraining(now = Date.now(), pendingBuff = false, weaknesses = emptyWeaknesses()): TrainingState {
   return { day: utcDay(now), resetsAt: nextUtcMidnight(now), serverNow: now, revision: 0, plan: null, status: 'ready', nextIndex: 0, receipts: [], claimed: false, pendingBuff, weaknesses };
 }

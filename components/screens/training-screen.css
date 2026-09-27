@@ -23,3 +23,45 @@
 @media(prefers-reduced-motion:reduce){.training-dialog,.training-choice,.training-modal,.training-feedback,.training-count{animation:none}}
 
 .training-claimed strong{width:400px;white-space:nowrap}
+.training-review{top:300px;max-height:560px;overflow-y:auto}
+.training-review-list{list-style:none;padding:0;margin:18px 0 6px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.training-review-list li{display:flex;flex-direction:column;gap:6px;background:#F0E5CF;color:#1C213E;padding:12px 14px;border:2px solid #B9AE92}
+.training-review-list li.current{border-color:#C23A7E;background:#F6D9E7}
+.training-review-list li span{font:14px var(--label)}
+.training-review-list li strong{font:24px var(--press)}
+.training-review-list li i{font-style:normal;font-size:19px}
+/* One twin speaks per stop: the card spans the row and takes that twin's colour. */
+.training-review .training-twins-feedback{grid-template-columns:1fr}
+.training-review .training-twins-feedback article[data-twin="castor"]{border-color:#FFD23F}
+.training-review .training-twins-feedback article[data-twin="castor"] h3{color:#FFD23F}
+.training-review .training-twins-feedback article[data-twin="pollux"]{border-color:#FF4FA3}
+.training-review .training-twins-feedback article[data-twin="pollux"] h3{color:#FF7DB8}
+.training-takes{background:#30334E;border:3px solid #7E86C4;padding:14px 20px;margin-top:18px}
+.training-takes>strong{font:15px var(--label);color:#C9CDE8;letter-spacing:.14em}
+.training-takes ol{list-style:none;padding:0;margin:12px 0 8px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.training-takes li{display:flex;flex-direction:column;gap:6px}
+.training-takes li span{font:13px var(--label);color:#9A9CB4}
+.training-takes li button{font-size:16px;padding:10px 8px;min-height:auto}
+.training-takes li button:disabled{opacity:.45}
+.training-takes>.training-small{margin-top:4px}
+.training-playback{top:150px;z-index:30}
+.training-playback footer{align-items:center}
+.training-playback footer button{background:#1C213E;color:#FFF6E0;border-color:#1B1F3B;font-size:18px;min-height:48px;padding:10px 18px;box-shadow:none}
+.training-playback .training-twins-feedback{grid-template-columns:1fr;margin-top:16px}
+.training-playback .training-twins-feedback h3{color:#1B1F3B}
+.training-playback .training-twins-feedback p{color:#1B1F3B}
+.training-playback .training-twins-feedback .speaking{background:#F0DDB4;box-shadow:0 0 0 10px #F0DDB4}
+
+/* The recordings block has to fit inside the complete panel's 900px stage. */
+.training-complete{top:300px}
+.training-complete .training-reward{margin-top:16px;padding:12px 18px}
+.training-complete .training-reward p{margin-top:6px;font-size:21px}
+.training-takes{display:flex;align-items:center;gap:16px;margin-top:14px;padding:10px 16px}
+.training-takes>strong{flex-shrink:0}
+.training-takes ol{flex:1;margin:0;gap:8px}
+.training-takes li{flex-direction:row;align-items:center;gap:8px}
+.training-takes li span{flex-shrink:0}
+.training-takes li button{flex:1;font-size:14px;padding:8px 6px}
+.training-takes>.training-small{display:none}
+.training-complete .training-actions{margin-top:16px}
+.training-resume{display:block;margin-top:14px;font-size:17px;min-height:52px}

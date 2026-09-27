@@ -2,16 +2,18 @@ import { guarded, voiceBudget } from '@/lib/server/api-guard';
 import { randomUUID } from 'node:crypto';
 import type { ClientSession, Db } from 'mongodb';
 import { currentUser, db, transaction, type UserDoc } from '@/lib/db';
-import { exerciseDurationMs, guestBegin, guestClaim, guestStartPlan, guestSubmit, newGuestTraining, offlineFeedback, utcDay, validateExercise, validatePlan, validateRegiment, validateTrainingResults, validateWeaknesses } from '@/lib/training-core';
+import { buildReview, exerciseDurationMs, guestBegin, guestClaim, guestStartPlan, guestSubmit, newGuestTraining, offlineFeedback, utcDay, validateExercise, validatePlan, validateRegiment, validateTrainingResults, validateWeaknesses } from '@/lib/training-core';
 import type { InstrumentId } from '@/lib/content';
 import type { TrainingResult, TrainingState } from '@/lib/training-types';
 import { int, mutation, object, readJson } from './http';
 import { clientIp, limit } from './ratelimit';
 import { performanceDigest, readWeaknesses, recordPerformance } from './performance';
 import { createTrainingFeedback, createTrainingPlan, readVoiceTicket, trainingVoice, voiceTicket } from './training-provider';
+import { readMentorProfile } from './mentor';
 
-export interface TrainingDailyDoc { _id: string; userId: string; day: string; state: TrainingState; createdAt: Date; updatedAt: Date; expiresAt: Date }
-type Action = 'state' | 'plan' | 'begin' | 'result' | 'pause' | 'claim' | 'feedback' | 'voice';
+/** completedAt is set once, when the day's first set is finished, and survives ending/replacing sets (mentor streaks). */
+export interface TrainingDailyDoc { _id: string; userId: string; day: string; state: TrainingState; completedAt?: Date; createdAt: Date; updatedAt: Date; expiresAt: Date }
+type Action = 'state' | 'profile' | 'plan' | 'begin' | 'result' | 'pause' | 'claim' | 'feedback' | 'voice' | 'review';
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers: { 'Cache-Control': 'private, no-store' } });
 class Problem extends Error { constructor(message: string, readonly status = 400, readonly code = 'invalid_request') { super(message); } }
 const clean = (state: TrainingState): TrainingState => JSON.parse(JSON.stringify(state));
@@ -55,6 +57,27 @@ function guestFacts(body: Record<string, unknown>) {
   const exercise = validateExercise(body.exercise), notes = exercise ? validateTrainingResults(exercise, body.instrument as InstrumentId, body.notes) : null;
   return exercise && notes && typeof body.final === 'boolean' ? { exercise, notes, final: body.final } : null;
 }
+/**
+ * A guest's finished set, rebuilt from their own tab. Only the fields
+ * buildReview reads are trusted, and each one goes through the same validators
+ * the result path uses — the client cannot invent notes it did not play.
+ */
+function guestReviewState(body: Record<string, unknown>): TrainingState | null {
+  if (!object(body.plan)) return null;
+  const regiment = validateRegiment(body.plan.regiment);
+  const plan = regiment ? validatePlan(body.plan, regiment) : null;
+  if (!plan || !Array.isArray(body.receipts) || body.receipts.length !== 4) return null;
+  const receipts = [];
+  for (let i = 0; i < 4; i++) {
+    const receipt = body.receipts[i];
+    if (!object(receipt) || receipt.exerciseId !== plan.exercises[i].id) return null;
+    const notes = validateTrainingResults(plan.exercises[i].music, regiment!.instrument, receipt.notes);
+    if (!notes) return null;
+    receipts.push({ exerciseId: plan.exercises[i].id, attemptId: '', hits: notes.filter(n => n.status === 'hit').length, total: notes.length, notes, simulated: receipt.simulated === true, feedback: offlineFeedback(plan.exercises[i].music, notes), completedAt: 0 });
+  }
+  return { ...newGuestTraining(), plan, status: 'complete', nextIndex: 4, receipts };
+}
+
 export async function trainingRequest(request: Request, action: Action) {
   return guarded(request, async () => {
     try {
@@ -62,9 +85,29 @@ export async function trainingRequest(request: Request, action: Action) {
       const body = request.method === 'GET' ? {} : await readJson(request, 48 * 1024); if (body instanceof Response) return body;
       const user = await currentUser();
       if (action === 'state') return json(user ? await transaction(async (d, s) => snapshot(d, await daily(d, user._id, s), s)) : newGuestTraining());
-      if (['plan', 'feedback', 'voice'].includes(action)) {
+      if (action === 'profile') {
+        // The mentor's player file. Guests have none on the server: theirs lives in the tab's memory.
+        if (!user) return json({ error: 'Guests keep their practice file in memory.', code: 'guest' }, 401);
+        const blocked = await limit(`training-profile:${user._id}`, 60, 600000); if (blocked) return blocked;
+        return json(await readMentorProfile(await db(), user));
+      }
+      if (['plan', 'feedback', 'voice', 'review'].includes(action)) {
         const blocked = await limit(`training-${action}:${user?._id ?? clientIp(request)}`, action === 'voice' ? 40 : 20, 600000); if (blocked) return blocked;
         const global = await limit(`training-${action}:global`, action === 'voice' ? 160 : 100, 60000); if (global) return global;
+      }
+      if (action === 'review') {
+        let state: TrainingState | null = null;
+        if (user) {
+          const d = await db(), row = await daily(d, user._id); checkIdentity(body, row.state);
+          state = await snapshot(d, row);
+        } else {
+          state = guestReviewState(body);
+        }
+        if (!state?.plan || state.receipts.length !== 4) throw new Problem('Finish the set before reviewing it.');
+        const review = buildReview(state);
+        // Each stop is spoken through the existing signed-envelope path, so the
+        // browser still cannot choose what the twins say.
+        return json({ ...review, stops: review.stops.map(stop => ({ ...stop, voiceToken: voiceTicket({ source: 'offline', castor: stop.speaker === 'castor' ? stop.line : '', pollux: stop.speaker === 'pollux' ? stop.line : '' }) })) });
       }
       if (action === 'plan') {
         const regiment = validateRegiment(body.regiment); if (!regiment) throw new Problem('Choose a valid practice regiment.');
@@ -147,6 +190,7 @@ export async function trainingRequest(request: Request, action: Action) {
           const notes = validateTrainingResults(ex.music, state.plan!.regiment.instrument, raw.notes); if (!notes) throw new Problem('Invalid note results.');
           const result: TrainingResult = { exerciseId: raw.exerciseId, attemptId: raw.attemptId, notes, simulated: raw.simulated };
           row.state = guestSubmit(state, result);
+          if (row.state.status === 'complete') row.completedAt ??= new Date();
           row.state.weaknesses = await recordPerformance(d, session, user._id, 'training', raw.attemptId, state.plan!.regiment.instrument, ex.music, notes, raw.simulated);
           return save(d, row, session);
         }

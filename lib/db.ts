@@ -1,12 +1,18 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { MongoClient, type Db, type ClientSession } from 'mongodb';
 import { cookies } from 'next/headers';
+import type { CreateIndexesOptions, IndexSpecification } from 'mongodb';
+import manifest from './mongo-indexes.json';
+import { SESSION_DAYS, XP_PER_LEVEL } from './config';
+import { sha256Hex } from './server/hash';
+
+// Static manifest from the repo; JSON typing can't express IndexSpecification directly.
+const INDEXES = manifest as unknown as { collection: string; keys: IndexSpecification; options?: CreateIndexesOptions }[];
 
 // PRD §7b: users, sessions, saves, runs. Everything degrades to 503 when
 // MONGODB_URI is unset so the game still runs as guest-only.
 
 const SESSION_COOKIE = 'stc_session';
-const SESSION_DAYS = 30;
 
 export interface UserDoc {
   _id: string; // lowercased username
@@ -55,21 +61,8 @@ export function db(): Promise<Db> {
     g._stcClient = client;
     g._stcMongo = client.connect().then(async (c) => {
       const d = c.db(process.env.MONGODB_DB ?? 'slay-the-choir');
-      await Promise.all([
-        d.collection('sessions').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-        d.collection('runs').createIndex({ score: -1 }),
-        d.collection('runs').createIndex({ weekKey: 1, score: -1 }),
-        d.collection('runs').createIndex({ userId: 1, score: -1 }),
-        d.collection('runs').createIndex({ userId: 1, runId: 1 }, { unique: true, partialFilterExpression: { runId: { $type: 'string' } } }),
-        d.collection('rateLimits').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-        d.collection('runs').createIndex({ userId: 1, at: -1 }),
-        d.collection('fights').createIndex({ enemyId: 1 }),
-        d.collection('tavernRooms').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-        d.collection('trainingDaily').createIndex({ userId: 1, day: 1 }, { unique: true }),
-        d.collection('trainingDaily').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-        d.collection('performanceEvents').createIndex({ userId: 1, source: 1, attemptId: 1 }, { unique: true }),
-        d.collection('rewardClaims').createIndex({ userId: 1, runId: 1 }, { unique: true }),
-      ]);
+      // One index manifest shared with scripts/atlas-setup.mjs.
+      await Promise.all(INDEXES.map((ix) => d.collection(ix.collection).createIndex(ix.keys, ix.options)));
       return d;
     });
     const pending = g._stcMongo;
@@ -84,7 +77,7 @@ export function db(): Promise<Db> {
 export const offline = () => Response.json({ error: 'Accounts are offline (no database configured).' }, { status: 503 });
 export const unauthorized = () => Response.json({ error: 'Sign in first.' }, { status: 401 });
 
-const hash = (t: string) => createHash('sha256').update(t).digest('hex');
+const hash = sha256Hex;
 
 export async function createSession(userId: string) {
   const token = randomBytes(32).toString('base64url');
@@ -120,7 +113,7 @@ export async function currentUser(): Promise<UserDoc | null> {
   return d.collection<UserDoc>('users').findOne({ _id: s.userId });
 }
 
-export const publicUser = (u: UserDoc) => ({ username: u.username, level: 1 + Math.floor(u.xp / 100), tavernBuff: u.tavernBuff === true, trainingBuff: u.trainingBuff === true });
+export const publicUser = (u: UserDoc) => ({ username: u.username, level: 1 + Math.floor(u.xp / XP_PER_LEVEL), tavernBuff: u.tavernBuff === true, trainingBuff: u.trainingBuff === true });
 
 export async function transaction<T>(work: (d: Db, session: ClientSession) => Promise<T>) {
   const d = await db();

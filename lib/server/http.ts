@@ -1,9 +1,9 @@
 import { MongoError } from 'mongodb';
+import { isObject } from '@/lib/validation';
 
 export const bad = (error: string, status = 400) => Response.json({ error }, { status });
-export const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-export const int = (v: unknown, lo = 0, hi = Number.MAX_SAFE_INTEGER): v is number => Number.isSafeInteger(v) && (v as number) >= lo && (v as number) <= hi;
-export const duplicate = (e: unknown) => object(e) && e.code === 11000;
+export { isInt as int, isObject as object } from '@/lib/validation';
+export const duplicate = (e: unknown) => isObject(e) && e.code === 11000;
 
 export function mutation(request: Request, json = true) {
   const origin = request.headers.get('origin');
@@ -34,7 +34,7 @@ export async function readJson(request: Request, maxBytes = 32 * 1024): Promise<
       text += decoder.decode();
     } finally { reader.releaseLock(); }
     const body: unknown = JSON.parse(text);
-    return object(body) ? body : bad('Expected a JSON object.');
+    return isObject(body) ? body : bad('Expected a JSON object.');
   } catch { return bad('Bad JSON.'); }
 }
 

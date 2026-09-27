@@ -117,7 +117,9 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
             beat={stage === 'recording' || (stage === 'countin' && settings.approach === 'on') ? beat : null}
             approach={settings.approach === 'on'}
             results={results}
-            barsPerLine={encore ? 4 : Math.min(ex.bars, 4)}
+            // Up to 4 bars on a line, but split evenly rather than leaving a
+            // near-empty last line (5 bars reads better as 3+2 than 4+1).
+            barsPerLine={encore ? 4 : Math.ceil(ex.bars / Math.ceil(ex.bars / 4))}
             revealUpTo={stage === 'unfold' ? -1 : Infinity}
           />
           {stage === 'countin' && (

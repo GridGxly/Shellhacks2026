@@ -6,24 +6,27 @@ import { TAVERN_BUFF_TIPS } from '@/lib/config';
 import { performanceDigest } from '@/lib/server/performance';
 import { bad, mutation, readJson } from '@/lib/server/http';
 import { limit } from '@/lib/server/ratelimit';
+import { runId } from '@/lib/server/validation';
 
 interface RewardClaimDoc extends RewardClaim { _id: string; userId: string; createdAt: Date }
 export async function POST(request: Request) {
   return guarded(request, async () => {
     const guard = mutation(request); if (guard) return guard;
     const body = await readJson(request, 1024); if (body instanceof Response) return body;
-    if (typeof body.runId !== 'string' || !/^[A-Za-z0-9-]{1,64}$/.test(body.runId)) return bad('Invalid climb identity.');
+    if (!runId(body.runId)) return bad('Invalid climb identity.');
     const user = await currentUser(); if (!user) return bad('Guests use their in-memory rewards.', 401);
     const blocked = await limit(`reward-claim:${user._id}`, 60, 600000); if (blocked) return blocked;
-    const runId = body.runId;
+    const climb = body.runId;
     const claim = await transaction(async (d, session) => {
-      const _id = performanceDigest([user._id, runId]);
+      const _id = performanceDigest([user._id, climb]);
       const collection = d.collection<RewardClaimDoc>('rewardClaims');
       const previous = await collection.findOne({ _id }, { session });
       if (previous) return previous;
       const account = await d.collection<UserDoc>('users').findOne({ _id: user._id }, { session });
       const tavern = account?.tavernBuff === true, training = account?.trainingBuff === true;
-      const receipt: RewardClaimDoc = { _id, userId: user._id, runId, tavern, training, tips: (tavern ? TAVERN_BUFF_TIPS : 0) + (training ? TRAINING_BUFF_TIPS : 0), createdAt: new Date() };
+      const receipt: RewardClaimDoc = { _id, userId: user._id, runId: climb, tavern, training, tips: (tavern ? TAVERN_BUFF_TIPS : 0) + (training ? TRAINING_BUFF_TIPS : 0), createdAt: new Date() };
+      // Nothing banked: answer without writing, so climbs without buffs leave no receipt behind.
+      if (!tavern && !training) return receipt;
       await collection.insertOne(receipt, { session });
       await d.collection<UserDoc>('users').updateOne({ _id: user._id }, { $unset: { tavernBuff: '', trainingBuff: '' } }, { session });
       return receipt;

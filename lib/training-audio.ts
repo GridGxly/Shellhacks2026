@@ -55,8 +55,14 @@ export interface TrainingFrame {
   pitch: number | null;
 }
 
-/** Keep the teammate's grader unchanged. Both real and demo takes follow the full phrase clock. */
-export async function performTraining(ex: Exercise, shift: number, demo: boolean, downbeat: number, signal: AbortSignal, frame: (value: TrainingFrame) => void): Promise<NoteResult[]> {
+/**
+ * Keep the teammate's grader unchanged. Both real and demo takes follow the full phrase clock.
+ *
+ * `take` records the player's audio for review. It must be stopped before the
+ * finally block stops the mic: MediaRecorder finalizes empty once its source
+ * tracks have ended, which is why Tavern also stops its recorder first.
+ */
+export async function performTraining(ex: Exercise, shift: number, demo: boolean, downbeat: number, signal: AbortSignal, frame: (value: TrainingFrame) => void, take?: { stop: () => Promise<unknown> } | null): Promise<NoteResult[]> {
   if (signal.aborted) throw aborted();
   const owner = ++audioOwner;
   const timers: ReturnType<typeof setTimeout>[] = [];
@@ -109,8 +115,69 @@ export async function performTraining(ex: Exercise, shift: number, demo: boolean
     cancelAnimationFrame(raf); timers.forEach(clearTimeout);
     clicks.forEach(click => { try { click.stop(); } catch {} click.disconnect(); });
     signal.removeEventListener('abort', cancel);
+    // Before mic.stop(): ending the stream's tracks first makes the recorder
+    // finalize with no data.
+    if (take) { try { await take.stop(); } catch {} }
     if (owner === audioOwner) { mic.endRecording(); mic.stop(); muteMusic(false); }
   }
+}
+
+const decoded = new WeakMap<object, Promise<AudioBuffer | null>>();
+/** Decode a take once per clip; review replays the same few clips repeatedly. */
+export function decodeTake(clip: { audio?: string }): Promise<AudioBuffer | null> {
+  let buffer = decoded.get(clip);
+  if (!buffer) {
+    buffer = (async () => {
+      if (!clip.audio) return null;
+      try {
+        const binary = atob(clip.audio);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return await ac().decodeAudioData(bytes.buffer);
+      } catch { return null; }
+    })();
+    decoded.set(clip, buffer);
+  }
+  return buffer;
+}
+
+/**
+ * Play one slice of a take. `fromMs`/`toMs` are phrase time (0 = the downbeat).
+ *
+ * The clip's offsetMs is `recorderStart - downbeat`, so clip time 0 is phrase
+ * time offsetMs — recording starts during the count-in, making it negative.
+ * Phrase time therefore maps to clip time by subtracting it.
+ */
+export async function playTake(clip: { audio?: string; offsetMs: number }, fromMs: number, toMs: number, signal: AbortSignal, onProgress?: (phraseMs: number) => void): Promise<boolean> {
+  const buffer = await decodeTake(clip);
+  if (!buffer || signal.aborted) return false;
+  const ctx = ac(); await resumeContext(ctx, signal);
+  if (signal.aborted) return false;
+  const start = Math.max(0, (fromMs - clip.offsetMs) / 1000);
+  const end = Math.min((toMs - clip.offsetMs) / 1000, buffer.duration);
+  const length = end - start;
+  if (length <= 0.02) return false;
+  const gain = ctx.createGain(); gain.connect(effectsOutput());
+  const source = ctx.createBufferSource(); source.buffer = buffer; source.connect(gain);
+  let raf = 0;
+  await new Promise<void>(resolve => {
+    const stop = () => { try { source.stop(); } catch {} resolve(); };
+    source.onended = () => { signal.removeEventListener('abort', stop); source.disconnect(); gain.disconnect(); resolve(); };
+    signal.addEventListener('abort', stop, { once: true });
+    const startedAt = ctx.currentTime;
+    source.start(startedAt, start, length);
+    if (onProgress) {
+      // Report position in phrase time so the staff cursor can follow the audio.
+      const tick = () => {
+        if (signal.aborted) return;
+        onProgress(fromMs + (ctx.currentTime - startedAt) * 1000);
+        raf = requestAnimationFrame(tick);
+      };
+      tick();
+    }
+  });
+  cancelAnimationFrame(raf);
+  return !signal.aborted;
 }
 
 /** Voices use decoded buffers so cancellation stops speech immediately, without leaked URLs. */

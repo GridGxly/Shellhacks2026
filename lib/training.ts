@@ -1,7 +1,7 @@
 'use client';
-import { guestBegin, guestClaim, guestStartPlan, guestSubmit, makeOfflinePlan, newGuestTraining, refreshGuestTraining } from './training-core';
+import { buildReview, guestBegin, guestClaim, guestStartPlan, guestSubmit, makeOfflinePlan, newGuestTraining, refreshGuestTraining } from './training-core';
 import { clearGuestPractice, guestWeaknesses, setGuestWeaknesses } from './client-performance';
-import type { TrainingFeedback, TrainingRegiment, TrainingResult, TrainingState } from './training-types';
+import type { ReviewSummary, TrainingFeedback, TrainingRegiment, TrainingResult, TrainingState } from './training-types';
 
 let guestState: TrainingState | null = null;
 let owner: string | null | undefined;
@@ -81,6 +81,14 @@ export class TrainingClient {
     }
     const result = await request<{ state?: TrainingState; feedback: TrainingFeedback; voiceToken?: string }>('/feedback', { day: state.day, planId: state.plan!.id, exerciseId: final ? 'final' : receipt.exerciseId }, this.signal);
     return { state: result.state ?? state, feedback: result.feedback, voiceToken: result.voiceToken };
+  }
+  /** Falls back to a local review so the walkthrough still works offline. */
+  async review(state: TrainingState): Promise<ReviewSummary> {
+    const body = this.identity
+      ? { day: state.day, planId: state.plan!.id }
+      : { plan: state.plan, receipts: state.receipts };
+    try { return await request<ReviewSummary>('/review', body, this.signal); }
+    catch (err) { if (this.signal.aborted) throw err; return buildReview(state); }
   }
   voiceBody(state: TrainingState, speaker: 'castor' | 'pollux', final = false, voiceToken?: string) {
     if (voiceToken) return { voiceToken, speaker };

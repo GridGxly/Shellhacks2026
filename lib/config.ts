@@ -58,6 +58,9 @@ export const TIPS_START = 120;
 export const TAVERN_PASS = 0.8;
 export const TAVERN_TEMPO = 84; // the shared Gran Vals phrase (eighth notes) for duets and 1v1
 export const TAVERN_BUFF_TIPS = 120;
+export const TRAINING_BUFF_TIPS = 120; // Gems and I daily reward
+export const SESSION_DAYS = 30; // sign-in cookie + session document lifetime
+export const LEADERBOARD_SIZE = 50; // rows returned by /api/leaderboard
 export const TAVERN_ROOM_TTL_MS = 10 * 60_000;
 export const TAVERN_STALE_MS = 8_000;
 // One second lets both polling clients prepare before the shared four-second light/count-in beat.
@@ -69,6 +72,13 @@ export const TAVERN_WAITING_POLL_MS = 1_500;
 export const TAVERN_RESULT_MAX_BYTES = 600 * 1024;
 export const TAVERN_AUDIO_MAX_BYTES = 400 * 1024;
 export const TAVERN_MAX_RECORD_OFFSET_MS = 2_000;
+export const TAVERN_HEARTBEAT_MS = 2_000; // polls refresh seenAt at most this often (well under TAVERN_STALE_MS)
+
+// Mentor ("Gems and I") player file, read from MongoDB for signed-in players.
+export const MENTOR_RECENT_DAYS = 14; // window for "recent performance" per mode
+export const MENTOR_HISTORY_DAYS = 30; // training days looked back on for the streak
+export const MENTOR_RECENT_CLIMBS = 5;
+// performanceEvents retention: see lib/mongo-indexes.json (TTL on at).
 export const TIPS_PER_WIN = 40;
 export const ACT_BONUS_TIPS = 60; // extra tips for beating an act boss
 export const ACT_BONUS_SCORE = 2500;
