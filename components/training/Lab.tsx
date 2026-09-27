@@ -146,11 +146,12 @@ export default function Lab({ onBack }: { onBack: () => void }) {
     try {
       const response = await fetch('/api/training/lab/compose', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ settings: settingsLab }),
+        // Only what the player really typed (the "YOU SAID" box starts with sample text).
+        body: JSON.stringify({ settings: settingsLab, request: history.filter(t => t.from === 'player').slice(-3).map(t => t.text).join(' / ') }),
       });
       const data = await response.json() as { exercise?: ReturnType<typeof composeOffline>; error?: string };
       if (turn !== op.current) return;
-      const exercise = data.exercise ?? composeOffline(settingsLab);
+      const exercise = data.exercise ?? composeOffline(settingsLab, (Math.random() * 2 ** 32) >>> 0);
       const next = buildCards(exercise);
       if (!next.length) throw new Error(data.error || 'That piece could not be turned into cards.');
       setCards(next); setCardId(next[0].id); setPhase('cards');
