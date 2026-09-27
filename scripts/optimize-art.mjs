@@ -1,6 +1,7 @@
-// Builds the light copies of the art that phones and small portraits use.
-// Desktop keeps the original PNGs untouched. Re-run after adding or changing art:
+// Builds the copies of the art the game actually loads. The PNGs stay as the
+// untouched masters. Re-run after adding or changing art:
 //   node scripts/optimize-art.mjs
+// - d/  desktop copies: full size WebP at quality 92, 6-60x smaller than the PNG.
 // - m/  handheld copies: sprites at 512 px (a phone draws them at ~130–330 css px),
 //       backgrounds at full size but lossy. About 1/20 of the PNG download and
 //       1/4 of the decoded memory for sprites.
@@ -11,10 +12,10 @@ import path from 'node:path';
 import sharp from 'sharp';
 
 const jobs = [
-  { dir: 'public/assets/sprites', m: { width: 512, quality: 90 }, t: { width: 256, quality: 88 }, sheets: ['instruments.png'] },
-  { dir: 'public/assets/tavern/characters', m: { width: 512, quality: 90 }, t: { width: 256, quality: 88 } },
-  { dir: 'public/assets/bg', m: { quality: 86 } },
-  { dir: 'public/assets', only: ['logo.png'], m: { width: 624, quality: 90 } },
+  { dir: 'public/assets/sprites', d: { quality: 92 }, m: { width: 512, quality: 90 }, t: { width: 256, quality: 88 }, sheets: ['instruments.png'] },
+  { dir: 'public/assets/tavern/characters', d: { quality: 92 }, m: { width: 512, quality: 90 }, t: { width: 256, quality: 88 } },
+  { dir: 'public/assets/bg', d: { quality: 92 }, m: { quality: 86 } },
+  { dir: 'public/assets', only: ['logo.png'], d: { quality: 92 }, m: { width: 624, quality: 90 } },
 ];
 
 let before = 0;
@@ -26,8 +27,9 @@ for (const job of jobs) {
     const name = file.replace(/\.png$/, '.webp');
     before += (await stat(src)).size;
     const sheet = job.sheets?.includes(file);
-    for (const variant of ['m', 't']) {
-      const spec = job[variant] && sheet ? variant === 'm' && { quality: job.m.quality } : job[variant];
+    for (const variant of ['d', 'm', 't']) {
+      // Sheets keep full size in every copy (their cell offsets are in source pixels) and get no thumbnail.
+      const spec = job[variant] && sheet ? variant !== 't' && { quality: job[variant].quality } : job[variant];
       if (!spec) continue;
       const out = path.join(job.dir, variant, name);
       await mkdir(path.dirname(out), { recursive: true });
