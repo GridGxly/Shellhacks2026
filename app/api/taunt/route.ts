@@ -36,14 +36,16 @@ export async function POST(request: Request) {
     const facts = factsFrom(b.facts);
     const foe = ENEMIES.find((e) => e.id === b.enemyId && e.voice === b.enemy);
     if (!foe || !int(b.heat, 0, 3) || !['miss', 'enemyTurn', 'hit'].includes(b.moment as string) || !facts || !Array.isArray(b.used) || b.used.length > 50 || b.used.some((s) => typeof s !== 'string' || s.length > 16)) return bad('Bad taunt.');
-    const local = await limit(`taunt:${clientIp(request)}`, 30, 600_000); if (local) return local;
-    const global = await limit('taunt:global', 120, 60_000); if (global) return global;
+    // A whole venue shares one IP, and a climb heckles ~100 times: these only stop floods.
+    const local = await limit(`taunt:${clientIp(request)}`, 300, 600_000); if (local) return local;
+    const global = await limit('taunt:global', 600, 60_000); if (global) return global;
     const taunt = pickTaunt(foe.voice, foe.id, b.heat, b.moment as TauntMoment, facts, b.used as string[]);
     if (!taunt) return new Response(null, { status: 204 });
     const text = taunt.text.slice(0, 200);
     const headers = { 'X-Taunt-Id': taunt.id, 'X-Taunt-Text': encodeURIComponent(text), 'Cache-Control': 'no-store' };
     const fallback = () => new Response(null, { status: 200, headers });
-    const budget = await voiceBudget(request); if (budget) return budget;
+    // Out of voice budget still heckles: the subtitle is free.
+    if (await voiceBudget(request)) return fallback();
     const key = process.env.ELEVENLABS_API_KEY;
     if (!key) return fallback();
     const controller = new AbortController();

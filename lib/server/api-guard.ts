@@ -26,7 +26,7 @@ export function guarded(request: Request, work: () => Promise<Response>) {
 
 /** Cost ceiling shared by taunts and both mentors across all server instances. */
 export async function voiceBudget(request: Request) {
-  return await limit(`voice:ip:${clientIp(request)}`, 40, 600_000)
-    ?? await limit('voice:global:minute', 20, 60_000)
-    ?? await limit('voice:global:day', 250, 86_400_000);
+  return await limit(`voice:ip:${clientIp(request)}`, 150, 600_000)
+    ?? await limit('voice:global:minute', 40, 60_000)
+    ?? await limit('voice:global:day', 700, 86_400_000);
 }

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { MongoError } from 'mongodb';
 import { db, dbConfigured } from '@/lib/db';
 import { bad, duplicate } from './http';
 
@@ -10,11 +11,27 @@ export const clientIp = (r: Request) => {
   return createHash('sha256').update((raw?.split(',')[0].trim() || 'unknown').slice(0,128)).digest('hex');
 };
 const denied = new Map<string, number>();
+// After Atlas fails, skip it briefly so one request doesn't wait out several connection timeouts.
+let dbDownUntil = 0;
 function cooldown(until: number, now: number) {
   const response = bad('Too many attempts. Please retry after the cooldown.', 429);
   response.headers.set('Retry-After', String(Math.max(1, Math.ceil((until - now) / 1000))));
   response.headers.set('Cache-Control', 'private, no-store');
   return response;
+}
+
+const DB_WAIT_MS = 1200;
+async function dbCount(id: string, expiresAt: Date, consume: boolean) {
+  const c = (await db()).collection<LimitDoc>('rateLimits');
+  if (!consume) return (await c.findOne({ _id: id }))?.count ?? 0;
+  const update = { $inc: { count: 1 }, $setOnInsert: { expiresAt } };
+  let row;
+  try { row = await c.findOneAndUpdate({ _id: id }, update, { upsert: true, returnDocument: 'after' }); }
+  catch (e) {
+    if (!duplicate(e)) throw e;
+    row = await c.findOneAndUpdate({ _id: id }, update, { returnDocument: 'after' });
+  }
+  return row!.count;
 }
 
 // Window is part of the key: TTL deletion need not happen at the boundary.
@@ -26,21 +43,17 @@ export async function limit(key: string, max: number, windowMs: number, consume 
   const start = Math.floor(now / windowMs) * windowMs;
   const id = `${key}:${start}`;
   const expiresAt = new Date(start + windowMs);
-  let count: number;
-  if (dbConfigured()) {
-    const c = (await db()).collection<LimitDoc>('rateLimits');
-    if (!consume) count = (await c.findOne({ _id: id }))?.count ?? 0;
-    else {
-      const update = { $inc: { count: 1 }, $setOnInsert: { expiresAt } };
-      let row;
-      try { row = await c.findOneAndUpdate({ _id: id }, update, { upsert: true, returnDocument: 'after' }); }
-      catch (e) {
-        if (!duplicate(e)) throw e;
-        row = await c.findOneAndUpdate({ _id: id }, update, { returnDocument: 'after' });
-      }
-      count = row!.count;
-    }
-  } else {
+  let count: number | undefined;
+  if (dbConfigured() && dbDownUntil <= now) {
+    // An unreachable Atlas must not silence guest features (taunts, twins): give it a short
+    // window, then fall back to per-instance memory instead of waiting out the driver timeout.
+    const counted = dbCount(id, expiresAt, consume);
+    counted.catch(() => {});
+    try { count = await Promise.race([counted, new Promise<undefined>((r) => setTimeout(r, DB_WAIT_MS))]); }
+    catch (e) { if (!(e instanceof MongoError)) throw e; }
+    if (count === undefined) dbDownUntil = Date.now() + 60_000;
+  }
+  if (count === undefined) {
     for (const [k, v] of memory) if (v.expiresAt.getTime() <= now) memory.delete(k);
     const row = memory.get(id) ?? { _id: id, count: 0, expiresAt };
     if (consume) { row.count++; if (memory.size >= 5000) memory.delete(memory.keys().next().value!); memory.set(id, row); }
