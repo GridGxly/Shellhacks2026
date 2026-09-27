@@ -87,7 +87,10 @@ export default function Training() {
   /** Takes and their review belong to one plan: a new or ended set must not replay the old ones. */
   const forgetTakes = () => {
     clips.current.clear(); setRecorded([]);
-    setReview(null); setStopIndex(0); setPausedStop(null); resumePlayback.current = null;
+    // Release a playback paused on a miss before dropping the resolver, or its
+    // promise never settles and playExercise hangs holding the panel open.
+    resumePlayback.current?.(); resumePlayback.current = null;
+    setReview(null); setStopIndex(0); setPausedStop(null);
   };
   const apply = (next: TrainingState) => {
     if (next.plan?.id !== stateRef.current?.plan?.id) forgetTakes();
