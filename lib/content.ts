@@ -86,7 +86,6 @@ export const ENEMIES: Enemy[] = ROSTER.flatMap((row, a) =>
   row.map(([id, name, voice, size, sfx], i) => {
     const act = a + 1;
     const boss = i === 2;
-    const hasLines = act === 1;
     return {
       id,
       name,
@@ -105,9 +104,9 @@ export const ENEMIES: Enemy[] = ROSTER.flatMap((row, a) =>
       size,
       attackSfx: `/audio/sfx/${sfx}-attack.mp3`,
       voice,
-      intro: hasLines ? `/audio/voice/${id}-intro.mp3` : undefined,
-      ko: hasLines ? `/audio/voice/${id}-ko.mp3` : undefined,
-      defeat: hasLines ? `/audio/voice/${id}-defeat.mp3` : undefined,
+      intro: `/audio/voice/${id}-intro.mp3`,
+      ko: `/audio/voice/${id}-ko.mp3`,
+      defeat: `/audio/voice/${id}-defeat.mp3`,
     } satisfies Enemy;
   }),
 );

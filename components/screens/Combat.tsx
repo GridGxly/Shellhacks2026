@@ -7,7 +7,7 @@ import { reportAdventurePerformance } from '@/lib/client-performance';
 import { grade, mic, simulate, type NoteResult } from '@/lib/mic';
 import type { Exercise } from '@/lib/music';
 import { instrumentOf, stat, useGame } from '@/lib/store';
-import { buildFacts, fetchTaunt, speak, type Taunt } from '@/lib/voice';
+import { buildFacts, fetchTaunt, speak, warmTaunt, type Taunt } from '@/lib/voice';
 import CardView from '../CardView';
 import Hud from '../Hud';
 import PerformOverlay, { createLiveSheet, type PerformStage } from '../PerformOverlay';
@@ -72,6 +72,9 @@ export default function Combat() {
   const onGlass = (x: number, y: number) => ({ x: 720 + (x - 720) * cover, y: 450 + lift + (y - 450) * cover });
   const hit = onGlass(enemyX + size * 0.15, enemyY + size * 0.1);
   const enemyRect = { ...hit, w: size * 0.7 * cover, h: size * 0.9 * cover };
+
+  // Wake this foe's ElevenLabs voice before its first heckle.
+  useEffect(() => warmTaunt(enemy), [enemy]);
 
   // ---------- entry (M2 step 4) ----------
   useEffect(() => {

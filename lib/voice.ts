@@ -53,6 +53,15 @@ function rememberTaunt(id: string) {
   try { localStorage.setItem(RECENT_KEY, JSON.stringify([...recentTaunts().filter((s) => s !== id), id].slice(-30))); } catch { /* storage blocked */ }
 }
 
+/** Wakes this foe's voice at the start of a fight so the first heckle isn't slow. */
+export function warmTaunt(enemy: Enemy) {
+  if (settings.trashTalk === 'off') return;
+  void fetch('/api/taunt', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enemy: enemy.voice, enemyId: enemy.id, warm: true }),
+  }).catch(() => {});
+}
+
 /** Asks the server for a line. Resolves with text (and audio when ready in time). */
 export async function fetchTaunt(
   enemy: Enemy,

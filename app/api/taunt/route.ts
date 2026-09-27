@@ -3,12 +3,20 @@ import { pickTaunt, type TauntFacts, type TauntMoment } from '@/lib/taunts';
 import { ENEMIES, type VoiceKey } from '@/lib/content';
 import { bad, int, mutation, object, readJson } from '@/lib/server/http';
 import { clientIp, limit } from '@/lib/server/ratelimit';
+import villains from '@/lib/villain-voices.json';
 
-const VOICES: Record<VoiceKey, string> = {
-  goblin: 'zauh4pbY6h1ZRErsRiAJ',
-  serpent: 'xYWUvKNK6zWCgsdAK7Wi',
-  choir: 'mLw8kuDeVGqVstOYjRII',
-};
+// Every foe has its own ElevenLabs voice; unknown ids fall back to their persona's voice.
+type Voice = { id: string; settings: Record<string, number> };
+const VOICES = villains.voices as Record<string, Voice>;
+const voiceFor = (id: string, persona: VoiceKey) => VOICES[id] ?? VOICES[persona];
+
+async function speak(voice: Voice, text: string, signal: AbortSignal) {
+  return fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice.id}/stream?output_format=mp3_44100_64`, {
+    method: 'POST', signal,
+    headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY!, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, model_id: villains.model, voice_settings: voice.settings }),
+  });
+}
 
 function factsFrom(v: unknown): TauntFacts | null {
   if (!object(v)) return null;
@@ -35,6 +43,13 @@ export async function POST(request: Request) {
     const b = await readJson(request, 4096); if (b instanceof Response) return b;
     const facts = factsFrom(b.facts);
     const foe = ENEMIES.find((e) => e.id === b.enemyId && e.voice === b.enemy);
+    // Fight start: a library voice's first request takes seconds, so wake it before the first heckle.
+    if (b.warm === true && foe) {
+      if (!process.env.ELEVENLABS_API_KEY || await limit(`taunt-warm:${clientIp(request)}`, 30, 600_000)) return new Response(null, { status: 204 });
+      const res = await speak(voiceFor(foe.id, foe.voice), 'Hm.', AbortSignal.timeout(8000)).catch(() => null);
+      void res?.body?.cancel().catch(() => {});
+      return new Response(null, { status: 204 });
+    }
     if (!foe || !int(b.heat, 0, 3) || !['miss', 'enemyTurn', 'hit'].includes(b.moment as string) || !facts || !Array.isArray(b.used) || b.used.length > 50 || b.used.some((s) => typeof s !== 'string' || s.length > 16)) return bad('Bad taunt.');
     // A whole venue shares one IP, and a climb heckles ~100 times: these only stop floods.
     const local = await limit(`taunt:${clientIp(request)}`, 300, 600_000); if (local) return local;
@@ -46,16 +61,12 @@ export async function POST(request: Request) {
     const fallback = () => new Response(null, { status: 200, headers });
     // Out of voice budget still heckles: the subtitle is free.
     if (await voiceBudget(request)) return fallback();
-    const key = process.env.ELEVENLABS_API_KEY;
-    if (!key) return fallback();
+    if (!process.env.ELEVENLABS_API_KEY) return fallback();
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    // Under the client's wait, so a slow voice still delivers the subtitle.
+    const timer = setTimeout(() => controller.abort(), 3500);
     try {
-      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICES[foe.voice]}/stream?output_format=mp3_44100_64`, {
-        method: 'POST', signal: controller.signal,
-        headers: { 'xi-api-key': key, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, model_id: 'eleven_flash_v2_5', voice_settings: { stability: 0.3, similarity_boost: 0.8, style: 0.7 } }),
-      });
+      const res = await speak(voiceFor(foe.id, foe.voice), text, controller.signal);
       if (!res.ok || !res.body) { void res.body?.cancel().catch(() => {}); return fallback(); }
       // Read within the timeout so failures mid-audio still preserve subtitles.
       const audio = await res.arrayBuffer();

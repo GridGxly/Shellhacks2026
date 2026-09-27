@@ -1,0 +1,24 @@
+{
+  "model": "eleven_flash_v2_5",
+  "lineModel": "eleven_v3",
+  "voices": {
+    "goblin": { "name": "STC Snare Goblin", "id": "zauh4pbY6h1ZRErsRiAJ", "settings": { "stability": 0.3, "similarity_boost": 0.8, "style": 0.7, "speed": 1.08 } },
+    "serpent": { "name": "STC Brass Serpent", "id": "xYWUvKNK6zWCgsdAK7Wi", "settings": { "stability": 0.35, "similarity_boost": 0.8, "style": 0.7, "speed": 0.95 } },
+    "choir": { "name": "STC Hollow Choir", "id": "mLw8kuDeVGqVstOYjRII", "settings": { "stability": 0.45, "similarity_boost": 0.8, "style": 0.6, "speed": 0.92 } },
+    "cymbal-crab": { "name": "Gideon, rough Irish pirate", "id": "Xq2dbIWNPChFB77imiDe", "settings": { "stability": 0.3, "similarity_boost": 0.8, "style": 0.7, "speed": 1.1 } },
+    "maraca-twins": { "name": "Miffy Mouse, squeaky cartoon", "id": "M5t0724ORuAGCh3p3DUR", "settings": { "stability": 0.25, "similarity_boost": 0.75, "style": 0.8, "speed": 1.15 } },
+    "tuba-golem": { "name": "Cave Monster, deep terrifying", "id": "HASaEuIpR5CVuLzDK1E1", "settings": { "stability": 0.6, "similarity_boost": 0.85, "style": 0.4, "speed": 0.8 } },
+    "metronome-knight": { "name": "Dominic, British and brooding", "id": "yhf80q1381zd2JJQ4tM7", "settings": { "stability": 0.7, "similarity_boost": 0.8, "style": 0.3, "speed": 1.0 } },
+    "xylophone-skeleton": { "name": "Toby, raspy little monster", "id": "Z7RrOqZFTyLpIlzCgfsp", "settings": { "stability": 0.25, "similarity_boost": 0.75, "style": 0.8, "speed": 1.1 } },
+    "organ-gargoyle": { "name": "Azazel, gravelly demon", "id": "ysswSXp8U9dFpzPJqFje", "settings": { "stability": 0.55, "similarity_boost": 0.85, "style": 0.5, "speed": 0.85 } },
+    "violin-specter": { "name": "Parasyte, whispers from the dark", "id": "1KFdM0QCwQn4rmn5nn9C", "settings": { "stability": 0.45, "similarity_boost": 0.8, "style": 0.6, "speed": 0.9 } },
+    "harp-siren": { "name": "Daria, soft seductive villain", "id": "X6VIT9ZXy5Nr7EmuLOGz", "settings": { "stability": 0.5, "similarity_boost": 0.8, "style": 0.6, "speed": 0.92 } },
+    "accordion-mimic": { "name": "Bill, mimicking and unnatural", "id": "WKtSiwnucIJgM5cTHARA", "settings": { "stability": 0.35, "similarity_boost": 0.85, "style": 0.6, "speed": 0.95 } },
+    "kazoo-harpy": { "name": "Nora, cackling witch", "id": "5PWbsfogbLtky5sxqtBz", "settings": { "stability": 0.25, "similarity_boost": 0.75, "style": 0.8, "speed": 1.12 } },
+    "bagpipe-beast": { "name": "Mossbeard, old Scottish wild god", "id": "bFrjFL4nlpeYNwNRhXxq", "settings": { "stability": 0.45, "similarity_boost": 0.8, "style": 0.6, "speed": 0.95 } },
+    "theremin-wisp": { "name": "Ian, strange distorted alien", "id": "D2jw4N9m4xePLTQ3IHjU", "settings": { "stability": 0.4, "similarity_boost": 0.8, "style": 0.6, "speed": 0.9 } },
+    "autotune-android": { "name": "Elon, cold android", "id": "nPijfmaNgvm5OSN4xM8H", "settings": { "stability": 0.8, "similarity_boost": 0.8, "style": 0.2, "speed": 1.05 } },
+    "conductor-lich": { "name": "Medraut, theatrical sovereign", "id": "dG7SBJDxDoZkQUrwvqrD", "settings": { "stability": 0.45, "similarity_boost": 0.85, "style": 0.7, "speed": 0.95 } },
+    "silent-maestro": { "name": "Malyx, echoing deep demon", "id": "vfaqCOvlrKi4Zp7C2IAm", "settings": { "stability": 0.55, "similarity_boost": 0.85, "style": 0.5, "speed": 0.88 } }
+  }
+}
