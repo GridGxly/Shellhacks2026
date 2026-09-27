@@ -71,14 +71,14 @@ export default function ChooseInstrument() {
       {/* 02 Choose Instrument: Riff stands on the showroom floor, EQUIPPED tagged above him. */}
       <div style={{ position: 'absolute', left: 'calc(70px - var(--rail-l))', top: 430, width: 300, height: 300 }}>
         <div style={{ position: 'absolute', left: 70, bottom: 10, width: 160, height: 16, borderRadius: '50%', background: '#100A1899' }} />
-        <Sprite key={inst.id} src={inst.sprite} x={0} y={0} size={300} style={{ transformOrigin: '50% 98%', animation: 'popIn 300ms steps(5) both, breathe 1.2s 300ms steps(2) infinite' }} />
+        <Sprite key={inst.id} src={inst.sprite} x={0} y={0} size={300} style={{ transformOrigin: '50% 98%', animation: 'popIn 300ms steps(5) both' }} />
         <div className="f-press" style={{ position: 'absolute', left: 40, top: -6, padding: '5px 10px', rotate: '-4deg', transformOrigin: '0 0', background: 'var(--magenta)', border: '3px solid #101126', fontSize: 13, color: '#FFF6E0' }}>EQUIPPED</div>
       </div>
 
       {/* Floating instrument */}
       <button onClick={() => move(-1)} className="hoverable tap" style={{ position: 'absolute', left: 470, top: 360 }} aria-label="Previous"><Arrow dir="left" size={56} /></button>
       <div key={idx} style={{ position: 'absolute', left: 540, top: 230, width: 360, height: 400, display: 'grid', placeItems: 'center', animation: `${dir >= 0 ? 'slideInRight' : 'slideInLeft'} 260ms steps(5) both` }}>
-        <div style={{ animation: 'bob 1.6s steps(4) infinite' }}><Icon i={inst.iconIndex} scale={2.6} /></div>
+        <div><Icon i={inst.iconIndex} scale={2.6} /></div>
       </div>
       <button onClick={() => move(1)} className="hoverable tap" style={{ position: 'absolute', left: 914, top: 360 }} aria-label="Next"><Arrow size={56} /></button>
 

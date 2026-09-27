@@ -85,7 +85,7 @@ export function StatsOverlay() {
             <span className="f-press" style={{ fontSize: 26, color: '#fff' }}>RIFF</span>
             <span className="f-body" style={{ fontSize: 17, color: 'var(--muted)' }}>the {inst.name}</span>
           </div>
-          <Sprite key={flash?.key} src={inst.sprite} x={40} y={130} size={320} style={{ animation: flash ? 'hitFlash 300ms steps(2), bob 900ms steps(2) infinite' : 'breathe 1.2s steps(2) infinite' }} />
+          <Sprite key={flash?.key} src={inst.sprite} x={40} y={130} size={320} style={{ animation: flash ? 'hitFlash 300ms steps(2)' : undefined }} />
           <div style={{ position: 'absolute', left: 28, right: 28, bottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span className="f-press" style={{ fontSize: 14, color: 'var(--sun)' }}>LEVEL {lv}</span>
@@ -296,7 +296,7 @@ export function MapPeek() {
                     );
                   })}
                 </div>
-                {ai === act && <span className="f-press" style={{ fontSize: 10, color: '#C23A7E', animation: 'blink 1s steps(1) infinite' }}>◀ YOU</span>}
+                {ai === act && <span className="f-press" style={{ fontSize: 10, color: '#C23A7E' }}>◀ YOU</span>}
               </div>
             ))}
           </div>

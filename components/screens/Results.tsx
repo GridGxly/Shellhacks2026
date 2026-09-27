@@ -6,7 +6,7 @@ import { ACTS, ENEMIES } from '@/lib/content';
 import { accuracy, canUpgrade, instrumentOf, stat, useGame } from '@/lib/store';
 import { useStageFit } from '@/lib/viewport';
 import Hud from '../Hud';
-import { Bg, FloatingNotes, Octagon, Ornament, Sprite, Stars, YellowButton } from '../ui';
+import { Bg, Octagon, Ornament, Sprite, YellowButton } from '../ui';
 import { art } from '@/lib/art';
 
 /** Counts a number up in steps (pixel-game style, not smooth). */
@@ -172,7 +172,7 @@ export function Loss() {
     <div className="fill" style={{ background: '#0B0B18' }}>
       <Bg src={foe.bg} style={{ filter: `${foe.bgFilter ?? ''} grayscale(1) brightness(0.25)` }} />
       <div className="bleed" style={{ background: 'radial-gradient(ellipse 60% 60% at 50% 45%, rgba(232,67,79,0.18), rgba(11,11,24,0.95) 80%)' }} />
-      <Sprite src={foe.sprite} x={1000} y={300} size={foe.size} style={{ opacity: 0.35, filter: `${foe.spriteFilter ?? ''} brightness(0.4)`, animation: 'breathe 1.4s steps(2) infinite' }} />
+      <Sprite src={foe.sprite} x={1000} y={300} size={foe.size} style={{ opacity: 0.35, filter: `${foe.spriteFilter ?? ''} brightness(0.4)` }} />
       <div ref={column} className="loss-col" style={{ position: 'absolute', left: 0, top: fit.top, scale: fit.k === 1 ? undefined : fit.k, transformOrigin: '50% 0', width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
         <div className="f-press" style={{ fontSize: 80, color: 'var(--hp)', textShadow: '#101126 8px 8px 0', animation: 'slam 450ms steps(6) both' }}>DEFEAT</div>
         <div className="f-body" style={{ fontSize: 22, color: 'var(--soft)', animation: 'fadeIn 300ms 400ms both' }}>
@@ -403,9 +403,7 @@ export function FinalVictory() {
   return (
     <div className="fill" style={{ background: '#101126' }}>
       <Bg src="/assets/bg/summit.png" style={{ filter: `brightness(${sing ? 0.75 : 0.2}) saturate(${sing ? 1 : 0.3})`, transition: 'filter 500ms steps(5)' }} />
-      {sing && <Stars />}
       {sing && <div style={{ position: 'absolute', left: 520, top: 0, width: 400, height: 900, background: 'linear-gradient(180deg, rgba(255,230,150,0.35), rgba(255,230,150,0))', clipPath: 'polygon(35% 0, 65% 0, 100% 100%, 0 100%)', animation: 'fadeIn 600ms steps(6) both' }} />}
-      {sing && <FloatingNotes count={16} />}
       {sing && <Confetti n={48} />}
       {sing && t < SING + 120 && <div className="bleed" style={{ background: '#FFF6E0', zIndex: 30 }} />}
 
@@ -434,7 +432,7 @@ export function FinalVictory() {
       {/* Beat 3: it sings */}
       {sing && (
         <>
-          <Sprite src={inst.id === 'trumpet' ? '/assets/sprites/riff-leap.png' : inst.sprite} x={560} y={430} size={320} style={{ animation: 'dropIn 500ms steps(6) both, bob 900ms 600ms steps(2) infinite' }} />
+          <Sprite src={inst.id === 'trumpet' ? '/assets/sprites/riff-leap.png' : inst.sprite} x={560} y={430} size={320} style={{ animation: 'dropIn 500ms steps(6) both' }} />
           <div style={{ position: 'absolute', left: 0, top: 90, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, zIndex: 5 }}>
             <div className="f-label" style={{ fontSize: 14, color: 'var(--sun)', animation: 'fadeIn 300ms both' }}>…THEN IT SINGS</div>
             <div className="f-press" style={{ fontSize: 58, color: '#fff', textShadow: '#101126 6px 6px 0, #D1307E 10px 10px 0', animation: 'slam 500ms 100ms steps(6) both' }}>ENCORE LANDED</div>

@@ -175,7 +175,7 @@ function RotateHint() {
   return (
     <div className="rotate-hint" style={{ position: 'fixed', inset: 0, zIndex: 400, placeItems: 'center', background: '#07070f', padding: 32 }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28, textAlign: 'center' }}>
-        <svg width="96" height="96" viewBox="0 0 16 16" shapeRendering="crispEdges" style={{ animation: 'rotatePhone 1.8s steps(6) infinite alternate' }}>
+        <svg width="96" height="96" viewBox="0 0 16 16" shapeRendering="crispEdges" style={{ animation: 'rotatePhone 1.2s steps(6) both' }}>
           <rect x="4" y="1" width="8" height="14" fill="#FFD23F" /><rect x="5" y="2" width="6" height="11" fill="#1B1D3A" />
           <rect x="7" y="13" width="2" height="1" fill="#101126" /><rect x="6" y="5" width="4" height="4" fill="#FF4FA3" />
         </svg>
@@ -195,7 +195,7 @@ function BootGate({ onStart }: { onStart: () => void }) {
           <source media="(pointer: coarse) and (max-width: 500px), (pointer: coarse) and (max-height: 500px)" srcSet="/assets/m/logo.webp" type="image/webp" />
           <img src="/assets/d/logo.webp" alt="Slay the Choir" width={520} style={{ display: 'block', animation: 'fadeIn 800ms both' }} />
         </picture>
-        <div className="f-press boot-start" style={{ fontSize: 16, color: 'var(--sun)', animation: 'blink 1.1s steps(1) infinite' }}>
+        <div className="f-press boot-start" style={{ fontSize: 16, color: 'var(--sun)' }}>
           <span className="kbd-only">PRESS ANY KEY</span>
           <span className="touch-only">TAP TO START</span>
         </div>

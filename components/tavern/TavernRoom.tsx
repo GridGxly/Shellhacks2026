@@ -88,7 +88,7 @@ export default function TavernRoom({ phase, mode = 'duet', winnerSide, mine, par
         return <div key={side}>
           <div className={`tavern-musician${joined && side === 1 ? ' tavern-guest-drop' : ''}`} style={{ left: side === 0 ? 390 : 710 }}>
             <div style={{ transform: `translateX(${reaction.x}px) skewX(${reaction.skew}deg)`, opacity: reaction.gone ? 0 : 1 }}>
-              <TavernAvatar characterId={player.characterId} instrument={player.instrument} facing={side === 1 ? 'left' : 'right'} size={340} className={playing ? 'tavern-playing' : 'tavern-breathing'} style={{ filter: `${palette} ${reaction.flash ? 'brightness(3) sepia(1) saturate(7) hue-rotate(315deg)' : `brightness(${brightness})`}` }} />
+              <TavernAvatar characterId={player.characterId} instrument={player.instrument} facing={side === 1 ? 'left' : 'right'} size={340} className={playing ? 'tavern-playing' : undefined} style={{ filter: `${palette} ${reaction.flash ? 'brightness(3) sepia(1) saturate(7) hue-rotate(315deg)' : `brightness(${brightness})`}` }} />
             </div>
             {side === 1 && joined && <div className="tavern-landing-dust" aria-hidden="true">{Array.from({ length: 7 }, (_, n) => <i key={n} style={{ left: n * 32, animationDelay: `${300 + (n % 2) * 30}ms` }} />)}</div>}
           </div>

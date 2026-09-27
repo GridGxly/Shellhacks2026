@@ -117,7 +117,7 @@ function MapNode({ enemy, state, y, justCleared, justUnlocked, pressed, onClick 
   return (
     <div style={{ position: 'absolute', left: 720 - 120, top: y - size / 2, width: 240, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
       {state === 'available' && (
-        <div className="f-press ui-b ui-soft" style={{ position: 'absolute', top: -58, padding: '6px 12px', background: 'var(--sun)', border: '3px solid #101126', color: '#101126', fontSize: 13, animation: justUnlocked ? 'dropIn 300ms 1300ms steps(5) both, pinBob 1.2s 1600ms steps(2) infinite' : 'pinBob 1.2s steps(2) infinite' }}>
+        <div className="f-press ui-b ui-soft" style={{ position: 'absolute', top: -58, padding: '6px 12px', background: 'var(--sun)', border: '3px solid #101126', color: '#101126', fontSize: 13, animation: justUnlocked ? 'dropIn 300ms 1300ms steps(5) both' : undefined }}>
           FIGHT
         </div>
       )}
@@ -128,7 +128,6 @@ function MapNode({ enemy, state, y, justCleared, justUnlocked, pressed, onClick 
           position: 'relative', width: size, height: size, background: '#101126', clipPath: clip(size), flexShrink: 0,
           transform: pressed ? 'scale(0.9)' : undefined, filter: pressed ? 'brightness(2)' : undefined,
           boxShadow: enemy.boss ? '0 0 0 8px rgba(255,79,163,0.25)' : undefined,
-          animation: state === 'boss' ? 'rattle 3s steps(1) infinite' : undefined,
           cursor: state === 'available' ? 'pointer' : 'default',
         }}
       >
@@ -220,7 +219,7 @@ function NextFightPanel({ onFight, reveal }: { onFight: () => void; reveal: bool
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '20px 24px' }}>
         <div style={{ position: 'relative', width: 96, height: 96, flexShrink: 0, overflow: 'hidden', background: next.boss ? '#3A1B2E' : '#2A2240', border: `3px solid ${next.boss ? '#6A2A4A' : '#43365F'}` }}>
-          <div className="sprite" style={{ left: -12, top: -4, width: 120, height: 120, backgroundImage: `url(${art(next.sprite)})`, animation: 'breathe 1.4s steps(2) infinite' }} />
+          <div className="sprite" style={{ left: -12, top: -4, width: 120, height: 120, backgroundImage: `url(${art(next.sprite)})` }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

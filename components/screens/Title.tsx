@@ -121,7 +121,7 @@ export default function Title() {
         <div className="fill" style={{ backgroundImage: 'linear-gradient(180deg, rgba(16,17,38,0) 55%, rgba(16,17,38,0.9) 100%)' }} />
         {/* Riff stands on the summit's flat stone, feet on its front edge, rim-lit by the moon. */}
         <div style={{ position: 'absolute', left: 575, top: 366, width: 280, height: 320, backgroundImage: 'radial-gradient(ellipse 50% 50% at 50% 50%, rgba(255,240,190,0.4) 0%, rgba(255,230,140,0.1) 55%, rgba(255,230,140,0) 75%)' }} />
-        <Sprite src={instrumentOf(useGame.getState().run).sprite} x={545} y={356} size={340} style={{ transformOrigin: '50% 98%', animation: landing ? `titleLand ${LAND_MS + 260}ms linear both` : 'breathe 1.2s steps(2) infinite' }} />
+        <Sprite src={instrumentOf(useGame.getState().run).sprite} x={545} y={356} size={340} style={{ transformOrigin: '50% 98%', animation: landing ? `titleLand ${LAND_MS + 260}ms linear both` : undefined }} />
         {landing && <>
           <div className="title-shock" style={{ left: 545, top: 664, width: 340, height: 48, animationDelay: `${LAND_MS}ms` }} />
           {Array.from({ length: 8 }, (_, i) => <div key={i} className="intro-dust" style={{ left: 600 + i * 30, top: 676, ['--at' as string]: `${LAND_MS + (i % 2) * 30}ms`, ['--dx' as string]: `${(i - 3.5) * 26}px` }} />)}

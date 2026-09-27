@@ -471,7 +471,7 @@ export default function Combat() {
               phase === 'ko' && fx.riff === 'hurt' ? 'knockback 500ms steps(5) both, dissolve 600ms 1500ms steps(8) forwards'
               : fx.riff === 'hurt' ? 'knockback 500ms steps(5), hitFlash 400ms steps(2)'
               : fx.riff === 'attack' || fx.riff === 'encore' ? 'lungeRight 500ms steps(4)'
-              : fx.riff === 'windup' ? undefined : 'breathe 1.2s steps(2) infinite',
+              : undefined,
             transform: fx.riff === 'windup' ? 'translateX(-18px) rotate(-3deg)' : undefined,
             filter: fx.flash === 'white' ? 'brightness(0)' : undefined,
           }}
@@ -484,7 +484,7 @@ export default function Combat() {
       {/* Enemy */}
       <div style={{ position: 'absolute', left: enemyX, top: enemyY, width: size, zIndex: 5, animation: phase === 'enter' ? 'slideInRight 500ms 300ms steps(6) both' : undefined }}>
         {phase !== 'win' && (
-          <div className="combat-intent ui-b ui-soft" style={{ position: 'absolute', left: size / 2 - 38, top: -46, display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 6px', background: 'rgba(16,17,38,0.85)', border: '3px solid #101126', animation: 'bob 1.4s steps(2) infinite' }}>
+          <div className="combat-intent ui-b ui-soft" style={{ position: 'absolute', left: size / 2 - 38, top: -46, display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 6px', background: 'rgba(16,17,38,0.85)', border: '3px solid #101126' }}>
             <svg width="24" height="24" viewBox="0 0 8 8" shapeRendering="crispEdges">
               <rect x="6" y="0" width="2" height="1" fill="#fff" /><rect x="7" y="1" width="1" height="1" fill="#fff" />
               <rect x="5" y="1" width="2" height="1" fill="#E6ECFF" /><rect x="4" y="2" width="2" height="1" fill="#E6ECFF" />
@@ -507,7 +507,7 @@ export default function Combat() {
               fx.enemy === 'dissolve' ? 'hitFlash 300ms steps(2), dissolve 1200ms 300ms steps(10) forwards'
               : fx.enemy === 'hit' ? 'hitFlash 400ms steps(2), shakeSmall 300ms steps(3)'
               : fx.enemy === 'attack' ? 'lungeLeft 700ms steps(5)'
-              : fx.enemy === 'windup' ? undefined : 'breathe 1.4s steps(2) infinite',
+              : undefined,
             transform: fx.enemy === 'windup' ? 'translateX(20px) rotate(4deg)' : undefined,
             filter: fx.flash === 'white' ? 'brightness(0)' : enemy.spriteFilter,
           }}
@@ -764,7 +764,7 @@ function EncoreButton({ charged, damage, onPlay }: { charged: boolean; damage: n
         disabled={!charged}
         onClick={onPlay}
         onMouseEnter={() => charged && sfx('hover')}
-        style={{ position: 'relative', width: 148, height: 148, borderRadius: '50%', background: '#101126', display: 'grid', placeItems: 'center', cursor: charged ? 'pointer' : 'default', boxShadow: charged ? '0 0 0 6px rgba(255,79,163,0.4), 0 0 30px rgba(255,79,163,0.6)' : undefined, animation: charged ? 'pulseGold 1s steps(3) infinite' : undefined, borderColor: 'transparent' }}
+        style={{ position: 'relative', width: 148, height: 148, borderRadius: '50%', background: '#101126', display: 'grid', placeItems: 'center', cursor: charged ? 'pointer' : 'default', boxShadow: charged ? '0 0 0 6px rgba(255,79,163,0.4), 0 0 30px rgba(255,79,163,0.6)' : undefined, borderColor: 'transparent' }}
       >
         <div style={{ width: 124, height: 124, borderRadius: '50%', display: 'grid', placeItems: 'center', background: charged ? '#D1307E' : '#3A3F70', border: `6px solid ${charged ? '#FFD23F' : '#2A2F55'}` }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>

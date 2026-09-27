@@ -34,14 +34,14 @@ export default function Hud({ center, pulse }: { center: string; pulse?: 'map' |
           className="hoverable hud-avatar tap"
           style={{ position: 'relative', width: 44, height: 44 }}
         >
-          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: '#2A2F55', border: '3px solid var(--sun)', boxShadow: pulse === 'face' ? undefined : '#101126 3px 3px 0', animation: pulse === 'face' ? 'pulseGold 900ms steps(3) infinite' : undefined }}>
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: '#2A2F55', border: '3px solid var(--sun)', boxShadow: pulse === 'face' ? '0 0 0 3px #ffd23f, 0 0 10px rgba(255,210,63,0.4)' : '#101126 3px 3px 0' }}>
             <div className="sprite" style={{ left: -68, top: 2, width: 150, height: 150, backgroundImage: `url(${art(inst.sprite)})`, backgroundPosition: '50% 0' }} />
           </div>
           <div className="f-press hud-level" style={{ position: 'absolute', left: 4, top: 34, padding: '2px 4px', background: '#101126', border: '2px solid var(--sun)', fontSize: 8, lineHeight: '10px', color: 'var(--sun)' }}>
             LV{level(run)}
           </div>
           {upgradable && (
-            <div style={{ position: 'absolute', left: 34, top: -7, width: 16, height: 16, display: 'grid', placeItems: 'center', background: 'var(--meadow)', border: '2px solid #101126', animation: 'bob 1.2s steps(2) infinite' }}>
+            <div style={{ position: 'absolute', left: 34, top: -7, width: 16, height: 16, display: 'grid', placeItems: 'center', background: 'var(--meadow)', border: '2px solid #101126' }}>
               <svg width="8" height="8" viewBox="0 0 4 4" shapeRendering="crispEdges"><rect x="1" y="0" width="2" height="4" fill="#101126" /><rect x="0" y="1" width="4" height="2" fill="#101126" /></svg>
             </div>
           )}

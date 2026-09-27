@@ -101,7 +101,7 @@ export function Leaderboard() {
                 {r === 'all' ? 'ALL TIME' : 'THIS WEEK'}
               </button>
             ))}
-            <span role="status" aria-label={connected ? 'Leaderboard live' : 'Leaderboard reconnecting'} className="f-label" style={{ alignSelf: 'center', marginLeft: 10, fontSize: 14, color: connected ? 'var(--meadow)' : 'var(--muted)' }}><span style={{ animation: connected ? 'blink 1.6s steps(2) infinite' : undefined }}>●</span> LIVE</span>
+            <span role="status" aria-label={connected ? 'Leaderboard live' : 'Leaderboard reconnecting'} className="f-label" style={{ alignSelf: 'center', marginLeft: 10, fontSize: 14, color: connected ? 'var(--meadow)' : 'var(--muted)' }}>● LIVE</span>
           </div>
           <span className="f-label" style={{ fontSize: 11, color: 'var(--muted)' }}>BEST VERIFIED RUN PER CLIMBER</span>
         </div>
@@ -290,7 +290,7 @@ function ProfileCard({ target }: { target: string | null }) {
         {/* Card */}
         <div className="profile-card" style={{ width: 340, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: 24, background: 'rgba(16,17,38,0.9)', border: '4px solid var(--sun)', boxShadow: '#101126 8px 8px 0', animation: 'panelIn 400ms steps(6) both' }}>
           <div style={{ position: 'relative', width: 150, height: 150, overflow: 'hidden', background: '#2A2F55', border: '4px solid #101126' }}>
-            <div className="sprite" style={{ left: -30, top: 4, width: 210, height: 210, backgroundImage: `url(${art(instIcon(data?.favoriteInstrument ?? 'trumpet'))})`, backgroundPosition: '50% 0', animation: 'breathe 1.2s steps(2) infinite' }} />
+            <div className="sprite" style={{ left: -30, top: 4, width: 210, height: 210, backgroundImage: `url(${art(instIcon(data?.favoriteInstrument ?? 'trumpet'))})`, backgroundPosition: '50% 0' }} />
           </div>
           <div className="f-press" style={{ fontSize: Math.min(22, 280 / name.length), color: '#fff' }}>{name}</div>
           <div style={{ display: 'flex', gap: 8 }}>
