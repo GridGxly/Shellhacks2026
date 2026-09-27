@@ -4,7 +4,7 @@ import { playFile, playMusic, playVoice, sfx } from '@/lib/audio';
 import { ACTS, ENEMIES } from '@/lib/content';
 import { instrumentOf, useGame } from '@/lib/store';
 import Hud from '../Hud';
-import { Bg, KeyHint, Padlock, Sprite } from '../ui';
+import { Bg, KeyHint, Padlock, Scene, Sprite } from '../ui';
 import { art } from '@/lib/art';
 
 /** Set by the Victory screen so the map plays the M3 path-update beat. */
@@ -69,6 +69,7 @@ export default function MapScreen() {
 
   return (
     <div className="fill" style={{ background: '#101126' }}>
+      <Scene>
       <div
         className="fill"
         style={{
@@ -87,6 +88,7 @@ export default function MapScreen() {
           return <MapNode key={e.id} enemy={e} state={state} y={NODE_Y[i]} justCleared={justCleared} justUnlocked={justUnlocked} pressed={phase === 'press' && i === inAct} onClick={fight} />;
         })}
       </div>
+      </Scene>
 
       {phase === 'idle' && (
         <>
