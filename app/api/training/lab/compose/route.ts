@@ -13,7 +13,8 @@ export async function POST(request: Request) {
     const blocked = await limit(`training-lab-compose:${user?._id ?? clientIp(request)}`, 8, 600000); if (blocked) return blocked;
     const global = await limit('training-lab-compose:global', 40, 60000); if (global) return global;
     const settings = clampLabSettings(object(body.settings) ? body.settings : body);
-    const result = await composeLabPiece(settings);
+    const asked = typeof body.request === 'string' ? body.request.replace(/[<>\u0000-\u001f]/g, '').slice(0, 280) : '';
+    const result = await composeLabPiece(settings, asked);
     return Response.json(result, { headers: { 'Cache-Control': 'private, no-store' } });
   });
 }

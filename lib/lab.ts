@@ -97,12 +97,34 @@ function hashSettings(settings: LabSettings) {
   return h >>> 0;
 }
 
-function pattern(focus: LabFocus, beatsPerBar: 3 | 4, difficulty: LabDiff): number[] {
-  if (focus === 'dotted') return beatsPerBar === 3 ? [1.5, 0.5, 1] : [1.5, 0.5, 1.5, 0.5];
-  if (focus === 'pulse') return Array.from({ length: beatsPerBar }, () => 1);
-  if (focus === 'scale') return difficulty === 'hard' ? Array.from({ length: beatsPerBar * 2 }, () => 0.5) : Array.from({ length: beatsPerBar }, () => 1);
-  if (focus === 'leaps') return beatsPerBar === 3 ? [1, 1, 1] : [1, 0.5, 0.5, 2];
-  return beatsPerBar === 3 ? [1, 0.5, 0.5, 1] : [1, 1, 0.5, 0.5, 1];
+// One-bar rhythm motifs (beat lengths) per focus. Each new piece is built on a
+// different one, so two pieces with the same settings still feel different.
+const MOTIFS: Record<'dotted' | 'pulse' | 'other', Record<3 | 4, number[][]>> = {
+  dotted: {
+    4: [[1.5, 0.5, 1, 1], [1.5, 0.5, 1.5, 0.5], [1, 1.5, 0.5, 1], [0.5, 0.5, 1.5, 0.5, 1], [1.5, 0.5, 2]],
+    3: [[1.5, 0.5, 1], [1, 1.5, 0.5], [0.5, 0.5, 1.5, 0.5]],
+  },
+  pulse: {
+    4: [[1, 1, 1, 1], [1, 1, 2], [2, 1, 1], [1, 1, 1, 0.5, 0.5], [1, 2, 1]],
+    3: [[1, 1, 1], [2, 1], [1, 2], [1, 1, 0.5, 0.5]],
+  },
+  other: {
+    4: [[0.5, 0.5, 1, 0.5, 0.5, 1], [1, 0.5, 0.5, 2], [0.5, 1, 0.5, 2], [2, 0.5, 0.5, 1], [1, 1, 0.5, 0.5, 1], [0.5, 0.5, 0.5, 0.5, 1, 1], [3, 1], [1, 0.5, 1, 0.5, 1]],
+    3: [[1, 0.5, 0.5, 1], [0.5, 0.5, 0.5, 0.5, 1], [2, 0.5, 0.5], [0.5, 1, 0.5, 1], [1, 1, 1], [0.5, 0.5, 2]],
+  },
+};
+
+export function labMotifs(focus: LabFocus, beatsPerBar: 3 | 4): number[][] {
+  return MOTIFS[focus === 'dotted' ? 'dotted' : focus === 'pulse' ? 'pulse' : 'other'][beatsPerBar];
+}
+
+function pattern(focus: LabFocus, beatsPerBar: 3 | 4, difficulty: LabDiff, rand: () => number): number[] {
+  if (focus === 'scale' && difficulty === 'hard') return Array.from({ length: beatsPerBar * 2 }, () => 0.5);
+  const motifs = labMotifs(focus, beatsPerBar);
+  // Two motifs alternating bar by bar: a main idea and an answer.
+  const a = motifs[Math.floor(rand() * motifs.length)];
+  const b = motifs[Math.floor(rand() * motifs.length)];
+  return [...a, ...a, ...b, ...a];
 }
 
 function stepFrom(midi: number, pcs: number[], dir: number, leap: boolean) {
@@ -120,13 +142,47 @@ function stepFrom(midi: number, pcs: number[], dir: number, leap: boolean) {
   return found;
 }
 
+/** The Lab only offers LAB_KEYS. A key outside them keeps its mode (sad stays minor)
+ *  and moves to the closest allowed tonic, instead of falling back to C major. */
+export function nearestLabKey(tonic: number, mode: LabMode) {
+  const dist = (k: (typeof LAB_KEYS)[number]) => { const d = Math.abs(k.tonic - tonic) % 12; return Math.min(d, 12 - d); };
+  return LAB_KEYS.filter(k => k.mode === mode).reduce((best, k) => (dist(k) < dist(best) ? k : best));
+}
+
+export const LAB_KEY_NAMES = LAB_KEYS.map(k => `${k.label.replace(' MAJ', ' major').replace(' MIN', ' minor')} (tonic ${k.tonic})`).join(', ');
+
+/** Offline guess at what a request means musically, used when Gemini can't answer. */
+export function moodSettings(text: string, current: LabSettings): { settings: LabSettings; mood: 'sad' | 'happy' | 'spooky' | 'triumphant' | 'calm' | null } {
+  const t = text.toLowerCase();
+  const has = (re: RegExp) => re.test(t);
+  const pick = (patch: Partial<LabSettings>) => clampLabSettings({ ...current, ...patch });
+  if (has(/spook|scary|creep|haunt|dark|eerie|mysterious/)) return { mood: 'spooky', settings: pick({ tonic: 4, mode: 'minor', tempo: 60, style: 'hymn' }) };
+  if (has(/sad|sorrow|melanchol|lonely|cry|grief|gloom|blue\b|minor/)) return { mood: 'sad', settings: pick({ tonic: 9, mode: 'minor', tempo: 66, style: 'lullaby' }) };
+  if (has(/triumph|epic|heroic|victor|battle|march|bold|grand/)) return { mood: 'triumphant', settings: pick({ tonic: 10, mode: 'major', tempo: 112, style: 'march' }) };
+  if (has(/happy|joy|bright|cheer|fun|upbeat|dance|sunny|major/)) return { mood: 'happy', settings: pick({ tonic: 7, mode: 'major', tempo: 120, style: 'dance' }) };
+  if (has(/calm|peace|gentle|sleep|soft|lullab|relax/)) return { mood: 'calm', settings: pick({ tonic: 5, mode: 'major', tempo: 68, style: 'lullaby' }) };
+  return { mood: null, settings: current };
+}
+
+/** Snap every note into the key and land the last one on the tonic, so the piece sounds like its key. */
+export function fitToKey(ex: Exercise, settings: LabSettings): Exercise {
+  const pcs = scalePcs(settings.tonic, settings.mode);
+  const notes = ex.notes.map(n => ({ ...n, midi: nearestInKey(n.midi, pcs) }));
+  const last = notes[notes.length - 1];
+  if (last) {
+    const options = [48, 60, 72, 84].map(o => o + settings.tonic).filter(m => m >= 60 && m <= 84);
+    last.midi = options.reduce((a, b) => (Math.abs(b - last.midi) < Math.abs(a - last.midi) ? b : a));
+  }
+  return { ...ex, notes };
+}
+
 export function clampLabSettings(v: unknown): LabSettings {
   const base = defaultLabSettings();
   if (!v || typeof v !== 'object') return base;
   const o = v as Record<string, unknown>;
-  const tonic = clamp(Math.round(Number(o.tonic)), 0, 11);
+  const tonic = clamp(Math.round(Number(o.tonic)) || 0, 0, 11);
   const mode: LabMode = o.mode === 'minor' ? 'minor' : 'major';
-  const match = LAB_KEYS.find(k => k.tonic === tonic && k.mode === mode) ?? LAB_KEYS[0];
+  const match = nearestLabKey(tonic, mode);
   const tempo = clamp(Math.round(Number(o.tempo) || base.tempo), 48, 140);
   const beatsPerBar: 3 | 4 = Number(o.beatsPerBar) === 3 ? 3 : 4;
   const bars: 4 | 8 = Number(o.bars) === 4 ? 4 : 8;
@@ -139,7 +195,7 @@ export function clampLabSettings(v: unknown): LabSettings {
 export function composeOffline(settings: LabSettings, seed = hashSettings(settings)): Exercise {
   const pcs = scalePcs(settings.tonic, settings.mode);
   const rand = rng(seed);
-  const durs = pattern(settings.focus, settings.beatsPerBar, settings.difficulty);
+  const durs = pattern(settings.focus, settings.beatsPerBar, settings.difficulty, rand);
   const tonicMidi = nearestInKey(60 + ((settings.tonic - 0 + 12) % 12), pcs);
   let midi = tonicMidi;
   const notes: Note[] = [];
