@@ -10,7 +10,7 @@ import { instrumentOf, stat, useGame } from '@/lib/store';
 import { buildFacts, fetchTaunt, speak, type Taunt } from '@/lib/voice';
 import CardView from '../CardView';
 import Hud from '../Hud';
-import PerformOverlay, { createLiveSheet, useHearing, type PerformStage } from '../PerformOverlay';
+import PerformOverlay, { createLiveSheet, type PerformStage } from '../PerformOverlay';
 import { Bg, HpBar, Octagon, Sprite } from '../ui';
 import { mapFx } from './MapScreen';
 import { useViewport } from '@/lib/viewport';
@@ -45,6 +45,7 @@ export default function Combat() {
   // The cursor beat and live grading change every frame; only the sheet listens
   // to them, so the fight scene is not re-rendered sixty times a second.
   const [sheet] = useState(createLiveSheet);
+  const [hearing, setHearing] = useState<number | null>(null);
   const [fx, setFx] = useState<{ riff?: 'windup' | 'attack' | 'hurt' | 'encore'; enemy?: 'windup' | 'hit' | 'attack' | 'dissolve'; pop?: { v: number; side: 'enemy' | 'riff'; key: number }; flash?: 'red' | 'white'; barrage?: number; enemyBarrage?: number; burst?: number; riffBurst?: number; flyoff?: { type: string; key: number } }>({});
   const [taunt, setTaunt] = useState<(Taunt & { heat: number; speaking: boolean }) | null>(null);
   const [drag, setDrag] = useState<{ idx: number; x: number; y: number; ox: number; oy: number; sx: number; sy: number; pointerId: number; pointerType: string; overEnemy: boolean } | null>(null);
@@ -80,10 +81,13 @@ export default function Combat() {
       window.setTimeout(() => sfx('stampHit'), 700),
       ...[0, 1, 2].map((i) => window.setTimeout(() => sfx('deal'), 1500 + i * 90)),
     ];
+    const l = (r: { stableMidi: number | null }) => setHearing(r.stableMidi);
+    mic.listeners.add(l);
     return () => {
       alive.current = false;
       performing.current = false;
       entryTimers.forEach(clearTimeout);
+      mic.listeners.delete(l);
       mic.endRecording();
       muteMusic(false);
       stopVoices();
@@ -603,7 +607,7 @@ export default function Combat() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span className="f-label" style={{ fontSize: 12, color: '#C9CDE8' }}>{micReady && !demoMode ? 'MIC' : 'DEMO'}</span>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 22 }}>
-              <MicMeter active={canAct && micReady && !demoMode} micReady={micReady} />
+              {[6, 10, 14, 18, 22].map((h, i) => <div key={i} style={{ width: 6, height: h, background: hearing !== null && i < 4 ? 'var(--meadow)' : micReady ? (i < 2 ? 'var(--meadow)' : '#3A3F70') : '#3A3F70' }} />)}
             </div>
           </div>
         </div>
@@ -639,6 +643,7 @@ export default function Combat() {
             stage={perform.stage}
             count={perform.count}
             sheet={sheet}
+            hearing={perform.stage === 'recording' ? hearing : null}
             passLine={passLine}
             demo={demoMode || !micReady}
           />
@@ -793,10 +798,4 @@ function TauntBubble({ taunt, name, x, y }: { taunt: Taunt & { heat: number; spe
       </svg>
     </div>
   );
-}
-
-/** The mic-check bars. Listens only on the player's turn, and re-renders only itself. */
-function MicMeter({ active, micReady }: { active: boolean; micReady: boolean }) {
-  const heard = useHearing(active) !== null;
-  return <>{[6, 10, 14, 18, 22].map((h, i) => <div key={i} style={{ width: 6, height: h, background: heard && i < 4 ? 'var(--meadow)' : micReady ? (i < 2 ? 'var(--meadow)' : '#3A3F70') : '#3A3F70' }} />)}</>;
 }

@@ -1,6 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { mic } from '@/lib/mic';
+import { useRef, useSyncExternalStore } from 'react';
 import { settings } from '@/lib/audio';
 import { useStageFit } from '@/lib/viewport';
 import type { Exercise } from '@/lib/music';
@@ -29,22 +28,6 @@ export function createLiveSheet(): LiveSheet {
   };
 }
 
-/**
- * The note the mic hears right now (concert midi), subscribed only while
- * `active`: the analyser loop idles when nobody listens, and only the component
- * calling this re-renders when the pitch changes.
- */
-export function useHearing(active: boolean): number | null {
-  const [hearing, setHearing] = useState<number | null>(null);
-  useEffect(() => {
-    if (!active) return;
-    const listener = (r: { stableMidi: number | null }) => setHearing(r.stableMidi);
-    mic.listeners.add(listener);
-    return () => { mic.listeners.delete(listener); };
-  }, [active]);
-  return active ? hearing : null;
-}
-
 interface Props {
   ex: Exercise;
   inst: Instrument;
@@ -53,15 +36,13 @@ interface Props {
   stage: PerformStage;
   count: number; // count-in beat shown (1..4)
   sheet: LiveSheet;
+  hearing: number | null; // concert midi
   passLine: number; // 0..1
   demo: boolean;
 }
 
-export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, sheet, passLine, demo }: Props) {
+export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, sheet, hearing, passLine, demo }: Props) {
   const { beat, results } = useSyncExternalStore(sheet.subscribe, sheet.get, sheet.get);
-  // Listening from the count-in keeps the pitch detector warm for the first note, as before.
-  const heard = useHearing(stage === 'countin' || stage === 'recording');
-  const hearing = stage === 'recording' ? heard : null;
   const encore = ex.type === 'encore';
   const color = encore ? { body: '#D1307E' } : CARD_STYLE[ex.type as 'chord'];
   const done = results.filter(Boolean) as NoteResult[];

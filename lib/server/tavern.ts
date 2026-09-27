@@ -1,5 +1,5 @@
 import { guarded } from '@/lib/server/api-guard';
-import { randomBytes, randomInt } from 'node:crypto';
+import { createHash, randomBytes, randomInt } from 'node:crypto';
 // Binary: takes are stored as binary in tavernTakes.
 import { Binary, type ClientSession, type Db } from 'mongodb';
 import {
@@ -14,7 +14,7 @@ import { sha256Hex } from './hash';
 import { tavernExercise } from '@/lib/tavern-exercise';
 import { getTavernCharacter, isTavernCharacterId, type TavernCharacterId } from '@/lib/tavern-characters';
 import type { PublicTavernPlayer, PublicTavernRoom, TavernMode, TavernPart, TavernPhase, TavernResultInput } from '@/lib/tavern-types';
-import { duplicate, int, mutation, parseJsonObject, readBytes, readJson } from './http';
+import { duplicate, int, mutation, readJson } from './http';
 import { clientIp, limit } from './ratelimit';
 import { instrument } from './validation';
 
@@ -68,16 +68,6 @@ const takes = (d: Db) => d.collection<TavernTakeDoc>('tavernTakes');
 const takeId = (code: string, nonce: string, part: TavernPart) => `${code}:${nonce}:${part}`;
 const expiry = (now: number) => new Date(now + TAVERN_ROOM_TTL_MS);
 const finished = (room: TavernRoomDoc) => room.phase === 'results' || room.phase === 'done';
-/**
- * A show's recordings and the show itself share one deadline: once the room has
- * finished, nothing extends it, and the takes expire with it. When it lapses,
- * polls get 404 and both players are sent home, so no one can reach a clip
- * that has already gone.
- */
-async function expireTogether(d: Db, room: TavernRoomDoc, expiresAt: Date, session: ClientSession) {
-  room.expiresAt = expiresAt;
-  if (room.nonce) await takes(d).updateMany({ room: room._id, nonce: room.nonce }, { $set: { expiresAt } }, { session });
-}
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } });
 const error = (message: string, status = 400) => json({ error: message, serverNow: Date.now() }, status);
 const own = (room: TavernRoomDoc, tokenHash: string): Side | null => room.host.tokenHash === tokenHash ? 'host' : room.guest?.tokenHash === tokenHash ? 'guest' : null;
@@ -111,22 +101,7 @@ function memberToken(request: Request, body: Record<string, unknown>) {
 async function load(d: Db, code: string, session?: ClientSession) {
   return rooms(d).findOne({ _id: code, expiresAt: { $gt: new Date() } }, { session });
 }
-const TAKE_MIMES = ['audio/webm', 'audio/webm;codecs=opus', 'audio/mp4', 'audio/mp4;codecs=mp4a.40.2'];
-/**
- * A result upload: plain JSON, or (with a recording) the binary frame built by
- * lib/tavern.ts takeBody — 4-byte big-endian JSON length, the JSON, then the clip.
- */
-async function readResult(request: Request): Promise<{ body: Record<string, unknown>; audio?: Buffer } | Response> {
-  const type = request.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
-  if (type === 'application/json') { const body = await readJson(request, 32 * 1024); return body instanceof Response ? body : { body }; }
-  if (type !== 'application/octet-stream') return error('Expected a take upload.', 415);
-  const bytes = await readBytes(request, TAVERN_RESULT_MAX_BYTES); if (bytes instanceof Response) return bytes;
-  const size = bytes.length >= 4 ? new DataView(bytes.buffer, bytes.byteOffset, 4).getUint32(0) : -1;
-  if (size < 2 || 4 + size >= bytes.length || size > 32 * 1024) return error('That take has invalid notes, timing or audio.');
-  const body = parseJsonObject(bytes.subarray(4, 4 + size)); if (body instanceof Response) return body;
-  return { body, audio: Buffer.from(bytes.buffer, bytes.byteOffset + 4 + size, bytes.length - 4 - size) };
-}
-function resultInput(body: Record<string, unknown>, audio: Buffer | undefined, player: Player, mode: TavernMode): (TavernResultInput & { audio?: Buffer }) | null {
+function resultInput(body: Record<string, unknown>, player: Player, mode: TavernMode): TavernResultInput | null {
   const ex = tavernExercise(mode, player.part);
   if (typeof body.simulated !== 'boolean') return null;
   const notes = validateTrainingResults(ex, player.instrument, body.notes);
@@ -137,11 +112,15 @@ function resultInput(body: Record<string, unknown>, audio: Buffer | undefined, p
     if (!Array.isArray(body.hitIndices) || body.hitIndices.length !== body.hits || body.hitIndices.some(i => !int(i, 0, ex.notes.length - 1)) || new Set(body.hitIndices).size !== body.hitIndices.length) return null;
     if (body.hitIndices.some(index => notes[index].status !== 'hit')) return null;
   }
-  let mime: string | undefined;
-  if (audio) {
-    if (!audio.length || audio.length > TAVERN_AUDIO_MAX_BYTES || typeof body.mime !== 'string') return null;
+  let audio: string | undefined, mime: string | undefined;
+  if (body.audio !== undefined) {
+    if (typeof body.audio !== 'string' || !body.audio.length || body.audio.length > Math.ceil(TAVERN_AUDIO_MAX_BYTES / 3) * 4 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(body.audio)) return null;
+    const bytes = Buffer.from(body.audio, 'base64');
+    if (!bytes.length || bytes.length > TAVERN_AUDIO_MAX_BYTES || bytes.toString('base64') !== body.audio) return null;
+    if (typeof body.mime !== 'string') return null;
     mime = body.mime.toLowerCase().replaceAll(' ', '');
-    if (!TAKE_MIMES.includes(mime)) return null;
+    if (!['audio/webm', 'audio/webm;codecs=opus', 'audio/mp4', 'audio/mp4;codecs=mp4a.40.2'].includes(mime)) return null;
+    audio = body.audio;
   } else if (body.mime !== undefined) return null;
   return { notes, simulated: body.simulated, hits: body.hits, total: ex.notes.length, offsetMs: Math.round(body.offsetMs), ...(audio ? { audio, mime } : {}), ...(hitIndices ? { hitIndices } : {}) };
 }
@@ -150,17 +129,9 @@ function resultInput(body: Record<string, unknown>, audio: Buffer | undefined, p
 export async function tavernRequest(request: Request, action: Action, rawCode?: string) {
   return guarded(request, async () => {
     const mutating = request.method !== 'GET';
-    // Results may arrive as a binary take (readResult checks their content type itself).
-    if (mutating) { const guard = mutation(request, action !== 'leave' && action !== 'result'); if (guard) return guard; }
-    let audio: Buffer | undefined;
-    let body: Record<string, unknown> = {};
-    if (action === 'result') {
-      const upload = await readResult(request); if (upload instanceof Response) return upload;
-      ({ body, audio } = upload);
-    } else if (mutating) {
-      const parsed = await readJson(request, 2048); if (parsed instanceof Response) return parsed;
-      body = parsed;
-    }
+    if (mutating) { const guard = mutation(request, action !== 'leave'); if (guard) return guard; }
+    const body = mutating ? await readJson(request, action === 'result' ? TAVERN_RESULT_MAX_BYTES : 2048) : {};
+    if (body instanceof Response) return body;
     if (!dbConfigured()) return offline();
     if (action === 'host' || action === 'join') {
       if (!instrument(body.instrument)) return error('Choose an instrument.');
@@ -206,17 +177,16 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
 
     // Audio reads never return the other player's token, identity or base64 clip in polls.
     if (action === 'audio') {
-      const d = await db();
-      const room = await load(d, code);
+      const room = await load(await db(), code);
       if (!room || room.phase === 'gone') return error('No show with that code.', 404);
       const side = own(room, tokenHash); if (!side) return error('You are not in this show.', 403);
       const who = new URL(request.url).searchParams.get('who') ?? 'partner';
       if (who !== 'self' && who !== 'partner') return error('Choose self or partner audio.');
       if (!finished(room)) return error('The show is not ready yet.', 409);
       const owner = who === 'self' ? room[side] : partner(room, side);
-      const clip = owner?.result?.hasAudio && room.nonce ? await takes(d).findOne({ _id: takeId(code, room.nonce, owner.part), expiresAt: { $gt: new Date() } }) : null;
+      const clip = owner?.result?.hasAudio && room.nonce ? await takes(await db()).findOne({ _id: takeId(code, room.nonce, owner.part), expiresAt: { $gt: new Date() } }) : null;
       if (!clip) return new Response(null, { status: 204, headers: { 'Cache-Control': 'private, no-store' } });
-      return new Response(new Uint8Array(clip.audio.value()), { headers: { 'Content-Type': clip.mime, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
+      return new Response(new Uint8Array(clip.audio.buffer), { headers: { 'Content-Type': clip.mime, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
     }
 
     // Polls are the hot path (every ~0.7 s per player): at most one small update, no
@@ -232,11 +202,10 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
       // Heartbeat: write only every TAVERN_HEARTBEAT_MS, never once the show is done.
       // The filter pins the phase that was read, so a stale poll can't undo a
       // concurrent done/leave (their short expiry wins); $max never moves time back.
-      // A finished show keeps the deadline its recordings share (expireTogether).
       if (room.phase !== 'done' && now - room[side]!.seenAt.getTime() >= TAVERN_HEARTBEAT_MS) {
         await rooms(d).updateOne(
           { _id: code, phase: room.phase, [`${side}.tokenHash`]: tokenHash, [`${side}.leftAt`]: { $exists: false } },
-          { $max: { [`${side}.seenAt`]: new Date(now), ...(finished(room) ? {} : { expiresAt: expiry(now) }) } },
+          { $max: { [`${side}.seenAt`]: new Date(now), expiresAt: expiry(now) } },
         );
         room[side]!.seenAt = new Date(now);
       }
@@ -260,10 +229,10 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
         if (now - other.seenAt.getTime() > TAVERN_STALE_MS) return error('The other musician disconnected.', 410);
         room.startAt = new Date(now + TAVERN_START_DELAY_MS); room.phase = 'countdown';
       } else if (action === 'result') {
-        const take = resultInput(body, audio, player, room.mode ?? 'duet');
+        const take = resultInput(body, player, room.mode ?? 'duet');
         if (!take) return error('That take has invalid notes, timing or audio.');
-        const { audio: clip, ...scored } = take;
-        const stored: StoredResult = { ...scored, hasAudio: !!clip, ...(clip ? { audioDigest: sha256Hex(clip) } : {}) };
+        const { audio, ...scored } = take;
+        const stored: StoredResult = { ...scored, hasAudio: !!audio, ...(audio ? { audioDigest: sha256Hex(audio) } : {}) };
         if (player.result) {
           if (JSON.stringify(player.result) !== JSON.stringify(stored)) return error('Your take was already submitted.', 409);
           return json(snapshot(room, side, now));
@@ -277,10 +246,10 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
         // to one show. Learning and the accepted result commit atomically.
         room.nonce ??= randomBytes(16).toString('hex');
         if (player.userId) await recordPerformance(d, session, player.userId, 'tavern', `${room.nonce}:${player.part}`, player.instrument, ex, take.notes, take.simulated);
-        if (clip) {
+        if (audio) {
           await takes(d).replaceOne(
             { _id: takeId(code, room.nonce, player.part) },
-            { room: code, nonce: room.nonce, part: player.part, audio: new Binary(clip), mime: take.mime!, expiresAt: expiry(now) },
+            { room: code, nonce: room.nonce, part: player.part, audio: new Binary(Buffer.from(audio, 'base64')), mime: take.mime!, expiresAt: expiry(now) },
             { upsert: true, session },
           );
         }
@@ -294,7 +263,6 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
             room.winnerPart = difference > 0 ? 'A' : difference < 0 ? 'B' : null;
           } else room.pass = (a.hits + b.hits) / (a.total + b.total) >= TAVERN_PASS;
           room.phase = 'results'; room.playbackAt = new Date(now + TAVERN_PLAYBACK_DELAY_MS);
-          await expireTogether(d, room, expiry(now), session);
           // The room transition and grants commit together. Immutable result retries
           // return above, so claiming a buff then retrying cannot grant it again.
           const recipients = pvp
@@ -308,8 +276,8 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
         if (room.phase === 'done') return json(snapshot(room, side, now));
         player.doneAt ??= new Date(now);
         if (room.host.doneAt && room.guest?.doneAt) {
-          room.phase = 'done';
-          await expireTogether(d, room, new Date(now + TAVERN_DONE_TTL_MS), session);
+          room.phase = 'done'; room.expiresAt = new Date(now + TAVERN_DONE_TTL_MS);
+          if (room.nonce) await takes(d).updateMany({ room: code, nonce: room.nonce }, { $set: { expiresAt: room.expiresAt } }, { session });
         }
       } else if (action === 'leave') {
         player.leftAt ??= new Date(now);
@@ -323,8 +291,11 @@ export async function tavernRequest(request: Request, action: Action, rawCode?: 
 
       player.seenAt = new Date(now);
       // Once done/gone, polling cannot keep audio alive indefinitely.
-      if (room.phase === 'gone') await expireTogether(d, room, new Date(now + TAVERN_DONE_TTL_MS), session);
-      else if (!finished(room)) room.expiresAt = expiry(now);
+      if (room.phase === 'gone') {
+        room.expiresAt = new Date(now + TAVERN_DONE_TTL_MS);
+        if (room.nonce) await takes(d).updateMany({ room: code, nonce: room.nonce }, { $set: { expiresAt: room.expiresAt } }, { session });
+      }
+      else if (room.phase !== 'done') room.expiresAt = expiry(now);
       await rooms(d).replaceOne({ _id: code }, room, { session });
       return json(snapshot(room, side, now));
     });

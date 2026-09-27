@@ -1,8 +1,6 @@
 'use client';
 import { ac, clickAt, duetTone, effectsOutput, muteMusic, settings, stopVoices } from './audio';
 import { TIMING_WINDOW_MS } from './config';
-
-const LIVE_GRADE_MS = 66; // same cadence as Combat's live grading
 import { grade, mic, simulate, type NoteResult } from './mic';
 import type { Exercise } from './music';
 
@@ -92,19 +90,15 @@ export async function performTraining(ex: Exercise, shift: number, demo: boolean
     return await new Promise<NoteResult[]>((resolve, reject) => {
       cancel = () => reject(aborted());
       signal.addEventListener('abort', cancel, { once: true });
-      // Grading re-reads the whole take so far; ~15 Hz is plenty for the note colours.
-      let live: NoteResult[] = [];
-      let gradedAt = -Infinity;
       const tick = () => {
         if (signal.aborted) return cancel();
-        const now = performance.now();
-        const elapsed = now - startPerf;
+        const elapsed = performance.now() - startPerf;
         if (elapsed >= 0 && !begun) { begun = true; mic.beginRecording(); }
         if (elapsed >= phraseDuration(ex) + 250) {
           const final = simulated ?? grade(ex, mic.endRecording(), startPerf, shift, TIMING_WINDOW_MS);
           resolve(final); return;
         }
-        if (begun && now - gradedAt >= LIVE_GRADE_MS) { live = simulated ?? grade(ex, mic.peek(), startPerf, shift, TIMING_WINDOW_MS); gradedAt = now; }
+        const live = begun ? simulated ?? grade(ex, mic.peek(), startPerf, shift, TIMING_WINDOW_MS) : [];
         const reading = mic.peek().at(-1);
         frame({
           phase: elapsed < 0 ? 'countin' : 'performing', beat: elapsed / beatMs,
@@ -130,13 +124,17 @@ export async function performTraining(ex: Exercise, shift: number, demo: boolean
 
 const decoded = new WeakMap<object, Promise<AudioBuffer | null>>();
 /** Decode a take once per clip; review replays the same few clips repeatedly. */
-export function decodeTake(clip: { audio?: Blob }): Promise<AudioBuffer | null> {
+export function decodeTake(clip: { audio?: string }): Promise<AudioBuffer | null> {
   let buffer = decoded.get(clip);
   if (!buffer) {
     buffer = (async () => {
       if (!clip.audio) return null;
-      try { return await ac().decodeAudioData(await clip.audio.arrayBuffer()); }
-      catch { return null; }
+      try {
+        const binary = atob(clip.audio);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return await ac().decodeAudioData(bytes.buffer);
+      } catch { return null; }
     })();
     decoded.set(clip, buffer);
   }
@@ -150,7 +148,7 @@ export function decodeTake(clip: { audio?: Blob }): Promise<AudioBuffer | null> 
  * time offsetMs — recording starts during the count-in, making it negative.
  * Phrase time therefore maps to clip time by subtracting it.
  */
-export async function playTake(clip: { audio?: Blob; offsetMs: number }, fromMs: number, toMs: number, signal: AbortSignal, onProgress?: (phraseMs: number) => void): Promise<boolean> {
+export async function playTake(clip: { audio?: string; offsetMs: number }, fromMs: number, toMs: number, signal: AbortSignal, onProgress?: (phraseMs: number) => void): Promise<boolean> {
   const buffer = await decodeTake(clip);
   if (!buffer || signal.aborted) return false;
   const ctx = ac(); await resumeContext(ctx, signal);

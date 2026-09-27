@@ -3,7 +3,6 @@ import { pickTaunt, type TauntFacts, type TauntMoment } from '@/lib/taunts';
 import { ENEMIES, type VoiceKey } from '@/lib/content';
 import { bad, int, mutation, object, readJson } from '@/lib/server/http';
 import { clientIp, limit } from '@/lib/server/ratelimit';
-import { cachedSpeech, synthesize, type Speech } from '@/lib/server/tts';
 
 const VOICES: Record<VoiceKey, string> = {
   goblin: 'zauh4pbY6h1ZRErsRiAJ',
@@ -43,14 +42,22 @@ export async function POST(request: Request) {
     const text = taunt.text.slice(0, 200);
     const headers = { 'X-Taunt-Id': taunt.id, 'X-Taunt-Text': encodeURIComponent(text), 'Cache-Control': 'no-store' };
     const fallback = () => new Response(null, { status: 200, headers });
-    if (!process.env.ELEVENLABS_API_KEY) return fallback();
-    const speech: Speech = { voiceId: VOICES[b.enemy as VoiceKey], text, settings: { stability: 0.3, similarity_boost: 0.8, style: 0.7 } };
-    const play = (audio: Uint8Array) => new Response(new Uint8Array(audio), { status: 200, headers: { ...headers, 'Content-Type': 'audio/mpeg' } });
-    // Most taunt lines repeat; only a line never voiced before spends the voice budget.
-    const cached = await cachedSpeech(speech); if (cached) return play(cached);
     const budget = await voiceBudget(request); if (budget) return budget;
-    // Failures still return the subtitle headers, so the line shows as text.
-    const audio = await synthesize(speech);
-    return audio ? play(audio) : fallback();
+    const key = process.env.ELEVENLABS_API_KEY;
+    if (!key) return fallback();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICES[b.enemy as VoiceKey]}/stream?output_format=mp3_44100_64`, {
+        method: 'POST', signal: controller.signal,
+        headers: { 'xi-api-key': key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, model_id: 'eleven_flash_v2_5', voice_settings: { stability: 0.3, similarity_boost: 0.8, style: 0.7 } }),
+      });
+      if (!res.ok || !res.body) { void res.body?.cancel().catch(() => {}); return fallback(); }
+      // Read within the timeout so failures mid-audio still preserve subtitles.
+      const audio = await res.arrayBuffer();
+      return new Response(audio, { status: 200, headers: { ...headers, 'Content-Type': 'audio/mpeg' } });
+    } catch { return fallback(); }
+    finally { clearTimeout(timer); }
   });
 }

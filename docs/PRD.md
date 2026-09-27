@@ -245,7 +245,7 @@ A per-fight `heat` value from 0 to 3 picks how much and how mean the enemy talks
 ### Sign-in (optional)
 - Title screen top-right chip: **Sign in**. Opens a modal: username + password, with **Create account** / **Sign in** tabs and **Play as guest**.
 - Username: 3–16 chars, letters/numbers/underscore, unique (case-insensitive). Password: 8+ chars.
-- Passwords are hashed with **scrypt** (Node's built-in, N=2^15, off the main thread) on the server. Accounts made before the switch hold bcrypt hashes; they still sign in and are rehashed to scrypt on their next successful login. Never stored or logged in plain text.
+- Passwords are hashed with **bcrypt** (cost 12) on the server. Never stored or logged in plain text.
 - Session: an **httpOnly, Secure, SameSite=Lax cookie** holding a signed session id (30-day expiry). No tokens in localStorage.
 - Rate limit sign-in: 5 failed attempts per username per 10 minutes.
 - Guest progress lives in `localStorage`. On first sign-in/sign-up, the guest's checkpoint and best run are **offered for import** into the new account.
@@ -254,7 +254,7 @@ A per-fight `heat` value from 0 to 3 picks how much and how mean the enemy talks
 - The run auto-saves **after every victory**, on the map, before the next fight starts ("CHECKPOINT SAVED" toast). Never mid-fight.
 - A save holds the whole run: instrument, HP, tips, XP, stat levels, nodes cleared, act, score so far, run stats, seed.
 - **One active run per player.** Title shows **Continue · Floor N** when a save exists. Starting a new run asks to overwrite it.
-- **Death is final** (Slay the Spire style): losing a fight ends the climb, deletes the checkpoint, submits the run to the leaderboard, and resets the player to default stats and starting tips. The only way on is a new run. A finished climb's checkpoint can never come back: the browser remembers ended run ids, and the server refuses (and purges) a save whose run was already posted.
+- Losing a fight deletes the checkpoint (the run is over) and submits the run to the leaderboard.
 - Quitting mid-fight and coming back resumes from the last checkpoint (the fight restarts).
 
 ### Score [Decided]
@@ -290,24 +290,18 @@ Database `slaythechoir`, MongoDB Atlas (free tier), official Node driver, called
 // saves  (one per user, unique index on userId)
 { _id, userId, version: 1, run: RunSnapshot, checkpoint: { act, floor, nodeId }, updatedAt }
 
-// runs  (every finished run; profiles and the mentor read this)
-{ _id, userId, runId, username, instrument, floor, score, accuracy, notesHit, notesTotal,
-  cardsLanded, cardsFailed, encoresLanded, rounds, victory, durationMs, endedBy: 'loss' | 'victory',
-  weekKey /* e.g. "2026-W39" */, at }
-// indexes: { userId: 1, at: -1 }, unique { userId: 1, runId: 1 }
-
-// bests  (the leaderboard reads this: one row per player for all time, one per player per week)
-{ _id: `${scope}:${userId}`, scope: 'all' | weekKey, userId, username, runId, score, floor,
-  instrument, accuracy, at }
-// index: { scope: 1, score: -1, at: 1, userId: 1 }. Updated in the /api/runs transaction;
-// a later run replaces a best only by scoring strictly higher (the earlier run wins ties).
+// runs  (finished runs; the leaderboard reads this)
+{ _id, userId, username, instrument, floor, act, score, accuracy, cardsLanded, cardsFailed,
+  encoreLanded, enemiesBeaten: EnemyId[], durationMs, endedBy: 'loss' | 'victory',
+  weekKey /* e.g. "2026-W39" */, createdAt }
+// indexes: { score: -1 }, { weekKey: 1, score: -1 }, { userId: 1, createdAt: -1 }
 
 // bestiary (per user; which enemies they've beaten)
 { _id, userId, beaten: { [enemyId]: { count, firstAt } } }
 
-// fightStats (running totals per enemy, guests included; powers each foe's danger stats)
-{ _id: enemyId, attempts, losses, accuracySum, roundsSum, updatedAt }
-// The map's Next Fight panel shows "41% of 212 climbers fell here".
+// fights (every fight, guests included; powers each foe's danger stats)
+{ _id, enemyId, won, accuracy, rounds, instrument, userId | null, at }
+// index: { enemyId: 1 }. The map's Next Fight panel shows "41% of 212 climbers fell here".
 ```
 
 ### API (Next.js route handlers)
@@ -319,10 +313,9 @@ Database `slaythechoir`, MongoDB Atlas (free tier), official Node driver, called
 | `/api/me` | GET | Current user + profile summary, or 401 |
 | `/api/save` | GET / PUT / DELETE | Read / write / clear the checkpoint |
 | `/api/runs` | POST | Submit a finished run; server recomputes score |
-| `/api/leaderboard?range=all\|week` | GET | Top 50. Public and the same for everyone, so the CDN caches it for ~10 s |
-| `/api/leaderboard/me?range=all\|week` | GET | The signed-in caller's own row and rank (private) |
+| `/api/leaderboard?range=all\|week` | GET | Top 50 + the caller's rank |
 | `/api/profile/[username]` | GET | Public profile |
-| `/api/fights` | POST / GET | Add one fight to its enemy's totals / per-enemy danger (attempts, fell %, avg accuracy; CDN-cached 5 min) |
+| `/api/fights` | POST / GET | Log one fight outcome / per-enemy danger (attempts, fell %, avg accuracy) |
 
 - Env vars: `MONGODB_URI` (Atlas SRV string), optional `MONGODB_DB` (default `slay-the-choir`), `ELEVENLABS_API_KEY`. Sessions are random tokens stored hashed in `sessions` (TTL index), so no `SESSION_SECRET` is needed.
 - **Anti-cheat (hackathon-level):** the server recomputes score from per-card results, rejects impossible values (accuracy > 100, more cards than rounds, floor jumps > 1 per save), and caps submissions at 1 per 60 s per user.
@@ -504,7 +497,7 @@ Put these in `src/config.ts`. Change numbers **here only**.
 | Hosting | Vercel | [Decided] | Static site; free HTTPS (required for mic access) | Netlify works the same |
 | Backend | Next.js route handlers on Vercel | [Decided] | Taunts (ElevenLabs), auth, saves, runs, leaderboard | Any Node host |
 | Database | MongoDB Atlas + official driver | [Decided] | Users, sessions, saves, runs, bestiary (§7b) | Postgres works; only `lib/db.ts` changes |
-| Passwords | scrypt (Node built-in) | [Decided] | Slow hash on libuv's thread pool, so sign-ins don't block other requests; legacy bcrypt hashes upgrade on login | argon2 |
+| Passwords | bcrypt | [Decided] | Standard slow hash | argon2 |
 | Voice | ElevenLabs text-to-speech | [Decided] | Enemy trash talk (§7a); designed voice per enemy | Subtitles only (feature still works) |
 
 ---
@@ -564,6 +557,6 @@ Put these in `src/config.ts`. Change numbers **here only**.
 - **Mic latency varies by device.** Mitigation: fixed offset now, calibration as Stretch.
 - **Room noise / quiet instruments.** Mitigation: `MIN_CLARITY` cutoff; test in a noisy room before demo.
 - **Enemy voice leaking into the mic.** Mitigation: never play voice during count-in or recording; cut any line still playing when recording starts.
-- **Password security.** Mitigation: scrypt, httpOnly cookies, rate-limited login, no plain-text anywhere; never reuse a real password for the demo.
+- **Password security.** Mitigation: bcrypt, httpOnly cookies, rate-limited login, no plain-text anywhere; never reuse a real password for the demo.
 - **Leaderboard cheating.** Mitigation: server-side scoring from per-card results, plausibility checks, submit cooldown.
 - **TTS latency or quota on demo day.** Mitigation: start the request as soon as grading ends, `TAUNT_TIMEOUT_MS` fallback to subtitles, fixed lines pre-generated.

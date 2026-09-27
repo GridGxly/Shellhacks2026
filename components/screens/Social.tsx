@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { sfx } from '@/lib/audio';
+import { weekKey } from '@/lib/week';
 import { ENEMIES, INSTRUMENTS } from '@/lib/content';
 import { useGame } from '@/lib/store';
 import { YellowButton } from '../ui';
@@ -24,8 +25,6 @@ function openProfile(username: string) {
   useGame.getState().go('profile');
 }
 
-const LEADERBOARD_POLL_MS = 30_000; // the board changes when someone finishes a climb
-
 const instIcon = (id: string) => INSTRUMENTS.find((i) => i.id === id)?.sprite ?? INSTRUMENTS[0].sprite;
 
 // ---------------------------------------------------------------- H6 Leaderboard
@@ -38,41 +37,49 @@ export function Leaderboard() {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    // The shared board is CDN-cacheable (/api/leaderboard); the viewer's own rank
-    // is a separate private call. Polled while visible instead of holding a
-    // live stream (and a serverless function) open per viewer.
     let mounted = true;
     let request: AbortController | null = null;
     let previous: Record<string, number> = {};
-    let timer: ReturnType<typeof setTimeout> | undefined;
     const refresh = async () => {
-      clearTimeout(timer); timer = undefined;
       request?.abort();
       const current = request = new AbortController();
       try {
-        const [board, mine] = await Promise.all([
-          fetch(`/api/leaderboard?range=${range}`, { signal: current.signal }),
-          useGame.getState().user ? fetch(`/api/leaderboard/me?range=${range}`, { signal: current.signal, cache: 'no-store' }) : null,
-        ]);
-        if (!board.ok) throw new Error('Leaderboard unavailable');
-        const { rows }: { rows: BoardRow[] } = await board.json();
-        const me: BoardRow | null = mine?.ok ? (await mine.json()).me ?? null : null;
+        const response = await fetch(`/api/leaderboard?range=${range}`, { signal: current.signal });
+        if (!response.ok) throw new Error('Leaderboard unavailable');
+        const next: { rows: BoardRow[]; me: BoardRow | null } = await response.json();
         if (!mounted || current.signal.aborted) return;
-        setData({ rows, me, previous });
-        setConnected(true);
-        previous = Object.fromEntries(rows.map((row) => [row.username, row.score]));
+        setData({ ...next, previous });
+        previous = Object.fromEntries(next.rows.map((row) => [row.username, row.score]));
       } catch {
-        if (mounted && !current.signal.aborted) { setData((last) => last ?? 'offline'); setConnected(false); }
+        if (mounted && !current.signal.aborted) setData((last) => last ?? 'offline');
       }
-      if (mounted && !current.signal.aborted && !document.hidden) timer = setTimeout(() => void refresh(), LEADERBOARD_POLL_MS);
+    };
+    let source: EventSource | null = null;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleRefresh = () => {
+      if (refreshTimer) return;
+      refreshTimer = setTimeout(() => { refreshTimer = undefined; void refresh(); }, 1000);
+    };
+    const connect = () => {
+      if (document.hidden || source) return;
+      source = new EventSource('/api/leaderboard/live');
+      source.addEventListener('ready', () => { if (mounted) setConnected(true); scheduleRefresh(); });
+      source.addEventListener('run', (event) => {
+        try {
+          const run = JSON.parse(event.data) as { weekKey: string };
+          if (range === 'all' || run.weekKey === weekKey()) scheduleRefresh();
+        } catch { /* Reconnecting refreshes the board. */ }
+      });
+      source.onerror = () => { if (mounted) setConnected(false); };
     };
     const visibility = () => {
-      if (document.hidden) { request?.abort(); clearTimeout(timer); timer = undefined; setConnected(false); }
-      else void refresh();
+      if (document.hidden) {
+        source?.close(); source = null; request?.abort(); clearTimeout(refreshTimer); refreshTimer = undefined; setConnected(false);
+      } else { void refresh(); connect(); }
     };
-    void refresh();
+    void refresh(); connect();
     document.addEventListener('visibilitychange', visibility);
-    return () => { mounted = false; request?.abort(); clearTimeout(timer); document.removeEventListener('visibilitychange', visibility); };
+    return () => { mounted = false; request?.abort(); source?.close(); clearTimeout(refreshTimer); document.removeEventListener('visibilitychange', visibility); };
   }, [range]);
 
   const rows = data && data !== 'offline' ? data.rows : [];
@@ -94,7 +101,7 @@ export function Leaderboard() {
                 {r === 'all' ? 'ALL TIME' : 'THIS WEEK'}
               </button>
             ))}
-            <span role="status" aria-label={connected ? 'Leaderboard updating' : 'Leaderboard reconnecting'} className="f-label" style={{ alignSelf: 'center', marginLeft: 10, fontSize: 14, color: connected ? 'var(--meadow)' : 'var(--muted)' }}><span style={{ animation: connected ? 'blink 1.6s steps(2) infinite' : undefined }}>●</span> LIVE</span>
+            <span role="status" aria-label={connected ? 'Leaderboard live' : 'Leaderboard reconnecting'} className="f-label" style={{ alignSelf: 'center', marginLeft: 10, fontSize: 14, color: connected ? 'var(--meadow)' : 'var(--muted)' }}><span style={{ animation: connected ? 'blink 1.6s steps(2) infinite' : undefined }}>●</span> LIVE</span>
           </div>
           <span className="f-label" style={{ fontSize: 11, color: 'var(--muted)' }}>BEST VERIFIED RUN PER CLIMBER</span>
         </div>

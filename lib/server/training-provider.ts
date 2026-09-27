@@ -3,7 +3,6 @@ import { makeOfflinePlan, offlineFeedback, validatePlan } from '@/lib/training-c
 import type { Exercise } from '@/lib/music';
 import type { NoteResult } from '@/lib/mic';
 import type { TrainingFeedback, TrainingPlan, TrainingRegiment, WeaknessSummary } from '@/lib/training-types';
-import { cachedSpeech, synthesize, type Speech } from './tts';
 
 const voices = { castor: () => process.env.ELEVENLABS_CASTOR_VOICE_ID || 'zauh4pbY6h1ZRErsRiAJ', pollux: () => process.env.ELEVENLABS_POLLUX_VOICE_ID || 'xYWUvKNK6zWCgsdAK7Wi' };
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -62,17 +61,17 @@ export function readVoiceTicket(ticket: unknown): TrainingFeedback | null {
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
   try { const parsed = JSON.parse(Buffer.from(body, 'base64url').toString()); return parsed.expiresAt > Date.now() ? parsed.feedback : null; } catch { return null; }
 }
-/**
- * One twin's line as audio. Cached lines (review stops and offline coaching
- * repeat often) cost nothing; only a new line spends the caller's voice budget.
- */
-export async function trainingVoice(feedback: TrainingFeedback, speaker: 'castor' | 'pollux', budget: () => Promise<Response | null>): Promise<Response> {
-  const silent = () => new Response(null, { status: 204 });
-  if (!process.env.ELEVENLABS_API_KEY || !feedback[speaker]) return silent();
-  const speech: Speech = { voiceId: voices[speaker](), text: feedback[speaker], settings: { stability: .5, similarity_boost: .8, style: .4 } };
-  const play = (audio: Uint8Array) => new Response(new Uint8Array(audio), { headers: { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'private, no-store' } });
-  const cached = await cachedSpeech(speech); if (cached) return play(cached);
-  const blocked = await budget(); if (blocked) return blocked;
-  const audio = await synthesize(speech);
-  return audio ? play(audio) : silent();
+export async function trainingVoice(feedback: TrainingFeedback, speaker: 'castor' | 'pollux'): Promise<Response> {
+  const key = process.env.ELEVENLABS_API_KEY; if (!key) return new Response(null, { status: 204 });
+  const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voices[speaker]())}/stream?output_format=mp3_44100_64`, { method: 'POST', signal: controller.signal, headers: { 'xi-api-key': key, 'Content-Type': 'application/json' }, body: JSON.stringify({ text: feedback[speaker], model_id: 'eleven_flash_v2_5', voice_settings: { stability: .5, similarity_boost: .8, style: .4 } }) });
+    if (!response.ok) { void response.body?.cancel().catch(() => {}); return new Response(null, { status: 204 }); }
+    const reader = response.body?.getReader(); if (!reader) return new Response(null, { status: 204 });
+    const chunks: Uint8Array[] = []; let size = 0;
+    try { while (true) { const chunk = await reader.read(); if (chunk.done) break; size += chunk.value.length; if (size > 1024 * 1024) { await reader.cancel(); return new Response(null, { status: 204 }); } chunks.push(chunk.value); } }
+    finally { reader.releaseLock(); }
+    return new Response(Buffer.concat(chunks), { headers: { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'private, no-store' } });
+  } catch { return new Response(null, { status: 204 }); }
+  finally { clearTimeout(timer); }
 }
