@@ -1,10 +1,11 @@
+import { guarded, voiceBudget } from '@/lib/server/api-guard';
 import { randomUUID } from 'node:crypto';
 import type { ClientSession, Db } from 'mongodb';
 import { currentUser, db, transaction, type UserDoc } from '@/lib/db';
 import { buildReview, exerciseDurationMs, guestBegin, guestClaim, guestStartPlan, guestSubmit, newGuestTraining, offlineFeedback, utcDay, validateExercise, validatePlan, validateRegiment, validateTrainingResults, validateWeaknesses } from '@/lib/training-core';
 import type { InstrumentId } from '@/lib/content';
 import type { TrainingResult, TrainingState } from '@/lib/training-types';
-import { handled, int, mutation, object, readJson } from './http';
+import { int, mutation, object, readJson } from './http';
 import { clientIp, limit } from './ratelimit';
 import { performanceDigest, readWeaknesses, recordPerformance } from './performance';
 import { createTrainingFeedback, createTrainingPlan, readVoiceTicket, trainingVoice, voiceTicket } from './training-provider';
@@ -78,7 +79,7 @@ function guestReviewState(body: Record<string, unknown>): TrainingState | null {
 }
 
 export async function trainingRequest(request: Request, action: Action) {
-  return handled(async () => {
+  return guarded(request, async () => {
     try {
       if (request.method !== 'GET') { const guard = mutation(request); if (guard) return guard; }
       const body = request.method === 'GET' ? {} : await readJson(request, 48 * 1024); if (body instanceof Response) return body;
@@ -134,6 +135,7 @@ export async function trainingRequest(request: Request, action: Action) {
           if (facts) feedback = offlineFeedback(facts.exercise, facts.notes, facts.final);
         }
         if (!feedback) throw new Problem('No practice feedback is ready to speak.');
+        const budget = await voiceBudget(request); if (budget) return budget;
         return trainingVoice(feedback, body.speaker);
       }
       if (action === 'feedback') {

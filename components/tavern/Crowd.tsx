@@ -1,4 +1,5 @@
 'use client';
+import { memo } from 'react';
 import { CROWD_POSITIONS, type TomatoThrow } from './Gags';
 
 interface CrowdProps {
@@ -10,7 +11,7 @@ interface CrowdProps {
 }
 
 /** Eight separate, deliberately staggered poses keep the audience from moving as one shape. */
-export default function Crowd({ mode, cheer, elapsed, throws, restrained = false }: CrowdProps) {
+function Crowd({ mode, cheer, elapsed, throws, restrained = false }: CrowdProps) {
   return <svg className={`tavern-crowd tavern-crowd-${mode}`} viewBox="0 0 1440 900" shapeRendering="crispEdges" aria-hidden="true">
     {CROWD_POSITIONS.map((p, i) => {
       const throwing = throws.find((t) => t.npc === i && elapsed >= t.release - 250 && elapsed < t.release + 180);
@@ -47,3 +48,5 @@ export default function Crowd({ mode, cheer, elapsed, throws, restrained = false
     <path d="M0 884H1440V900H0Z" fill="#07070F" />
   </svg>;
 }
+
+export default memo(Crowd);

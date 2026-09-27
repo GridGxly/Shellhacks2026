@@ -1,11 +1,12 @@
+import { guarded } from '@/lib/server/api-guard';
 import { currentUser, db, dbConfigured, offline, unauthorized } from '@/lib/db';
-import { bad, handled, mutation, readJson } from '@/lib/server/http';
+import { bad, mutation, readJson } from '@/lib/server/http';
 import { saveRun } from '@/lib/server/validation';
 
 type SaveDoc = { _id: string; version: 1; run: NonNullable<ReturnType<typeof saveRun>>; updatedAt: Date };
 
-export async function GET() {
-  return handled(async () => {
+export async function GET(request: Request) {
+  return guarded(request, async () => {
     if (!dbConfigured()) return offline();
     const u = await currentUser(); if (!u) return unauthorized();
     const s = await (await db()).collection<SaveDoc>('saves').findOne({ _id: u._id });
@@ -14,7 +15,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  return handled(async () => {
+  return guarded(request, async () => {
     const guard = mutation(request); if (guard) return guard;
     const b = await readJson(request, 32 * 1024); if (b instanceof Response) return b;
     const run = saveRun(b.run); if (!run) return bad('Bad save.');
@@ -26,7 +27,7 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  return handled(async () => {
+  return guarded(request, async () => {
     const guard = mutation(request, false); if (guard) return guard;
     if (!dbConfigured()) return offline();
     const u = await currentUser(); if (!u) return unauthorized();

@@ -57,3 +57,15 @@
 .tavern-heading p { background:#101126D9; padding:8px 18px; width:fit-content; max-width:1160px; margin:12px auto 0; border:2px solid #8A5A33; }
 
 .tavern-mode-choice{position:absolute;top:207px;left:240px;width:960px;display:flex;justify-content:center;gap:26px}.tavern-mode-choice button{min-width:330px;font-size:16px}.tavern-mode-choice+.tavern-lobby-cards{top:294px}.tavern-setup{top:646px}.tavern-note{top:731px}.tavern-character-select~.tavern-error{z-index:60}
+
+/* The microphone is a required step: it asks for attention until it is ready. */
+.tavern-mic { position:relative; display:flex; flex-direction:column; align-items:center; gap:6px; }
+.tavern-mic small { font:11px var(--label); letter-spacing:.12em; color:#C9B8E8; }
+.tavern-mic[data-state=off] { color:#FFD23F; border-color:#FFD23F; }
+.tavern-mic[data-state=off]::after { content:''; position:absolute; inset:-9px; border:3px solid #FFD23F; opacity:0; pointer-events:none; animation:tavern-mic-call 1.4s steps(2) infinite; }
+.tavern-mic[data-state=asking] { color:#FFD23F; border-color:#FFD23F; }
+.tavern-mic[data-state=blocked] { color:#FF8A93; border-color:#FF8A93; }
+.tavern-mic[data-state=ready] { color:#4CC26B; border-color:#4CC26B; }
+.tavern-mic[data-state=ready]:disabled { opacity:1; cursor:default; }
+@keyframes tavern-mic-call { 0%,100% { opacity:0; } 50% { opacity:.7; } }
+@media (prefers-reduced-motion:reduce) { .tavern-mic[data-state=off]::after { animation:none; opacity:.5; } }

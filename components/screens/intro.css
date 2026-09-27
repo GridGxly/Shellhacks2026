@@ -1,0 +1,102 @@
+/* Title intro (A3). One timeline of compositor-driven keyframes: every element
+   carries its own delay from the moment the film starts, so nothing re-renders
+   per frame. Motion follows anticipation → action → follow-through, impacts get
+   a hit-stop flash, a decaying shake and a knockback that recovers. */
+.intro { position:absolute; inset:0; overflow:hidden; background:#07070f; }
+.intro * { pointer-events:none; }
+.intro-beat { position:absolute; inset:0; visibility:hidden; animation:introOn var(--dur) var(--at) forwards; }
+.intro-cam { position:absolute; inset:0; transform-origin:50% 60%; animation:introPush var(--dur) var(--at) cubic-bezier(.16,1,.3,1) both; }
+.intro-shake { position:absolute; inset:0; }
+.intro-shake[data-hit] { animation:introShake 320ms var(--hit) linear both; }
+.intro-shake[data-hit=heavy] { animation:introShakeHeavy 520ms var(--hit) linear both; }
+.intro-floor { position:absolute; left:120px; top:640px; width:1200px; height:14px; background:linear-gradient(90deg,transparent,rgba(16,17,38,.7) 12%,rgba(16,17,38,.7) 88%,transparent); }
+.intro-shadow { position:absolute; height:18px; border-radius:50%; background:rgba(7,7,15,.55); }
+/* Motion layers span the frame; each sets transform-origin at its character's feet. */
+.intro-layer { position:absolute; inset:0; }
+.intro-sprite { position:absolute; background-size:contain; background-repeat:no-repeat; background-position:50% 100%; image-rendering:pixelated; }
+
+/* motion wrappers */
+.intro-enter-left { animation:introEnterLeft 420ms var(--at) cubic-bezier(.2,1.25,.4,1) both; }
+.intro-attack { animation:introAttack 560ms var(--at) linear both; }
+.intro-strike { animation:introStrike 340ms var(--at) cubic-bezier(.7,0,.2,1) both; }
+.intro-knock { animation:introKnock 520ms var(--at) cubic-bezier(.15,.9,.3,1) both; }
+.intro-rise { animation:introRise 760ms var(--at) cubic-bezier(.2,.8,.2,1) both; }
+.intro-crouch { animation:introCrouch 240ms var(--at) cubic-bezier(.4,0,.6,1) both; }
+.intro-leap { animation:introLeap 620ms var(--at) cubic-bezier(.55,0,.85,.35) both; }
+
+/* projectiles travel an arc: x is linear, y eases up and back down */
+.intro-note { position:absolute; opacity:0; animation:introNoteX var(--t) var(--at) linear both; }
+.intro-note > i { display:block; animation:introNoteY var(--t) var(--at) both; }
+.intro-note svg { display:block; filter:drop-shadow(3px 3px 0 #101126); }
+
+.intro-ring { position:absolute; border:8px solid #FFF6E0; opacity:0; animation:introRing 360ms var(--at) cubic-bezier(.1,.8,.3,1) forwards; }
+.intro-spark { position:absolute; width:14px; height:14px; opacity:0; animation:introSpark 460ms var(--at) cubic-bezier(.1,.9,.3,1) forwards; }
+.intro-charge { position:absolute; border-radius:50%; border:6px solid #FF4FA3; box-shadow:0 0 0 4px #101126, inset 0 0 0 4px #101126; opacity:0; animation:introCharge 360ms var(--at) cubic-bezier(.5,0,.5,1) both; }
+.intro-screen-flash { position:absolute; inset:0; opacity:0; animation:introFlash var(--t, 200ms) var(--at) ease-out both; }
+.intro-dust { position:absolute; width:26px; height:16px; background:#E9D3A2; opacity:0; animation:introDust 420ms var(--at) cubic-bezier(.1,.8,.3,1) forwards; }
+.intro-speed { position:absolute; width:6px; background:#FFD23F; opacity:0; animation:introSpeed 520ms var(--at) linear both; }
+.intro-glow { position:absolute; border-radius:50%; opacity:0; animation:introGlow var(--dur) var(--at) ease-out both; }
+
+/* captions: a small label, a colored rule that draws in, then the name */
+.intro-caption { position:absolute; display:flex; flex-direction:column; gap:12px; opacity:0; animation:introCaption var(--for) var(--from) both; }
+.intro-caption[data-align=right] { align-items:flex-end; text-align:right; }
+.intro-caption[data-align=center] { align-items:center; text-align:center; }
+.intro-caption b { font:400 16px/1 var(--label); letter-spacing:.3em; color:var(--c); }
+.intro-caption hr { width:120px; height:4px; border:0; margin:0; background:var(--c); transform-origin:0 50%; animation:introRule 360ms var(--from) cubic-bezier(.2,.9,.3,1) both; }
+.intro-caption[data-align=right] hr { transform-origin:100% 50%; }
+.intro-caption[data-align=center] hr { transform-origin:50% 50%; }
+.intro-caption strong { font:400 40px/1.1 var(--press); color:#FFF6E0; text-shadow:#101126 4px 4px 0, var(--c) 7px 7px 0; clip-path:inset(0 100% 0 0); animation:introType 420ms calc(var(--from) + 120ms) steps(12) both; }
+.intro-caption[data-align=right] strong { clip-path:inset(0 0 0 100%); animation-name:introTypeRight; }
+.intro-caption[data-align=center] strong { clip-path:inset(0 50% 0 50%); animation-name:introTypeCenter; }
+
+/* smash cuts between beats */
+.intro-wipe { position:absolute; top:-40px; bottom:-40px; left:-260px; width:1960px; background:#101126; box-shadow:18px 0 0 #FF4FA3, 36px 0 0 #FFD23F; transform:translateX(-120%) skewX(-14deg); animation:introWipe 300ms var(--at) cubic-bezier(.7,0,.3,1) both; }
+
+/* the film frame */
+.intro-bars::before, .intro-bars::after { content:''; position:absolute; left:0; right:0; height:64px; background:#07070f; animation:introBars 380ms cubic-bezier(.2,.9,.3,1) both; }
+.intro-bars::before { top:0; transform-origin:50% 0; }
+.intro-bars::after { bottom:0; transform-origin:50% 100%; }
+.intro-pips { position:absolute; left:40px; bottom:28px; display:flex; gap:8px; }
+.intro-pips i { width:26px; height:6px; background:#3A3F70; }
+.intro-pips i::after { content:''; display:block; height:100%; background:#FFD23F; transform:scaleX(0); transform-origin:0 50%; animation:introPip var(--dur) var(--at) linear forwards; }
+.intro-skip { position:absolute; right:40px; bottom:24px; font:14px var(--label); letter-spacing:.2em; color:#C9CDE8; opacity:0; animation:fadeIn 400ms 900ms both; }
+
+@keyframes introOn { 0%, 99.9% { visibility:visible; } 100% { visibility:hidden; } }
+@keyframes introOff { 0%, 99.9% { visibility:hidden; } 100% { visibility:visible; } }
+@keyframes introPush { from { transform:scale(1.09); } to { transform:scale(1); } }
+@keyframes introShake { 0% { transform:translate(0,0); } 12% { transform:translate(-14px,6px); } 26% { transform:translate(11px,-7px); } 42% { transform:translate(-7px,4px); } 60% { transform:translate(4px,-2px); } 80% { transform:translate(-2px,1px); } 100% { transform:translate(0,0); } }
+@keyframes introShakeHeavy { 0% { transform:translate(0,0); } 8% { transform:translate(-26px,12px) rotate(-.6deg); } 18% { transform:translate(22px,-14px) rotate(.5deg); } 30% { transform:translate(-16px,9px); } 44% { transform:translate(11px,-6px); } 60% { transform:translate(-6px,3px); } 78% { transform:translate(3px,-1px); } 100% { transform:translate(0,0); } }
+@keyframes introHitFlash { 0%, 55% { filter:brightness(3.2) saturate(0); } 100% { filter:none; } }
+@keyframes introEnterLeft { from { transform:translateX(-520px); } to { transform:none; } }
+/* anticipation (lean back) → snap forward as the notes leave the bell → settle */
+@keyframes introAttack { 0% { transform:none; animation-timing-function:cubic-bezier(.5,0,.5,1); } 30% { transform:translateX(-20px) rotate(-4deg); animation-timing-function:cubic-bezier(.2,.9,.3,1); } 42% { transform:translateX(36px) rotate(1.5deg); animation-timing-function:cubic-bezier(.3,0,.3,1); } 100% { transform:translateX(10px); } }
+@keyframes introTilt { from { transform:translateY(-50px) scale(1.12); } to { transform:translateY(120px) scale(1.12); } }
+@keyframes introStrike { 0% { transform:none; } 45% { transform:translateX(46px) scaleY(1.05); } 70% { transform:translateX(-96px) scaleX(1.06); } 100% { transform:translateX(-40px); } }
+@keyframes introKnock { 0% { transform:none; } 24% { transform:translateX(var(--kx)) rotate(var(--kr)); } 100% { transform:translateX(calc(var(--kx) * .25)) rotate(0deg); } }
+@keyframes introRise { from { transform:translateY(160px) scale(.9); opacity:0; } 40% { opacity:1; } to { transform:none; opacity:1; } }
+@keyframes introCrouch { 0% { transform:none; } 100% { transform:scale(1.08,.84); } }
+@keyframes introLeap { 0% { transform:scale(1.08,.84); } 14% { transform:translateY(-40px) scale(.94,1.12); } 100% { transform:translateY(-1100px) scale(.92,1.14); } }
+@keyframes introNoteX { 0% { opacity:0; transform:translateX(0); } 10% { opacity:1; } 88% { opacity:1; } 100% { opacity:0; transform:translateX(var(--dx)); } }
+@keyframes introNoteY { 0% { transform:translateY(0) scale(.6) rotate(-12deg); animation-timing-function:cubic-bezier(.2,.7,.4,1); } 45% { transform:translateY(calc(var(--dy) * .45 - var(--lift))) scale(1.15) rotate(6deg); animation-timing-function:cubic-bezier(.6,0,.8,.4); } 100% { transform:translateY(var(--dy)) scale(1) rotate(-4deg); } }
+@keyframes introRing { 0% { opacity:1; transform:scale(.2) rotate(45deg); } 100% { opacity:0; transform:scale(1.6) rotate(45deg); border-width:2px; } }
+@keyframes introSpark { 0% { opacity:1; transform:translate(0,0) scale(1); } 100% { opacity:0; transform:translate(var(--dx),var(--dy)) scale(.4); } }
+@keyframes introCharge { 0% { opacity:0; transform:scale(2.4); } 30% { opacity:1; } 100% { opacity:1; transform:scale(.3); } }
+@keyframes introFlash { 0% { opacity:0; } 8% { opacity:var(--o, .9); } 100% { opacity:0; } }
+@keyframes introDust { 0% { opacity:.9; transform:translate(0,0) scale(.6); } 100% { opacity:0; transform:translate(var(--dx),-26px) scale(1.6); } }
+@keyframes introSpeed { 0% { opacity:0; transform:translateY(-200px); } 20% { opacity:.7; } 100% { opacity:0; transform:translateY(700px); } }
+@keyframes introGlow { from { opacity:0; transform:scale(.6); } to { opacity:1; transform:scale(1); } }
+@keyframes introCaption { 0% { opacity:0; transform:translateY(12px); } 10% { opacity:1; transform:none; } 88% { opacity:1; transform:none; } 100% { opacity:0; transform:translateY(-10px); } }
+@keyframes introRule { from { transform:scaleX(0); } to { transform:scaleX(1); } }
+@keyframes introType { to { clip-path:inset(0 0 0 0); } }
+@keyframes introTypeRight { to { clip-path:inset(0 0 0 0); } }
+@keyframes introTypeCenter { to { clip-path:inset(0 0 0 0); } }
+@keyframes introWipe { 0% { transform:translateX(-120%) skewX(-14deg); } 45%, 55% { transform:translateX(0) skewX(-14deg); } 100% { transform:translateX(120%) skewX(-14deg); } }
+@keyframes introBars { from { transform:scaleY(0); } to { transform:scaleY(1); } }
+@keyframes introPip { to { transform:scaleX(1); } }
+
+/* Title shot 4: Riff falls back in from the leap, squashes on the summit stone,
+   springs up and settles; a shockwave rolls out and the logo drops in on the hit. */
+.title-shock { position:absolute; border:6px solid #FFF6E0; border-radius:50%; opacity:0; pointer-events:none; animation:titleShock 520ms cubic-bezier(.1,.8,.3,1) forwards; }
+@keyframes titleLand { 0% { transform:translateY(-760px) scale(.94,1.1); opacity:0; animation-timing-function:cubic-bezier(.5,0,.9,.5); } 8% { opacity:1; } 57% { transform:translateY(0) scale(.96,1.06); animation-timing-function:cubic-bezier(.2,.8,.3,1); } 68% { transform:scale(1.12,.84); animation-timing-function:cubic-bezier(.3,0,.3,1); } 84% { transform:translateY(-10px) scale(.97,1.04); } 100% { transform:none; opacity:1; } }
+@keyframes titleLogo { 0% { transform:scale(2.3) rotate(-3deg); opacity:0; animation-timing-function:cubic-bezier(.6,0,.9,.4); } 40% { transform:scale(.93) rotate(1deg); opacity:1; animation-timing-function:cubic-bezier(.2,.9,.3,1); } 68% { transform:scale(1.03); } 100% { transform:none; opacity:1; } }
+@keyframes titleShock { 0% { opacity:1; transform:scale(.2); } 100% { opacity:0; transform:scale(1.7); border-width:2px; } }

@@ -2,6 +2,7 @@
 import { sfx } from '@/lib/audio';
 import { instrumentOf, level, stat, useGame } from '@/lib/store';
 import { STATS } from '@/lib/config';
+import { art } from '@/lib/art';
 
 export default function Hud({ center, pulse }: { center: string; pulse?: 'map' | 'gear' | 'face' }) {
   const run = useGame((s) => s.run);
@@ -14,12 +15,16 @@ export default function Hud({ center, pulse }: { center: string; pulse?: 'map' |
     setOverlay(o);
   };
 
+  const [where, ...rest] = center.split(' · ');
   return (
     <div
-      className="game-hud"
+      // Handhelds: the bar spans the whole glass and scales as one piece, so the
+      // party sits under the left thumb and map/settings under the right.
+      className="game-hud ui-tl"
       style={{
-        position: 'absolute', left: 0, top: 0, width: 1440, height: 60, zIndex: 40, display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between', padding: '0 24px', background: 'rgba(12,13,30,0.92)', borderBottom: '3px solid #2A2F55',
+        position: 'absolute', left: 'calc(-1 * var(--bleed-x))', top: 'calc(-1 * var(--bleed-y))', width: 'calc((1440px + 2 * var(--bleed-x)) / var(--ui))', height: 60,
+        zIndex: 40, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+        padding: '0 calc(24px + var(--safe-r) / var(--ui)) 0 calc(24px + var(--safe-l) / var(--ui))', background: 'rgba(12,13,30,0.92)', borderBottom: '3px solid #2A2F55',
       }}
     >
       <div className="hud-party" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
@@ -27,11 +32,11 @@ export default function Hud({ center, pulse }: { center: string; pulse?: 'map' |
           aria-label="Riff's stats"
           onMouseEnter={() => sfx('hover')}
           onClick={() => open('stats')}
-          className="hoverable hud-avatar"
+          className="hoverable hud-avatar tap"
           style={{ position: 'relative', width: 44, height: 44 }}
         >
           <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: '#2A2F55', border: '3px solid var(--sun)', boxShadow: pulse === 'face' ? undefined : '#101126 3px 3px 0', animation: pulse === 'face' ? 'pulseGold 900ms steps(3) infinite' : undefined }}>
-            <div className="sprite" style={{ left: -68, top: 2, width: 150, height: 150, backgroundImage: `url(${inst.sprite})`, backgroundPosition: '50% 0' }} />
+            <div className="sprite" style={{ left: -68, top: 2, width: 150, height: 150, backgroundImage: `url(${art(inst.sprite)})`, backgroundPosition: '50% 0' }} />
           </div>
           <div className="f-press hud-level" style={{ position: 'absolute', left: 4, top: 34, padding: '2px 4px', background: '#101126', border: '2px solid var(--sun)', fontSize: 8, lineHeight: '10px', color: 'var(--sun)' }}>
             LV{level(run)}
@@ -42,7 +47,7 @@ export default function Hud({ center, pulse }: { center: string; pulse?: 'map' |
             </div>
           )}
         </button>
-        <div className="hud-identity" style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+        <div className="hud-identity desk-only" style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
           <span className="f-press" style={{ fontSize: 15, color: '#fff' }}>RIFF</span>
           <span className="f-body" style={{ fontSize: 16, color: 'var(--muted)' }}>the {inst.name}</span>
         </div>
@@ -69,7 +74,10 @@ export default function Hud({ center, pulse }: { center: string; pulse?: 'map' |
           <span key={run.tips} className="f-press hud-value" style={{ fontSize: 13, color: 'var(--sun)', animation: 'popIn 300ms steps(4)' }}>{run.tips}</span>
         </div>
       </div>
-      <div className="f-label hud-center" style={{ fontSize: 14, color: '#C9CDE8', letterSpacing: '0.16em' }}>{center}</div>
+      {/* Handhelds drop the section name ("THE CLIMB") and keep where you are. */}
+      <div className="f-label hud-center" style={{ fontSize: 14, color: '#C9CDE8', letterSpacing: '0.16em', whiteSpace: 'nowrap' }}>
+        {rest.length ? <><span className="desk-only">{where} · </span>{rest.join(' · ')}</> : where}
+      </div>
       <div style={{ display: 'flex', gap: 10 }}>
         <HudButton label="Map (M)" onClick={() => open('mappeek')} active={pulse === 'map'}>
           <svg width="20" height="18" viewBox="0 0 10 9" shapeRendering="crispEdges">
@@ -96,7 +104,7 @@ function HudButton({ children, onClick, label, active }: { children: React.React
       title={label}
       onMouseEnter={() => sfx('hover')}
       onClick={onClick}
-      className="hoverable pressable hud-button"
+      className="hoverable pressable hud-button tap"
       style={{ width: 40, height: 40, display: 'grid', placeItems: 'center', background: active ? '#3A3F70' : '#2A2F55', border: `3px solid ${active ? '#FFD23F' : '#3A4070'}` }}
     >
       {children}

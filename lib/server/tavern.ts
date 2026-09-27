@@ -1,4 +1,6 @@
-import { randomBytes, randomInt } from 'node:crypto';
+import { guarded } from '@/lib/server/api-guard';
+import { createHash, randomBytes, randomInt } from 'node:crypto';
+// Binary: takes are stored as binary in tavernTakes.
 import { Binary, type ClientSession, type Db } from 'mongodb';
 import {
   RECORD_TAIL_MS, TAVERN_AUDIO_MAX_BYTES, TAVERN_DONE_TTL_MS, TAVERN_MAX_RECORD_OFFSET_MS,
@@ -12,7 +14,7 @@ import { sha256Hex } from './hash';
 import { tavernExercise } from '@/lib/tavern-exercise';
 import { getTavernCharacter, isTavernCharacterId, type TavernCharacterId } from '@/lib/tavern-characters';
 import type { PublicTavernPlayer, PublicTavernRoom, TavernMode, TavernPart, TavernPhase, TavernResultInput } from '@/lib/tavern-types';
-import { duplicate, handled, int, mutation, readJson } from './http';
+import { duplicate, int, mutation, readJson } from './http';
 import { clientIp, limit } from './ratelimit';
 import { instrument } from './validation';
 
@@ -125,7 +127,7 @@ function resultInput(body: Record<string, unknown>, player: Player, mode: Tavern
 
 /** Shared route boundary: tokens stay out of public snapshots and normal URLs. */
 export async function tavernRequest(request: Request, action: Action, rawCode?: string) {
-  return handled(async () => {
+  return guarded(request, async () => {
     const mutating = request.method !== 'GET';
     if (mutating) { const guard = mutation(request, action !== 'leave'); if (guard) return guard; }
     const body = mutating ? await readJson(request, action === 'result' ? TAVERN_RESULT_MAX_BYTES : 2048) : {};

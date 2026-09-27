@@ -1,15 +1,16 @@
+import { guarded } from '@/lib/server/api-guard';
 import { currentUser, transaction, type UserDoc } from '@/lib/db';
 import type { RewardClaim } from '@/lib/training-types';
 import { TRAINING_BUFF_TIPS } from '@/lib/training-core';
 import { TAVERN_BUFF_TIPS } from '@/lib/config';
 import { performanceDigest } from '@/lib/server/performance';
-import { bad, handled, mutation, readJson } from '@/lib/server/http';
+import { bad, mutation, readJson } from '@/lib/server/http';
 import { limit } from '@/lib/server/ratelimit';
 import { runId } from '@/lib/server/validation';
 
 interface RewardClaimDoc extends RewardClaim { _id: string; userId: string; createdAt: Date }
 export async function POST(request: Request) {
-  return handled(async () => {
+  return guarded(request, async () => {
     const guard = mutation(request); if (guard) return guard;
     const body = await readJson(request, 1024); if (body instanceof Response) return body;
     if (!runId(body.runId)) return bad('Invalid climb identity.');

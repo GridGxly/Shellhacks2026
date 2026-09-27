@@ -53,8 +53,8 @@ Chords, rhythms and scales graded live, note by note. Clear 80% and the card hit
 ## &gt;_ Run it locally
 
 ```bash
-git clone https://github.com/GridGxly/Shellhacks2026.git
-cd Shellhacks2026
+git clone https://github.com/GridGxly/SlayTheChoir.git
+cd SlayTheChoir
 npm install
 npm run dev
 ```
@@ -68,7 +68,5 @@ Add `ELEVENLABS_API_KEY` and `MONGODB_URI` to `.env.local` for trash talk and ac
 ---
 
 <div align="center">
-<img src="docs/readme/footer.webp" alt="Every voice matters. Pick up your horn. Slay the Choir." width="100%">
-<br><br>
-<sub>Built at ShellHacks 2026 · <a href="https://github.com/GridGxly/Shellhacks2026">★ Star this repo</a></sub>
+<a href="https://github.com/GridGxly/SlayTheChoir"><img src="docs/readme/footer.webp" alt="Every voice matters. Pick up your horn. Slay the Choir. Star this repo." width="100%"></a>
 </div>

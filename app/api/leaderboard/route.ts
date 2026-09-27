@@ -1,9 +1,9 @@
+import { guarded } from '@/lib/server/api-guard';
 import { currentUser, dbConfigured, offline } from '@/lib/db';
-import { handled } from '@/lib/server/http';
 import { leaderboard, playerRank, rankRow, weekKey } from '@/lib/server/ranking';
 
 export async function GET(request: Request) {
-  return handled(async () => {
+  return guarded(request, async () => {
     if (!dbConfigured()) return offline();
     const match = new URL(request.url).searchParams.get('range') === 'week' ? { weekKey: weekKey() } : {};
     const u = await currentUser();

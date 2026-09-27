@@ -1,5 +1,6 @@
+import { guarded } from '@/lib/server/api-guard';
 import { db, dbConfigured, offline, type RunDoc, type UserDoc } from '@/lib/db';
-import { bad, handled } from '@/lib/server/http';
+import { bad } from '@/lib/server/http';
 import type { Document } from 'mongodb';
 
 // Find-a-climber: Atlas Search autocomplete on usernames (index "usernames",
@@ -7,7 +8,7 @@ import type { Document } from 'mongodb';
 const SEARCH_INDEX = 'usernames';
 
 export async function GET(request: Request) {
-  return handled(async () => {
+  return guarded(request, async () => {
     const q = (new URL(request.url).searchParams.get('q') ?? '').trim();
     if (!/^[a-zA-Z0-9_]{1,16}$/.test(q)) return bad('Search by username.', 400);
     if (!dbConfigured()) return offline();

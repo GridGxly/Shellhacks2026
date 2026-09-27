@@ -17,11 +17,13 @@ export const BOSS_HP_PER_ACT = 0;
 export const ENEMY_HP_CAP = HAND_SIZE * CARD_DAMAGE;
 export const BOSS_HP_CAP = HAND_SIZE * CARD_DAMAGE + ULTIMATE_DAMAGE;
 export const DAMAGE_PER_ACT = 1;
-export const TEMPO_BASE = 80;
-export const TEMPO_PER_FIGHT = 8; // per fight within an act
-export const TEMPO_PER_ACT = 8;
-export const ENCORE_TEMPO_BASE = 88;
-export const ENCORE_TEMPO_PER_ACT = 8;
+// Tempos are set for sight-reading on a real instrument: act 1 opens at 68 BPM
+// and the Encore (eighth notes) at 78, so a player can read ahead of the cursor.
+export const TEMPO_BASE = 68;
+export const TEMPO_PER_FIGHT = 6; // per fight within an act
+export const TEMPO_PER_ACT = 6;
+export const ENCORE_TEMPO_BASE = 72;
+export const ENCORE_TEMPO_PER_ACT = 6;
 
 export const COUNT_IN_BEATS = 4;
 export const PITCH_TOLERANCE_CENTS = 50;
@@ -54,6 +56,7 @@ export const RUN_SUBMIT_COOLDOWN_MS = 60_000;
 export const TIPS_START = 120;
 // Tavern shows are ephemeral. startAt is the shared downbeat, after the lights/count-in.
 export const TAVERN_PASS = 0.8;
+export const TAVERN_TEMPO = 84; // the shared Gran Vals phrase (eighth notes) for duets and 1v1
 export const TAVERN_BUFF_TIPS = 120;
 export const TRAINING_BUFF_TIPS = 120; // Gems and I daily reward
 export const SESSION_DAYS = 30; // sign-in cookie + session document lifetime

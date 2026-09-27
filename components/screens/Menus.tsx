@@ -17,16 +17,18 @@ export function MenuShell({ title, children, onBack }: { title: string; children
   });
   return (
     <div className="fill" style={{ background: '#101126' }}>
-      <Bg src="/assets/bg/summit.png" style={{ filter: 'brightness(0.26) saturate(0.6) blur(3px)' }} />
+      {/* Pre-dimmed, pre-blurred copy (scripts/optimize-art.mjs): no live blur filter to re-run each frame. */}
+      <Bg src="/assets/bg/t/summit-dim.webp" style={{ imageRendering: 'auto' }} />
       <div style={{ position: 'absolute', left: 420, top: -100, width: 600, height: 900, backgroundImage: 'radial-gradient(ellipse 50% 60% at 50% 15%, rgba(255,246,224,0.12) 0%, rgba(255,246,224,0) 70%)' }} />
       <div className="fill" style={{ backgroundImage: 'radial-gradient(ellipse 70% 70% at 50% 45%, rgba(16,17,38,0) 30%, rgba(16,17,38,0.9) 100%)' }} />
       <div style={{ opacity: 0.3 }}><FloatingNotes count={8} /></div>
-      <div style={{ position: 'absolute', left: 0, top: 84, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
+      <div className="menu-head ui-t ui-soft" style={{ position: 'absolute', left: 0, top: 84, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
         <div className="f-press" style={{ fontSize: 36, lineHeight: '40px', color: 'var(--parchment)', textShadow: '#101126 4px 4px 0, rgba(255,210,63,0.35) 0 0 18px', animation: 'dropIn 300ms steps(5) both' }}>{title}</div>
         <Ornament />
       </div>
       <div style={{ animation: 'fadeIn 300ms 180ms both' }}>{children}</div>
       <button
+        className="menu-back tap ui-b ui-soft"
         onMouseEnter={() => sfx('hover')}
         onClick={() => { sfx('back'); back(); }}
         style={{ position: 'absolute', left: 0, top: 800, width: 1440, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 18 }}
@@ -78,10 +80,10 @@ export function HowToPlay() {
   ];
   return (
     <MenuShell title="HOW TO PLAY">
-      <div style={{ position: 'absolute', left: 0, top: 232, width: 1440, display: 'flex', justifyContent: 'center', gap: 48 }}>
+      <div className="howto-steps" style={{ position: 'absolute', left: 0, top: 232, width: 1440, display: 'flex', justifyContent: 'center', gap: 48 }}>
         {steps.map((s, i) => (
-          <div key={s.n} style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 18, animation: `riseIn 400ms ${200 + i * 120}ms steps(5) both` }}>
-            <div style={{ position: 'relative', width: 300, height: 200, overflow: 'hidden', ...panel }}>{s.art}</div>
+          <div key={s.n} className="howto-step" style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 18, animation: `riseIn 400ms ${200 + i * 120}ms steps(5) both` }}>
+            <div className="howto-art" style={{ position: 'relative', width: 300, height: 200, overflow: 'hidden', ...panel }}>{s.art}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div className="f-press" style={{ width: 32, height: 32, display: 'grid', placeItems: 'center', background: 'var(--sun)', color: '#101126', fontSize: 14 }}>{s.n}</div>
               <div className="f-press" style={{ fontSize: 15, color: 'var(--parchment)' }}>{s.title}</div>
@@ -90,7 +92,7 @@ export function HowToPlay() {
           </div>
         ))}
       </div>
-      <div style={{ position: 'absolute', left: 222, top: 640, width: 996, display: 'flex', justifyContent: 'space-between', padding: '20px 28px', background: 'rgba(16,17,38,0.7)', borderTop: '3px solid #3A3F70', borderBottom: '3px solid #3A3F70', animation: 'fadeIn 400ms 600ms both' }}>
+      <div className="howto-rules" style={{ position: 'absolute', left: 222, top: 640, width: 996, display: 'flex', justifyContent: 'space-between', padding: '20px 28px', background: 'rgba(16,17,38,0.7)', borderTop: '3px solid #3A3F70', borderBottom: '3px solid #3A3F70', animation: 'fadeIn 400ms 600ms both' }}>
         {[
           ['TO WIN', 'Land all 3 cards', 'var(--sun)'],
           ['THEY HIT BACK', 'Every round, harder each act', 'var(--hp)'],
@@ -134,7 +136,7 @@ export function MicCheck() {
 
   return (
     <MenuShell title="MIC CHECK">
-      <div style={{ position: 'absolute', left: 370, top: 220, width: 700, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, padding: '32px 40px', background: 'rgba(16,17,38,0.8)', border: '4px solid #101126', boxShadow: '#3A3F70 0 0 0 3px inset' }}>
+      <div className="mic-panel" style={{ position: 'absolute', left: 370, top: 220, width: 700, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, padding: '32px 40px', background: 'rgba(16,17,38,0.8)', border: '4px solid #101126', boxShadow: '#3A3F70 0 0 0 3px inset' }}>
         <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div className="f-label" style={{ fontSize: 13, color: 'var(--muted)' }}>INPUT</div>
           <div className="f-body" style={{ padding: '8px 14px', background: '#1E2140', border: '3px solid #3A3F70', fontSize: 17, color: 'var(--parchment)', maxWidth: 420, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
@@ -188,7 +190,7 @@ export function MicCheck() {
       </div>
       <button
         onClick={() => { sfx('click'); useGame.getState().setDemo(!demo); }}
-        className="f-label"
+        className="f-label menu-demo tap"
         style={{ position: 'absolute', left: 0, top: 690, width: 1440, textAlign: 'center', fontSize: 12, color: demo ? 'var(--sun)' : 'var(--muted)' }}
       >
         {demo ? '■ DEMO MODE ON: NOTES ARE SIMULATED, NO INSTRUMENT NEEDED' : '□ NO INSTRUMENT? TURN ON DEMO MODE'}
@@ -212,7 +214,7 @@ export function Credits() {
   ];
   return (
     <MenuShell title="CREDITS">
-      <div style={{ position: 'absolute', left: 0, top: 236, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
+      <div className="credits-rows" style={{ position: 'absolute', left: 0, top: 236, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
         {rows.map(([k, v, c], i) => (
           <div key={k} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, animation: `riseIn 400ms ${200 + i * 120}ms steps(5) both` }}>
             <div className="f-label" style={{ fontSize: 14, color: c ?? 'var(--sun)', letterSpacing: '0.22em' }}>{k}</div>
