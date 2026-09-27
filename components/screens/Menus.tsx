@@ -120,9 +120,7 @@ export function MicCheck() {
   useEffect(() => {
     let alive = true;
     mic.start().then(() => alive && setStatus(mic.status));
-    // A tuner needle for eyes: ~15 updates a second, not one re-render per animation frame.
-    let shownAt = -Infinity;
-    const l = (r: Reading) => { if (r.t - shownAt < 66) return; shownAt = r.t; setReading(r); };
+    const l = (r: Reading) => setReading(r);
     mic.listeners.add(l);
     return () => {
       alive = false;

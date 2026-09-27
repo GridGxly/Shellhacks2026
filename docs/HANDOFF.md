@@ -1,7 +1,5 @@
 # Slay the Choir — Design & Build Handoff
 
-> **Archived (2026-09-26).** This is the design handoff from before any game logic existed. Parts of it no longer match the code. For example, there is no live leaderboard stream, raw `fights` log or bcrypt for new accounts any more. The current backend state, open items and how to verify it are in [`HANDOFF-BACKEND.md`](HANDOFF-BACKEND.md); rules and data model are in [`PRD.md`](PRD.md) (§7b).
-
 _Last updated: 2026-09-26 · Owner: Ralph · Written for the next chat/agent picking this up_
 
 ## 1. What this is

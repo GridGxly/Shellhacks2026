@@ -47,6 +47,7 @@ export interface TavernResultInput {
   hits: number;
   total: number;
   offsetMs: number;
-  mime?: string; // set when the recording itself follows in the binary upload (lib/tavern.ts takeBody)
+  audio?: string;
+  mime?: string;
   hitIndices?: number[];
 }

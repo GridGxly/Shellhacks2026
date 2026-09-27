@@ -1,9 +1,13 @@
 import { randomBytes } from 'node:crypto';
 import { MongoClient, type Db, type ClientSession } from 'mongodb';
 import { cookies } from 'next/headers';
+import type { CreateIndexesOptions, IndexSpecification } from 'mongodb';
+import manifest from './mongo-indexes.json';
 import { SESSION_DAYS, XP_PER_LEVEL } from './config';
 import { sha256Hex } from './server/hash';
-import { ensureSchema } from './server/schema';
+
+// Static manifest from the repo; JSON typing can't express IndexSpecification directly.
+const INDEXES = manifest as unknown as { collection: string; keys: IndexSpecification; options?: CreateIndexesOptions }[];
 
 // PRD §7b: users, sessions, saves, runs. Everything degrades to 503 when
 // MONGODB_URI is unset so the game still runs as guest-only.
@@ -57,8 +61,8 @@ export function db(): Promise<Db> {
     g._stcClient = client;
     g._stcMongo = client.connect().then(async (c) => {
       const d = c.db(process.env.MONGODB_DB ?? 'slay-the-choir');
-      // One index manifest shared with scripts/atlas-setup.mjs; skipped when already applied.
-      await ensureSchema(d);
+      // One index manifest shared with scripts/atlas-setup.mjs.
+      await Promise.all(INDEXES.map((ix) => d.collection(ix.collection).createIndex(ix.keys, ix.options)));
       return d;
     });
     const pending = g._stcMongo;
@@ -103,15 +107,10 @@ export async function currentUser(): Promise<UserDoc | null> {
   if (!dbConfigured()) return null;
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  // Session and account in one round trip (both are _id lookups).
-  const [user] = await (await db()).collection<SessionDoc>('sessions').aggregate<UserDoc>([
-    { $match: { _id: hash(token), expiresAt: { $gt: new Date() } } },
-    { $limit: 1 },
-    { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'user' } },
-    { $unwind: '$user' },
-    { $replaceRoot: { newRoot: '$user' } },
-  ]).toArray();
-  return user ?? null;
+  const d = await db();
+  const s = await d.collection<SessionDoc>('sessions').findOne({ _id: hash(token), expiresAt: { $gt: new Date() } });
+  if (!s) return null;
+  return d.collection<UserDoc>('users').findOne({ _id: s.userId });
 }
 
 export const publicUser = (u: UserDoc) => ({ username: u.username, level: 1 + Math.floor(u.xp / XP_PER_LEVEL), tavernBuff: u.tavernBuff === true, trainingBuff: u.trainingBuff === true });

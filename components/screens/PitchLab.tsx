@@ -77,9 +77,7 @@ export function PitchLab() {
     alive.current = true;
     muteMusic(true);
     mic.start().then(() => alive.current && setStatus(mic.status));
-    // The readout is for eyes, not the grader: ~15 updates a second is plenty.
-    let shownAt = -Infinity;
-    const l = (r: Reading) => { if (r.t - shownAt < 66) return; shownAt = r.t; setReading(r); };
+    const l = (r: Reading) => setReading(r);
     mic.listeners.add(l);
     return () => {
       alive.current = false;
@@ -141,16 +139,12 @@ export function PitchLab() {
     const last = ex.notes[ex.notes.length - 1];
     const totalBeats = last.startBeat + last.durBeats;
     await new Promise<void>((done) => {
-      let gradedAt = -Infinity; // grading re-reads the whole take: ~15 Hz, the cursor stays per-frame
       const tick = () => {
         if (!alive.current) return done();
         const now = clock();
+        const g = grade(ex, mic.peek(), startPerf, inst.shift, TIMING_WINDOW_MS);
         setBeat(Math.max(0, (now - startPerf) / mspb));
-        if (now - gradedAt >= 66) {
-          gradedAt = now;
-          const g = grade(ex, mic.peek(), startPerf, inst.shift, TIMING_WINDOW_MS);
-          setResults(ex.notes.map((n, i) => (now >= startPerf + (n.startBeat + n.durBeats) * mspb + 110 ? g[i] : undefined)));
-        }
+        setResults(ex.notes.map((n, i) => (now >= startPerf + (n.startBeat + n.durBeats) * mspb + 110 ? g[i] : undefined)));
         if (now > startPerf + totalBeats * mspb + RECORD_TAIL_MS) return done();
         requestAnimationFrame(tick);
       };

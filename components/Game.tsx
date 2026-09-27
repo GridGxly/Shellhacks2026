@@ -208,7 +208,6 @@ function BootGate({ onStart }: { onStart: () => void }) {
         {/* Server-rendered, so phones pick the light logo by media query rather than art(). */}
         <picture>
           <source media="(pointer: coarse) and (max-width: 500px), (pointer: coarse) and (max-height: 500px)" srcSet="/assets/m/logo.webp" type="image/webp" />
-          <source srcSet="/assets/d/logo.webp" type="image/webp" />
           <img src="/assets/logo.png" alt="Slay the Choir" width={520} style={{ display: 'block', animation: 'fadeIn 800ms both' }} />
         </picture>
         <div className="f-press boot-start" style={{ fontSize: 16, color: 'var(--sun)', animation: 'blink 1.1s steps(1) infinite' }}>

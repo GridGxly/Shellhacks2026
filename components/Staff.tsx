@@ -1,5 +1,4 @@
 'use client';
-import { useMemo } from 'react';
 import { accidentalFor, FLAT_STEPS, SHARP_STEPS, staffStep, writtenKey, type Exercise, type KeySig } from '@/lib/music';
 import { PERFECT_MS } from '@/lib/config';
 import type { NoteResult } from '@/lib/mic';
@@ -39,9 +38,7 @@ interface Props {
 }
 
 export default function Staff({ ex, shift, writtenOffset, width, beat, results, barsPerLine = ex.bars, revealUpTo = Infinity, keySig, approach = false }: Props) {
-  // Callers often build keySig inline; key the memo on its contents, not its identity.
-  const keyName = keySig?.name, keyAccidentals = keySig?.accidentals;
-  const key = useMemo(() => (keyName !== undefined && keyAccidentals !== undefined ? { name: keyName, accidentals: keyAccidentals } : writtenKey(writtenOffset)), [keyName, keyAccidentals, writtenOffset]);
+  const key = keySig ?? writtenKey(writtenOffset);
   const lines = Math.ceil(ex.bars / barsPerLine);
   const lineH = GAP * 4 + 96;
   const left = 150;
@@ -62,104 +59,85 @@ export default function Staff({ ex, shift, writtenOffset, width, beat, results, 
   const yOf = (step: number) => 48 + GAP * 4 - step * (GAP / 2);
   const mspb = 60000 / ex.tempo;
 
-  // Everything below depends only on the music and the layout, never on the
-  // cursor: computed once per exercise instead of on every animation frame.
-  const layout = useMemo(() => {
   // Beam runs of consecutive eighths that sit in the same bar, so they read as
-    // one rhythmic group instead of separate flagged notes. A beamed group takes
-    // a single stem direction and a shared stem end, as engraved music does.
-    const stepOf = (n: Exercise['notes'][number]) => staffStep(n.midi + shift + writtenOffset, key);
-    // Mirrors the note-head x below, accidental shift included, so beams land on
-    // their stems.
-    const accAt = (n: Exercise['notes'][number], idx: number) => {
-      const raw = accidentalFor(n.midi + shift + writtenOffset, key);
-      if (!raw) return 0;
-      const bar = Math.floor(n.startBeat / ex.beatsPerBar);
-      const step = stepOf(n);
-      const marked = ex.notes.some(
-        (o, oi) =>
-          oi < idx &&
-          Math.floor(o.startBeat / ex.beatsPerBar) === bar &&
-          stepOf(o) === step &&
-          accidentalFor(o.midi + shift + writtenOffset, key) === raw,
-      );
-      return marked ? 0 : ACC_GAP;
+  // one rhythmic group instead of separate flagged notes. A beamed group takes
+  // a single stem direction and a shared stem end, as engraved music does.
+  const stepOf = (n: Exercise['notes'][number]) => staffStep(n.midi + shift + writtenOffset, key);
+  // Mirrors the note-head x below, accidental shift included, so beams land on
+  // their stems.
+  const accAt = (n: Exercise['notes'][number], idx: number) => {
+    const raw = accidentalFor(n.midi + shift + writtenOffset, key);
+    if (!raw) return 0;
+    const bar = Math.floor(n.startBeat / ex.beatsPerBar);
+    const step = stepOf(n);
+    const marked = ex.notes.some(
+      (o, oi) =>
+        oi < idx &&
+        Math.floor(o.startBeat / ex.beatsPerBar) === bar &&
+        stepOf(o) === step &&
+        accidentalFor(o.midi + shift + writtenOffset, key) === raw,
+    );
+    return marked ? 0 : ACC_GAP;
+  };
+  const xOf = (n: Exercise['notes'][number], b0: number, idx: number) =>
+    left + (n.startBeat - b0) * beatW + noteOffset(n.durBeats) + accAt(n, idx);
+  const beamOf = new Map<number, { stemUp: boolean; y: number }>();
+  const beamGroups = new Map<number, { x0: number; x1: number; y0: number; y1: number; stemUp: boolean }[]>();
+  {
+    let run: number[] = [];
+    const flush = () => {
+      if (run.length > 1) {
+        const line = Math.floor(ex.notes[run[0]].startBeat / beatsPerLine);
+        const b0 = line * beatsPerLine;
+        const steps = run.map((i) => stepOf(ex.notes[i]));
+        // One direction for the whole group: follow whichever end is farther
+        // from the middle line, the usual engraving rule.
+        const avg = steps.reduce((a, b) => a + b, 0) / steps.length;
+        const stemUp = avg < 4;
+        // Shared stem end, pushed out to clear the most extreme notehead.
+        const ys = steps.map((s) => yOf(s));
+        const xs = run.map((i) => xOf(ex.notes[i], b0, i));
+        // Slope the beam with the notes, as engraved music does, but keep the
+        // tilt gentle so stems stay readable.
+        const first = ys[0];
+        const lastY = ys[ys.length - 1];
+        const span = xs[xs.length - 1] - xs[0];
+        const rise = Math.max(-14, Math.min(14, lastY - first));
+        const base = stemUp ? Math.min(...ys) - 46 : Math.max(...ys) + 46;
+        // Anchor the sloped line so no notehead's stem falls short.
+        const yAt = (x: number) => base + ((x - xs[0]) / (span || 1)) * rise;
+        let shiftY = 0;
+        run.forEach((i, k) => {
+          const need = ys[k] + (stemUp ? -18 : 18);
+          const have = yAt(xs[k]);
+          shiftY = stemUp ? Math.min(shiftY, need - have) : Math.max(shiftY, need - have);
+        });
+        run.forEach((i, k) => beamOf.set(i, { stemUp, y: yAt(xs[k]) + shiftY }));
+        const list = beamGroups.get(line) ?? [];
+        list.push({
+          x0: xs[0] + (stemUp ? 8 : -10),
+          x1: xs[xs.length - 1] + (stemUp ? 10.5 : -7.5),
+          y0: yAt(xs[0]) + shiftY,
+          y1: yAt(xs[xs.length - 1]) + shiftY,
+          stemUp,
+        });
+        beamGroups.set(line, list);
+      }
+      run = [];
     };
-    const xOf = (n: Exercise['notes'][number], b0: number, idx: number) =>
-      left + (n.startBeat - b0) * beatW + noteOffset(n.durBeats) + accAt(n, idx);
-    const beamOf = new Map<number, { stemUp: boolean; y: number }>();
-    const beamGroups = new Map<number, { x0: number; x1: number; y0: number; y1: number; stemUp: boolean }[]>();
-    {
-      let run: number[] = [];
-      const flush = () => {
-        if (run.length > 1) {
-          const line = Math.floor(ex.notes[run[0]].startBeat / beatsPerLine);
-          const b0 = line * beatsPerLine;
-          const steps = run.map((i) => stepOf(ex.notes[i]));
-          // One direction for the whole group: follow whichever end is farther
-          // from the middle line, the usual engraving rule.
-          const avg = steps.reduce((a, b) => a + b, 0) / steps.length;
-          const stemUp = avg < 4;
-          // Shared stem end, pushed out to clear the most extreme notehead.
-          const ys = steps.map((s) => yOf(s));
-          const xs = run.map((i) => xOf(ex.notes[i], b0, i));
-          // Slope the beam with the notes, as engraved music does, but keep the
-          // tilt gentle so stems stay readable.
-          const first = ys[0];
-          const lastY = ys[ys.length - 1];
-          const span = xs[xs.length - 1] - xs[0];
-          const rise = Math.max(-14, Math.min(14, lastY - first));
-          const base = stemUp ? Math.min(...ys) - 46 : Math.max(...ys) + 46;
-          // Anchor the sloped line so no notehead's stem falls short.
-          const yAt = (x: number) => base + ((x - xs[0]) / (span || 1)) * rise;
-          let shiftY = 0;
-          run.forEach((_, k) => {
-            const need = ys[k] + (stemUp ? -18 : 18);
-            const have = yAt(xs[k]);
-            shiftY = stemUp ? Math.min(shiftY, need - have) : Math.max(shiftY, need - have);
-          });
-          run.forEach((i, k) => beamOf.set(i, { stemUp, y: yAt(xs[k]) + shiftY }));
-          const list = beamGroups.get(line) ?? [];
-          list.push({
-            x0: xs[0] + (stemUp ? 8 : -10),
-            x1: xs[xs.length - 1] + (stemUp ? 10.5 : -7.5),
-            y0: yAt(xs[0]) + shiftY,
-            y1: yAt(xs[xs.length - 1]) + shiftY,
-            stemUp,
-          });
-          beamGroups.set(line, list);
-        }
-        run = [];
-      };
-      ex.notes.forEach((n, i) => {
-        const prev = ex.notes[i - 1];
-        const sameBar = prev && Math.floor(prev.startBeat / ex.beatsPerBar) === Math.floor(n.startBeat / ex.beatsPerBar);
-        const sameLine = prev && Math.floor(prev.startBeat / beatsPerLine) === Math.floor(n.startBeat / beatsPerLine);
-        if (n.durBeats > 0.5) { flush(); return; }
-        // Beam within a beat, not across one: in 3/4 six eighths read as three
-        // pairs, which is how the pulse is engraved.
-        const sameBeat = prev && Math.floor(prev.startBeat) === Math.floor(n.startBeat);
-        if (run.length && (!sameBar || !sameLine || !sameBeat)) flush();
-        run.push(i);
-      });
-      flush();
-    }
-    // Per-note engraving: an accidental holds for the rest of its bar, so only
-    // the first note that needs one in each bar carries the sign.
-    const heads = ex.notes.map((n, i) => {
-      const written = n.midi + shift + writtenOffset;
-      const step = staffStep(written, key);
-      const accidental = accAt(n, i) ? accidentalFor(written, key) : '';
-      const b0 = Math.floor(n.startBeat / beatsPerLine) * beatsPerLine;
-      const ledgers: number[] = [];
-      for (let st = -2; st >= step; st -= 2) ledgers.push(st);
-      for (let st = 10; st <= step; st += 2) ledgers.push(st);
-      return { step, accidental, x: xOf(n, b0, i), y: yOf(step), ledgers };
+    ex.notes.forEach((n, i) => {
+      const prev = ex.notes[i - 1];
+      const sameBar = prev && Math.floor(prev.startBeat / ex.beatsPerBar) === Math.floor(n.startBeat / ex.beatsPerBar);
+      const sameLine = prev && Math.floor(prev.startBeat / beatsPerLine) === Math.floor(n.startBeat / beatsPerLine);
+      if (n.durBeats > 0.5) { flush(); return; }
+      // Beam within a beat, not across one: in 3/4 six eighths read as three
+      // pairs, which is how the pulse is engraved.
+      const sameBeat = prev && Math.floor(prev.startBeat) === Math.floor(n.startBeat);
+      if (run.length && (!sameBar || !sameLine || !sameBeat)) flush();
+      run.push(i);
     });
-    return { beamOf, beamGroups, heads };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- beatW/yOf/xOf derive from these
-  }, [ex, shift, writtenOffset, key, width, barsPerLine]);
-  const { beamOf, beamGroups, heads } = layout;
+    flush();
+  }
 
   return (
     <svg width={width} height={lines * lineH} viewBox={`0 0 ${width} ${lines * lineH}`} style={{ display: 'block', overflow: 'visible' }}>
@@ -202,8 +180,23 @@ export default function Staff({ ex, shift, writtenOffset, width, beat, results, 
               );
             })}
             {notes.map(({ n, i }) => {
-              const { step, accidental, x, y, ledgers } = heads[i];
+              const written = n.midi + shift + writtenOffset;
+              const step = staffStep(written, key);
+              // An accidental holds for the rest of its bar, so only the first
+              // note that needs one in each bar carries the sign.
+              const rawAccidental = accidentalFor(written, key);
+              const bar = Math.floor(n.startBeat / ex.beatsPerBar);
+              const alreadyMarked = ex.notes.some(
+                (o, oi) =>
+                  oi < i &&
+                  Math.floor(o.startBeat / ex.beatsPerBar) === bar &&
+                  staffStep(o.midi + shift + writtenOffset, key) === step &&
+                  accidentalFor(o.midi + shift + writtenOffset, key) === rawAccidental,
+              );
+              const accidental = alreadyMarked ? '' : rawAccidental;
               const beam = beamOf.get(i);
+              const x = left + (n.startBeat - b0) * beatW + noteOffset(n.durBeats) + (accidental ? ACC_GAP : 0);
+              const y = yOf(step);
               const r = results[i];
               const passed = cursorBeat !== null ? n.startBeat + n.durBeats <= (beat ?? 0) : !!r;
               const isCurrent = beat !== null && beat >= n.startBeat && beat < n.startBeat + n.durBeats;
@@ -216,6 +209,9 @@ export default function Staff({ ex, shift, writtenOffset, width, beat, results, 
               const untilMs = approach && beat !== null && !hidden ? (n.startBeat - beat) * mspb : null;
               const closing = untilMs !== null && untilMs > 0 && untilMs <= APPROACH_MS ? untilMs / APPROACH_MS : null; // 1 -> 0
               const flash = untilMs !== null && untilMs <= 0 && -untilMs < FLASH_MS && !r ? -untilMs / FLASH_MS : null; // 0 -> 1
+              const ledgers: number[] = [];
+              for (let s = -2; s >= step; s -= 2) ledgers.push(s);
+              for (let s = 10; s <= step; s += 2) ledgers.push(s);
               return (
                 <g key={i} opacity={hidden ? 0 : 1} style={{ transition: 'opacity 120ms steps(2)' }}>
                   {isCurrent && !r && <circle cx={x} cy={y} r={16} fill="#FFD23F" opacity={0.45} />}

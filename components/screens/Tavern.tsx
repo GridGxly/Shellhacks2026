@@ -6,7 +6,7 @@ import { recordGuestPerformance } from '@/lib/client-performance';
 import { INSTRUMENTS, type InstrumentId } from '@/lib/content';
 import { grade, mic, simulate, type NoteResult } from '@/lib/mic';
 import { useGame } from '@/lib/store';
-import { playDuet, takeBody, TavernError, TavernRecorder, tavernRequest, useTavernRoom, tavernGuestName, type TavernSeat } from '@/lib/tavern';
+import { playDuet, TavernError, TavernRecorder, tavernRequest, useTavernRoom, tavernGuestName, type TavernSeat } from '@/lib/tavern';
 import { playTavernCrowd, preloadTavernCrowd, tavernVerdictCrowdCues } from '@/lib/tavern-crowd-audio';
 import type { PublicTavernRoom, TavernEntry, TavernResultInput, TavernMode } from '@/lib/tavern-types';
 import { tavernDurationMs, tavernExercise } from '@/lib/tavern-exercise';
@@ -48,7 +48,6 @@ export default function Tavern() {
   const micState = micReady ? 'ready' : micAsking ? 'asking' : demo ? 'demo' : micBlocked ? 'blocked' : 'off';
   const lifetime = useRef<AbortController | null>(null);
   const recording = useRef<TavernRecorder | null>(null);
-  const ownTake = useRef<Blob | undefined>(undefined); // this player's recording, replayed locally in the duet
   const performanceStarted = useRef(false);
   const playbackStarted = useRef(false);
   const stopCrowd = useRef<(() => void) | null>(null);
@@ -95,11 +94,7 @@ export default function Tavern() {
   // The show clock only runs while something on stage is timed. The lobby,
   // performer select and waiting room are static, so they no longer re-render
   // the whole tavern twenty times a second.
-  // While performing, the grading timer below advances the clock too (one render per tick).
-  // Waiting/uploading only animate the partner's progress bar, until the phrase is over.
-  const ticking = phase === 'countdown'
-    || ((phase === 'uploading' || phase === 'waiting') && elapsed < tavernDurationMs(gameMode))
-    || (phase === 'verdict' && verdictElapsed < VERDICT_SETTLED_MS);
+  const ticking = ['countdown', 'performing', 'uploading', 'waiting', 'duet'].includes(phase) || (phase === 'verdict' && verdictElapsed < VERDICT_SETTLED_MS);
   useEffect(() => {
     if (!ticking) return;
     const tick = () => setNow(Date.now());
@@ -163,17 +158,12 @@ export default function Tavern() {
       setPhase('performing'); mic.beginRecording();
       const recorder = recording.current = new TavernRecorder();
       recorder.start(demo ? null : mic.mediaStream, downbeatPerf);
-      // One timer drives the whole performance: the cursor clock every 50 ms,
-      // and a re-grade of the take every other tick (grading re-reads the whole take).
-      let ticks = 0;
       grading = setInterval(() => {
         if (controller.signal.aborted) return;
-        setNow(Date.now());
-        if (ticks++ % 2) return;
         const elapsed = performance.now() - downbeatPerf;
         const live = simulated ?? grade(part, mic.peek(), downbeatPerf, inst.shift, TIMING_WINDOW_MS);
         setResults(live.map((note, i) => elapsed >= (part.notes[i].startBeat + part.notes[i].durBeats) * mspb + 110 ? note : undefined));
-      }, 50);
+      }, 80);
     });
     later(start + tavernDurationMs(gameMode) + RECORD_TAIL_MS, () => {
       clearInterval(grading);
@@ -184,10 +174,9 @@ export default function Tavern() {
         if (controller.signal.aborted) return;
         mic.stop();
         const hitIndices = final.filter((note) => note.status === 'hit').map((note) => note.index);
-        const body: TavernResultInput = { hits: hitIndices.length, total: part.notes.length, hitIndices, notes: final, simulated: !!simulated, offsetMs: clip.offsetMs, ...(clip.audio ? { mime: clip.mime } : {}) };
-        ownTake.current = clip.audio;
+        const body: TavernResultInput = { hits: hitIndices.length, total: part.notes.length, hitIndices, notes: final, simulated: !!simulated, ...clip };
         try {
-          await tavernRequest<PublicTavernRoom>(`/api/tavern/${seat.code}/result`, clip.audio ? takeBody(body, clip.audio) : body, seat, controller.signal);
+          await tavernRequest<PublicTavernRoom>(`/api/tavern/${seat.code}/result`, body, seat, controller.signal);
           if (!practiceUser && !useGame.getState().user && !controller.signal.aborted) {
             recordGuestPerformance({ source: 'tavern', attemptId: guestAttempt, instrument: inst.id, exercise: part, notes: final, simulated: !!simulated });
           }
@@ -209,7 +198,7 @@ export default function Tavern() {
     const start = setTimeout(() => {
       if (controller.signal.aborted) return;
       stopCrowd.current?.(); setPhase('duet'); muteMusic(true);
-      void playDuet(room, seat, offset, controller.signal, setActivity, ownTake.current).then(() => {
+      void playDuet(room, seat, offset, controller.signal, setActivity).then(() => {
         if (controller.signal.aborted) return;
         setVerdictAt(Date.now()); setPhase('verdict'); muteMusic(false);
         const rewarded = room.mode === 'pvp' ? room.winnerPart === seat.part : room.pass;
@@ -291,7 +280,7 @@ export default function Tavern() {
       {pass && <div className="tavern-tip-award"><strong>+{TAVERN_BUFF_TIPS} TIPS · NEXT CLIMB</strong><span>{hadBuff ? 'Your reward is already waiting. Tavern buffs never stack.' : user ? 'Saved to your account. Used once when you start a new climb.' : 'Ready for your next climb in this session.'}</span>{[0, 1, 2, 3, 4].map((i) => <i key={i} className="tavern-tip-coin" style={{ animationDelay: `${1200 + i * 100}ms`, left: -240 + i * 230 }}>●</i>)}</div>}
       {readyToContinue && <button className="tavern-action tavern-continue" onClick={returnHome}>CONTINUE →</button>}
     </>}
-    {phase === 'disconnected' && <div className="tavern-disconnected"><h1>SHOW DISCONNECTED</h1><Ornament /><p>The show ended, your partner left, or the tavern lost its connection.<br />Recordings close with the show. Returning home…</p><button className="tavern-action" onClick={returnHome}>BACK HOME →</button></div>}
+    {phase === 'disconnected' && <div className="tavern-disconnected"><h1>SHOW DISCONNECTED</h1><Ornament /><p>Your partner left, or the tavern lost its connection.<br />This show can’t be resumed. Returning home…</p><button className="tavern-action" onClick={returnHome}>BACK HOME →</button></div>}
     {error && <div key={error} className="tavern-error" role="alert">{error}</div>}
     {!selecting && ['lobby', 'hosting', 'ready'].includes(stagePhase) && <button className="tavern-leave" onClick={returnHome}>ESC · LEAVE TAVERN</button>}
   </TavernRoom>;

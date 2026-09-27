@@ -1,7 +1,5 @@
 # Handoff prompt: Slay the Choir app (paste this into a new session)
 
-> **Archived (2026-09-26).** This is the app handoff from before the tavern, mentor and MongoDB refactors. Parts of it no longer match the code. For example, there is no live leaderboard stream, raw `fights` log or bcrypt for new accounts any more. The current backend state, open items and how to verify it are in [`HANDOFF-BACKEND.md`](HANDOFF-BACKEND.md); rules and data model are in [`PRD.md`](PRD.md) (§7b).
-
 You are picking up **Slay the Choir**, a ShellHacks 2026 game: Slay the Spire style, but every card is a sight-reading exercise the player performs on a real instrument into the mic. It is a Next.js 16.3.6 App Router app (Turbopack) in `/Users/ralph/Documents/Projects/shellhacks`, on branch `project-final-readme`. Read `AGENTS.md` first: this Next.js has breaking changes, and its docs live in `node_modules/next/dist/docs/`. Read them before touching routes, cookies or config.
 
 ## Hard rules (from the owner, non-negotiable)

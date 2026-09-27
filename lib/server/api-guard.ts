@@ -1,4 +1,4 @@
-import { sha256Hex } from './hash';
+import { createHash } from 'node:crypto';
 import { handled } from './http';
 import { clientIp, limit } from './ratelimit';
 
@@ -13,8 +13,8 @@ export function guarded(request: Request, work: () => Promise<Response>) {
     const network = await limit(`api:network:${ip}`, 3000, 60_000);
     if (network) return network;
     const token = request.headers.get('authorization') || request.headers.get('cookie')?.match(/(?:^|;\s*)stc_session=([^;]+)/)?.[1];
-    const identity = token ? sha256Hex(token.slice(0, 512)) : `ip:${ip}`;
-    const max = family === 'auth' ? 120 : token ? 240 : 900;
+    const identity = token ? createHash('sha256').update(token.slice(0,512)).digest('hex') : `ip:${ip}`;
+    const max = family === 'auth' ? 120 : family === 'leaderboard' && path.endsWith('/live') ? 30 : token ? 240 : 900;
     const blocked = await limit(`api:${family}:${identity}`, max, 60_000);
     if (blocked) return blocked;
     const response = await work();

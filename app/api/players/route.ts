@@ -15,9 +15,8 @@ export async function GET(request: Request) {
     const users = (await db()).collection<UserDoc>('users');
     const tail: Document[] = [
       { $limit: 8 },
-      // Each hit's all-time best is one _id read in `bests` (lib/server/ranking.ts).
-      { $lookup: { from: 'bests', let: { key: { $concat: ['all:', '$_id'] } }, as: 'best', pipeline: [
-        { $match: { $expr: { $eq: ['$_id', '$$key'] } } },
+      { $lookup: { from: 'runs', let: { id: '$_id' }, as: 'best', pipeline: [
+        { $match: { $expr: { $eq: ['$userId', '$$id'] } } }, { $sort: { score: -1 } }, { $limit: 1 },
         { $project: { _id: 0, score: 1, floor: 1, instrument: 1 } },
       ] } },
       { $project: { _id: 0, username: 1, xp: 1, best: { $first: '$best' } } },

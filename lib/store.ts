@@ -72,8 +72,6 @@ const SAVE_KEY = 'stc.save.v1';
 const BEST_KEY = 'stc.best.v1';
 const PENDING_KEY = 'stc.pending.v2'; // finished runs the server hasn't acknowledged yet, per account
 const REWARD_KEY = 'stc.reward-start.v1';
-const ENDED_KEY = 'stc.ended.v1'; // ids of climbs that died or won: their checkpoints never come back
-const MAX_ENDED_RUNS = 20;
 let rewardStarting = false;
 interface PendingRewardStart { username: string; run: Run }
 // Keep retries safe within this tab even when browser storage is unavailable.
@@ -118,7 +116,7 @@ function freshRun(instrument: InstrumentId = 'trumpet'): Run {
 
 /** Saves from before run ids/logs existed still load. */
 function migrateRun(r: Run | null): Run | null {
-  if (!r || (typeof r.id === 'string' && endedRuns().includes(r.id))) return null;
+  if (!r) return null;
   return { ...r, id: r.id ?? newRunId(), demo: r.demo ?? false, log: Array.isArray(r.log) ? r.log : [] };
 }
 
@@ -174,17 +172,6 @@ function writeJSON(key: string, v: unknown) {
   }
 }
 
-// Kept in memory as well, so a tab with blocked storage still can't revive a finished climb.
-const endedInTab = new Set<string>();
-function endedRuns(): string[] {
-  const stored = readJSON<string[]>(ENDED_KEY);
-  return [...(Array.isArray(stored) ? stored.filter((id) => typeof id === 'string') : []), ...endedInTab];
-}
-function markEnded(runId: string) {
-  endedInTab.add(runId);
-  writeJSON(ENDED_KEY, [...new Set([...endedRuns(), runId])].slice(-MAX_ENDED_RUNS));
-}
-
 function readRewardStart(username: string): PendingRewardStart | null {
   const account = rewardAccount(username);
   if (pendingRewardStarts.has(account)) return pendingRewardStarts.get(account) ?? null;
@@ -216,41 +203,16 @@ function clearRewardStart(username: string) {
   if (typeof legacy?.username === 'string' && rewardAccount(legacy.username) === rewardAccount(username)) writeJSON(REWARD_KEY, null);
 }
 
-// Cloud checkpoint writes. Upgrades bought in a row coalesce into one PUT a
-// moment later; a DELETE (climb over) cancels any pending PUT and goes at once.
-// Requests run one at a time, so a slow older write can't land after a newer one.
-const SAVE_DEBOUNCE_MS = 1200;
-let pendingSave: Run | null = null;
-let saveTimer: ReturnType<typeof setTimeout> | undefined;
-let saveChain: Promise<void> = Promise.resolve();
-const putOrDelete = (run: Run | null, keepalive = false) => fetch('/api/save', {
-  method: run ? 'PUT' : 'DELETE',
-  headers: { 'Content-Type': 'application/json' },
-  body: run ? JSON.stringify({ run }) : undefined,
-  keepalive,
-});
-function sendSave(run: Run | null) {
-  saveChain = saveChain.then(async () => {
-    try { await putOrDelete(run); } catch { /* offline or DB not configured */ }
-  });
-  return saveChain;
-}
-function syncSave(run: Run | null) {
-  clearTimeout(saveTimer); saveTimer = undefined;
-  if (!run) { pendingSave = null; return sendSave(null); }
-  pendingSave = run;
-  saveTimer = setTimeout(() => { saveTimer = undefined; const next = pendingSave; pendingSave = null; if (next) void sendSave(next); }, SAVE_DEBOUNCE_MS);
-  return saveChain;
-}
-// Closing the tab inside the debounce window still sends the latest checkpoint.
-if (typeof window !== 'undefined') {
-  window.addEventListener('pagehide', () => {
-    if (!pendingSave) return;
-    clearTimeout(saveTimer); saveTimer = undefined;
-    const run = pendingSave; pendingSave = null;
-    // Sent directly: a request queued behind the chain would never start once the page unloads.
-    void putOrDelete(run, true).catch(() => {});
-  });
+async function syncSave(run: Run | null) {
+  try {
+    await fetch('/api/save', {
+      method: run ? 'PUT' : 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: run ? JSON.stringify({ run }) : undefined,
+    });
+  } catch {
+    /* offline or DB not configured */
+  }
 }
 
 interface GameState {
@@ -261,7 +223,6 @@ interface GameState {
   combat: Combat | null;
   demoMode: boolean;
   lossBy: number | null;
-  fallen: Run | null; // the climb that just died, shown on the Defeat screen after `run` resets
   saved: Run | null;
   best: { score: number; floor: number } | null;
   user: User | null;
@@ -307,7 +268,6 @@ export const useGame = create<GameState>((set, get) => ({
   combat: null,
   demoMode: false,
   lossBy: null,
-  fallen: null,
   saved: null,
   best: null,
   user: null,
@@ -319,11 +279,7 @@ export const useGame = create<GameState>((set, get) => ({
   combatLocked: false,
   bossDemo: null,
 
-  hydrate: () => {
-    const saved = migrateRun(readJSON<Run>(SAVE_KEY));
-    if (!saved) writeJSON(SAVE_KEY, null); // drop a finished climb's leftover checkpoint
-    set({ saved, best: readJSON(BEST_KEY) });
-  },
+  hydrate: () => set({ saved: migrateRun(readJSON<Run>(SAVE_KEY)), best: readJSON(BEST_KEY) }),
   setUser: (user) => {
     resetTrainingMemory(user?.username ?? null);
     set((previous) => ({ user, tavernBuff: user ? user.tavernBuff === true : previous.user ? false : previous.tavernBuff, trainingBuff: user ? user.trainingBuff === true : previous.user ? false : previous.trainingBuff }));
@@ -376,7 +332,7 @@ export const useGame = create<GameState>((set, get) => ({
       if (user) clearRewardStart(user.username);
       writeJSON(SAVE_KEY, null);
       if (user) void syncSave(null);
-      set(s => ({ run, combat: null, lossBy: null, fallen: null, saved: null, ...pending, user: s.user ? { ...s.user, ...pending } : null }));
+      set(s => ({ run, combat: null, lossBy: null, saved: null, ...pending, user: s.user ? { ...s.user, ...pending } : null }));
       if (tips) get().showToast(`Banked rewards: +${tips} tips for this climb`);
       return true;
     } catch {
@@ -561,20 +517,12 @@ export const useGame = create<GameState>((set, get) => ({
     }
   },
 
-  // Death is final (Slay the Spire style): the climb is over, every upgrade and
-  // tip is lost, and the only way on is a brand-new run at default stats.
   loseRun: () => {
     const s = get();
     if (s.bossDemo) return;
     logFight(s, false);
-    const fallen = s.run;
-    set({ lossBy: s.combat?.enemyIdx ?? 0, fallen });
-    finishRun(fallen, 'loss');
-    // Reset once the iris has covered the fight (screen swaps at 520 ms), so
-    // Combat never re-renders against a fresh run's HP/stats.
-    window.setTimeout(() => {
-      if (get().fallen === fallen) set({ run: freshRun(fallen.instrument), combat: null });
-    }, 600);
+    set({ lossBy: s.combat?.enemyIdx ?? 0 });
+    finishRun(s.run, 'loss');
   },
 }));
 
@@ -618,7 +566,7 @@ async function flushPending() {
   for (const p of pendingRuns().filter((q) => q.owner === owner)) {
     if (useGame.getState().user?.username.toLowerCase() !== owner) return; // signed out/switched mid-flush
     try {
-      const body = { runId: p.runId, events: p.events, endedBy: p.endedBy, instrument: p.instrument, durationMs: p.durationMs };
+      const { owner: _owner, ...body } = p;
       const res = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (res.status === 429) {
         // Submission cooldown: try again after the server's Retry-After.
@@ -634,7 +582,6 @@ async function flushPending() {
 }
 
 function finishRun(run: Run, endedBy: 'loss' | 'victory') {
-  markEnded(run.id);
   writeJSON(SAVE_KEY, null);
   const best = readJSON<{ score: number; floor: number }>(BEST_KEY);
   if (!best || run.score > best.score) writeJSON(BEST_KEY, { score: run.score, floor: run.floor });
