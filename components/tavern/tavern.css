@@ -1,7 +1,7 @@
 .tavern-room { position:absolute; inset:0; overflow:hidden; background:#3B2414; }
 .tavern-backdrop, .tavern-crowd, .tavern-gags { position:absolute; inset:0; width:1440px; height:900px; pointer-events:none; }
 .tavern-backdrop { z-index:0; }
-.tavern-lamp-glow { position:absolute; top:110px; width:260px; height:330px; z-index:1; background:radial-gradient(ellipse,#FFB34732 0%,#FFB34716 38%,transparent 70%); pointer-events:none; animation:tavern-lantern 3s steps(4) infinite; transition:opacity 300ms steps(4); }
+.tavern-lamp-glow { position:absolute; top:110px; width:260px; height:330px; z-index:1; background:radial-gradient(ellipse,#FFB34732 0%,#FFB34716 38%,transparent 70%); pointer-events:none; transition:opacity 300ms steps(4); }
 .tavern-house-shade { position:absolute; inset:0; z-index:2; background:#101126; pointer-events:none; transition:opacity 300ms steps(4); }
 .tavern-chain { position:absolute; top:0; right:82px; width:22px; height:300px; z-index:4; pointer-events:none; }
 .tavern-chain div { height:272px; width:6px; margin:auto; background:repeating-linear-gradient(#BB8747 0 8px,#3B2414 8px 12px); border-right:2px solid #101126; }
@@ -39,7 +39,7 @@
 .tavern-confetti { position:absolute; top:-20px; animation:tavern-confetti-fall 2300ms steps(16) infinite both; }
 .tavern-content { position:absolute; inset:0; z-index:20; pointer-events:none; }
 .tavern-content > * { pointer-events:auto; }
-@keyframes tavern-lantern { 0%,100% { transform:scale(0.94); } 50% { transform:scale(1.02); } }
+ }
 @keyframes tavern-light-on { 0%,49% { filter:brightness(1.4); } 50%,100% { filter:brightness(1); } }
 @keyframes tavern-play { 0%,100% { transform:translateY(0) rotate(-1deg); } 50% { transform:translateY(-7px) rotate(1deg); } }
 @keyframes tavern-breathe { 0%,100% { transform:scaleY(1); } 50% { transform:scaleY(1.014); } }
