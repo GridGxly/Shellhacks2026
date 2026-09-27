@@ -1,0 +1,19 @@
+/* S1 / S2 home. Positions are stage px; rails keep the menu at the window's safe edge. */
+.title-logo { position: absolute; left: calc(72px - var(--rail-l)); top: calc(52px - var(--rail-t)); width: 440px; }
+.title-menu { position: absolute; left: calc(84px - var(--rail-l)); top: 360px; display: flex; flex-direction: column; gap: 22px; }
+.title-mode { display: flex; align-items: center; gap: 18px; text-align: left; font: 26px/32px var(--press); color: var(--parchment); text-shadow: #101126 4px 4px 0; }
+.title-mode[data-first=true] { font-size: 34px; line-height: 40px; }
+.title-mode[data-active=true] { color: var(--sun); }
+.title-mode small { display: block; margin-top: 8px; font: 12px/14px var(--label); letter-spacing: 0.14em; color: var(--soft); text-shadow: #101126 2px 2px 0; }
+.title-pointer { flex-shrink: 0; visibility: hidden; }
+.title-mode[data-active=true] .title-pointer { visibility: visible; }
+.title-more { display: flex; flex-direction: column; gap: 14px; width: 300px; margin-top: 6px; padding: 22px 0 0 34px; border-top: 3px solid rgba(154, 160, 200, 0.28); }
+.title-more-item { text-align: left; font: 16px/20px var(--label); letter-spacing: 0.14em; color: var(--soft); text-shadow: #101126 2px 2px 0; }
+.title-more-item[data-active=true] { color: var(--sun); }
+@media (hover: hover) { .title-mode:hover, .title-more-item:hover { color: var(--sun); } }
+
+/* Phones: a bigger logo top-left, the modes under it at thumb height, utilities on the right rail. */
+:root[data-handheld] .title-logo { left: calc(56px - var(--rail-l)); top: calc(30px - var(--rail-t)); width: 440px; }
+:root[data-handheld] .title-menu { top: 420px; }
+.title-more-rail { position: absolute; right: calc(40px - var(--rail-r)); bottom: calc(30px - var(--rail-b)); width: auto; margin: 0; align-items: flex-end; padding: 0 14px 0 0; border-top: 0; border-right: 3px solid rgba(154, 160, 200, 0.35); }
+.title-more-rail .title-more-item { text-align: right; }
