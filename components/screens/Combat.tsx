@@ -11,7 +11,7 @@ import { buildFacts, fetchTaunt, speak, type Taunt } from '@/lib/voice';
 import CardView from '../CardView';
 import Hud from '../Hud';
 import PerformOverlay, { createLiveSheet, type PerformStage } from '../PerformOverlay';
-import { Bg, HpBar, Octagon, Sprite } from '../ui';
+import { Bg, HpBar, Octagon, Scene, Sprite } from '../ui';
 import { mapFx } from './MapScreen';
 import { useViewport } from '@/lib/viewport';
 
@@ -29,7 +29,7 @@ const RIFF = { x: 210, size: 320 };
 
 export default function Combat() {
   const combat = useGame((s) => s.combat)!;
-  const { handheld, ui } = useViewport();
+  const { handheld, ui, bleedX, bleedY } = useViewport();
   const run = useGame((s) => s.run);
   const demoMode = useGame((s) => s.demoMode);
   const overlay = useGame((s) => s.overlay);
@@ -65,7 +65,13 @@ export default function Combat() {
   const size = enemy.size;
   const enemyX = 1030 - size / 2;
   const enemyY = FLOOR_Y - size;
-  const enemyRect = { x: enemyX + size * 0.15, y: enemyY + size * 0.1, w: size * 0.7, h: size * 0.9 };
+  // The fight scene covers the window as one piece (see .scene); on phones it also lifts, within
+  // the art's spare margin, so the hand never covers the fighters. Hit tests map through the same transform.
+  const cover = Math.max(1 + (2 * bleedX) / 1440, 1 + (2 * bleedY) / 900);
+  const lift = handheld ? -Math.min(130, (cover - 1) * 450) : 0;
+  const onGlass = (x: number, y: number) => ({ x: 720 + (x - 720) * cover, y: 450 + lift + (y - 450) * cover });
+  const hit = onGlass(enemyX + size * 0.15, enemyY + size * 0.1);
+  const enemyRect = { ...hit, w: size * 0.7 * cover, h: size * 0.9 * cover };
 
   // ---------- entry (M2 step 4) ----------
   useEffect(() => {
@@ -430,7 +436,7 @@ export default function Combat() {
   // Handhelds: bigger cards in a wider fan. Their tops stay put (the extra height
   // runs off the bottom of the glass) so the fighters' HP bars stay in view, and a
   // tapped card rises until all of it shows.
-  const cardK = handheld ? Math.min(1.34, 1 + (ui - 1) * 0.3) : 1;
+  const cardK = handheld ? 1.5 : 1; // S3: phones get big cards in a wide fan, names always readable
   const fanAt = (n: number) => { const [x, y, rot] = fan[n]; return [720 + (x + 100 - 720) * cardK - 100, y + 280 * (cardK - 1) + (handheld ? 18 : 0), rot]; };
   const liftedTop = (y: number) => (handheld ? 604 : y - 44);
   const landedCount = combat.hand.filter((c) => c.landed).length;
@@ -445,6 +451,7 @@ export default function Combat() {
 
   return (
     <div ref={rootRef} className="fill" style={{ background: '#101126', animation: fx.flash === 'red' || phase === 'ko' ? 'shake 300ms steps(4)' : undefined }}>
+      <Scene shift={`${lift}px`}>
       <Bg src={enemy.bg} style={{ filter: `${enemy.bgFilter ?? ''} ${phase === 'ko' ? 'saturate(0.2)' : ''} ${dark ? 'brightness(0.2)' : ''}`, transition: 'filter 300ms steps(3)' }} />
       <div className="fill" style={{ background: 'linear-gradient(180deg, rgba(16,17,38,0.35) 0%, rgba(16,17,38,0.1) 45%, rgba(16,17,38,0.15) 70%, rgba(16,17,38,0.8) 100%)' }} />
       {dark && <div style={{ position: 'absolute', left: 120, top: 0, width: 500, height: 900, background: 'linear-gradient(180deg, rgba(255,230,150,0.4), rgba(255,230,150,0.05))', clipPath: 'polygon(40% 0, 60% 0, 100% 100%, 0 100%)', animation: 'fadeIn 300ms steps(3)' }} />}
@@ -477,7 +484,7 @@ export default function Combat() {
       {/* Enemy */}
       <div style={{ position: 'absolute', left: enemyX, top: enemyY, width: size, zIndex: 5, animation: phase === 'enter' ? 'slideInRight 500ms 300ms steps(6) both' : undefined }}>
         {phase !== 'win' && (
-          <div className="ui-b ui-soft" style={{ position: 'absolute', left: size / 2 - 38, top: -46, display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 6px', background: 'rgba(16,17,38,0.85)', border: '3px solid #101126', animation: 'bob 1.4s steps(2) infinite' }}>
+          <div className="combat-intent ui-b ui-soft" style={{ position: 'absolute', left: size / 2 - 38, top: -46, display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 6px', background: 'rgba(16,17,38,0.85)', border: '3px solid #101126', animation: 'bob 1.4s steps(2) infinite' }}>
             <svg width="24" height="24" viewBox="0 0 8 8" shapeRendering="crispEdges">
               <rect x="6" y="0" width="2" height="1" fill="#fff" /><rect x="7" y="1" width="1" height="1" fill="#fff" />
               <rect x="5" y="1" width="2" height="1" fill="#E6ECFF" /><rect x="4" y="2" width="2" height="1" fill="#E6ECFF" />
@@ -521,6 +528,8 @@ export default function Combat() {
           -{fx.pop.v}
         </div>
       )}
+      {taunt && <TauntBubble taunt={taunt} name={enemy.name} x={Math.min(960, Math.max(40, enemyX + size / 2 - 230))} y={Math.max(150, enemyY - 150)} />}
+      </Scene>
       {fx.flash === 'red' && <div className="fill bleed" style={{ zIndex: 19, background: '#E8434F', animation: 'redFlash 400ms steps(3) forwards', pointerEvents: 'none' }} />}
       {fx.flash === 'white' && phase === 'ko' && <div className="fill bleed" style={{ zIndex: 19, background: '#fff', animation: 'redFlash 200ms steps(2) forwards' }} />}
       {phase === 'ko' && <KoOverlay />}
@@ -543,8 +552,6 @@ export default function Combat() {
         </div>
       )}
 
-      {/* Trash-talk bubble (PRD §7a) */}
-      {taunt && <TauntBubble taunt={taunt} name={enemy.name} x={Math.min(960, Math.max(40, enemyX + size / 2 - 230))} y={Math.max(150, enemyY - 150)} />}
 
       {/* Hand */}
       {(phase === 'player' || phase === 'enemy' || phase === 'attack') &&
@@ -599,11 +606,14 @@ export default function Combat() {
       {combat.encore ? (
         <EncoreButton charged={combat.encore.charged && canAct} damage={encoreDamage} onPlay={() => { sfx('drop'); void performAction('encore'); }} />
       ) : (
-        <div className="ui-bl" style={{ position: 'absolute', left: 'calc(40px - var(--rail-l))', bottom: 'calc(50px - var(--rail-b))', display: 'flex', alignItems: 'center', gap: 14, zIndex: 12 }}>
-          <Octagon size={112} ring="#FFD23F" fill="#2A2F55">
-            <span className="f-press" style={{ fontSize: 16, color: '#fff' }}>{inst.keyLabel}</span>
-            <span className="f-label" style={{ fontSize: 10, color: 'var(--sun)' }}>{inst.name.toUpperCase()}</span>
-          </Octagon>
+        <div className="combat-chip ui-bl" style={{ position: 'absolute', left: 'calc(40px - var(--rail-l))', bottom: 'calc(50px - var(--rail-b))', display: 'flex', alignItems: 'center', gap: 14, zIndex: 12 }}>
+          <div className="desk-only">
+            <Octagon size={112} ring="#FFD23F" fill="#2A2F55">
+              <span className="f-press" style={{ fontSize: 16, color: '#fff' }}>{inst.keyLabel}</span>
+              <span className="f-label" style={{ fontSize: 10, color: 'var(--sun)' }}>{inst.name.toUpperCase()}</span>
+            </Octagon>
+          </div>
+          <span className="f-press hand-only" style={{ fontSize: 16, color: '#fff' }}>{inst.keyLabel}</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span className="f-label" style={{ fontSize: 12, color: '#C9CDE8' }}>{micReady && !demoMode ? 'MIC' : 'DEMO'}</span>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 22 }}>
@@ -614,14 +624,15 @@ export default function Combat() {
       )}
 
       {/* Round badge */}
-      <div className="ui-br" style={{ position: 'absolute', right: 'calc(40px - var(--rail-r))', bottom: 'calc(50px - var(--rail-b))', display: 'flex', alignItems: 'center', gap: 14, zIndex: 12 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+      <div className="combat-chip combat-round ui-br" style={{ position: 'absolute', right: 'calc(40px - var(--rail-r))', bottom: 'calc(50px - var(--rail-b))', display: 'flex', alignItems: 'center', gap: 14, zIndex: 12 }}>
+        <span className="f-label hand-only" style={{ fontSize: 12, color: 'var(--muted)' }}>ROUND <b className="f-press" style={{ marginLeft: 6, fontSize: 16, color: '#fff' }}>{combat.round}</b></span>
+        <div className="combat-landed" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
           <span className="f-label" style={{ fontSize: 12, color: '#C9CDE8' }}>LANDED</span>
           <div style={{ display: 'flex', gap: 4 }}>
             {[0, 1, 2].map((i) => <div key={i} style={{ width: 12, height: 16, background: i < landedCount ? 'var(--magenta)' : '#3A3F70', border: '2px solid #101126', animation: i === landedCount - 1 ? 'popIn 300ms steps(4)' : undefined }} />)}
           </div>
         </div>
-        <Octagon size={112}>
+        <Octagon size={112} className="desk-only">
           <span className="f-label" style={{ fontSize: 12, color: 'var(--muted)' }}>ROUND</span>
           <span key={combat.round} className="f-press" style={{ fontSize: 30, color: '#fff', textShadow: '#101126 3px 3px 0', animation: 'popIn 300ms steps(4)' }}>{combat.round}</span>
         </Octagon>

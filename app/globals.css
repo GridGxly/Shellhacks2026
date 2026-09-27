@@ -165,7 +165,7 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
    before the stage scale. The sheet-music panel is also fit-scaled to the glass
    (PerformOverlay), so its sizes here are moderate. */
 :root[data-handheld] .game-card .card-title { height: 44px !important; flex-shrink: 0; }
-:root[data-handheld] .game-card .card-title .f-press { font-size: 26px !important; }
+:root[data-handheld] .game-card .card-title .f-press { font-size: 22px !important; }
 :root[data-handheld] .game-card .card-damage { width: 54px !important; height: 54px !important; }
 :root[data-handheld] .game-card .card-damage .f-press { font-size: 24px !important; }
 :root[data-handheld] .game-card .card-art { height: 70px !important; flex-shrink: 0; }
@@ -204,6 +204,13 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 :root[data-handheld] .peek-panel .f-press { font-size: 15px !important; }
 :root[data-handheld] .peek-act { width: 290px !important; font-size: 13px !important; line-height: 18px; }
 :root[data-handheld] .peek-panel .f-label { font-size: 15px !important; }
+
+/* S3 phone fight: the mic and round octagons become compact chips in the thumb corners. */
+:root[data-handheld] .combat-chip { padding: 8px 14px; background: rgba(12,13,30,0.9); border: 3px solid #3A3F70; box-shadow: #101126 4px 4px 0; }
+:root[data-handheld] .combat-chip:not(.combat-round) { border-color: var(--sun); }
+:root[data-handheld] .combat-landed > span { display: none; }
+/* The fight scene lifts on phones, so the enemy's attack chip moves beside it, clear of the HUD. */
+:root[data-handheld] .combat-intent { left: auto !important; right: 100%; top: 34% !important; margin-right: 8px; }
 
 .victory-group { display: contents; }
 :root[data-handheld] .victory-col { left: 150px !important; width: 1140px !important; flex-direction: row !important; align-items: center !important; justify-content: center; gap: 72px !important; }
