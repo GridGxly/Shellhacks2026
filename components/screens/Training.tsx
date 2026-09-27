@@ -218,6 +218,16 @@ export default function Training() {
     } catch (err) { if (op === operation.current) failure(err); }
     finally { if (op === operation.current) setBusy(false); }
   };
+  // Escape steps back: the first pages go home, building a custom set returns to the choice.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || busy) return;
+      if (phase === 'welcome' || phase === 'choose') { sfx('back'); void pause('pause', true); }
+      else if (phase === 'configure') { sfx('back'); setPhase('choose'); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
   const openReview = async () => {
     if (!state?.plan || busy) return;
     stopAudio(); const op = ++operation.current; setBusy(true); setError('');
