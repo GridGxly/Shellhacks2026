@@ -1,38 +1,60 @@
 import { LEADERBOARD_SIZE } from '@/lib/config';
 import { db, type RunDoc, type UserDoc, publicUser } from '@/lib/db';
-import type { Document } from 'mongodb';
+import type { ClientSession, Db } from 'mongodb';
+import { weekKey } from '../week';
 
-export { weekKey } from '../week';
+export { weekKey };
 
-// userId breaks exact score/date ties consistently; _id chooses identical runs.
-const sort = { score: -1, at: 1, userId: 1, _id: 1 } as const;
-const bestPipeline = (match: Document): Document[] => [
-  { $match: match }, { $sort: sort },
-  { $group: { _id: '$userId', doc: { $first: '$$ROOT' } } },
-  { $replaceRoot: { newRoot: '$doc' } },
-];
-export const rankRow = (r: RunDoc, rank: number) => ({ rank, username: r.username, score: r.score, floor: r.floor, instrument: r.instrument, accuracy: r.accuracy, at: r.at });
+/**
+ * Leaderboards read `bests`: one document per player for all time (scope
+ * "all") and one per player per ISO week (scope = weekKey), kept current by
+ * recordBest() inside the /api/runs transaction. Boards and ranks are then
+ * index reads instead of sorting and grouping every run ever posted.
+ */
+export interface BestDoc {
+  _id: string; // `${scope}:${userId}`
+  scope: string; // 'all' | weekKey
+  userId: string;
+  username: string;
+  runId: string;
+  score: number;
+  floor: number;
+  instrument: string;
+  accuracy: number;
+  at: Date;
+}
+export const bests = (d: Db) => d.collection<BestDoc>('bests');
+export const scopeOf = (range: string | null) => (range === 'week' ? weekKey() : 'all');
+// userId breaks exact score/date ties consistently (matches the bests index).
+const sort = { score: -1, at: 1, userId: 1 } as const;
 
-export async function playerRank(userId: string, match: Document = {}) {
-  const runs = (await db()).collection<RunDoc>('runs');
-  const best = await runs.findOne({ ...match, userId }, { sort });
-  if (!best) return null;
-  const count = await runs.aggregate<{ count: number }>([
-    ...bestPipeline(match),
-    { $match: { $or: [
-      { score: { $gt: best.score } },
-      { score: best.score, at: { $lt: best.at } },
-      { score: best.score, at: best.at, userId: { $lt: userId } },
-    ] } },
-    { $count: 'count' },
-  ]).next();
-  return { best, rank: (count?.count ?? 0) + 1 };
+export const rankRow = (r: Pick<BestDoc, 'username' | 'score' | 'floor' | 'instrument' | 'accuracy' | 'at'>, rank: number) => ({ rank, username: r.username, score: r.score, floor: r.floor, instrument: r.instrument, accuracy: r.accuracy, at: r.at });
+
+/** Call inside the run's transaction. A later run replaces a best only by scoring strictly higher (earlier wins ties). */
+export async function recordBest(d: Db, session: ClientSession, run: RunDoc) {
+  for (const scope of ['all', run.weekKey]) {
+    const _id = `${scope}:${run.userId}`;
+    const current = await bests(d).findOne({ _id }, { session, projection: { score: 1 } });
+    if (current && current.score >= run.score) continue;
+    const doc: BestDoc = { _id, scope, userId: run.userId, username: run.username, runId: run.runId, score: run.score, floor: run.floor, instrument: run.instrument, accuracy: run.accuracy, at: run.at };
+    await bests(d).replaceOne({ _id }, doc, { upsert: true, session });
+  }
 }
 
-export async function leaderboard(match: Document) {
-  return (await db()).collection<RunDoc>('runs').aggregate<RunDoc>([
-    ...bestPipeline(match), { $sort: sort }, { $limit: LEADERBOARD_SIZE },
-  ]).toArray();
+export async function playerRank(userId: string, scope = 'all') {
+  const col = bests(await db());
+  const best = await col.findOne({ _id: `${scope}:${userId}` });
+  if (!best) return null;
+  const ahead = await col.countDocuments({ scope, $or: [
+    { score: { $gt: best.score } },
+    { score: best.score, at: { $lt: best.at } },
+    { score: best.score, at: best.at, userId: { $lt: userId } },
+  ] });
+  return { best, rank: ahead + 1 };
+}
+
+export async function leaderboard(scope: string) {
+  return bests(await db()).find({ scope }).sort(sort).limit(LEADERBOARD_SIZE).toArray();
 }
 
 export async function profile(u: UserDoc) {

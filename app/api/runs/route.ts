@@ -4,7 +4,7 @@ import { RUN_SUBMIT_COOLDOWN_MS } from '@/lib/config';
 import { verifyRun } from '@/lib/score';
 import { bad, duplicate, mutation, readJson } from '@/lib/server/http';
 import { instrument, runId } from '@/lib/server/validation';
-import { weekKey } from '@/lib/server/ranking';
+import { recordBest, weekKey } from '@/lib/server/ranking';
 
 export async function POST(request: Request) {
   return guarded(request, async () => {
@@ -18,8 +18,6 @@ export async function POST(request: Request) {
     const u = await currentUser(); if (!u) return unauthorized();
     const filter = { userId: u._id, runId: b.runId };
     const runs = (await db()).collection<RunDoc>('runs');
-    const existing = await runs.findOne(filter);
-    if (existing) return Response.json({ ok: true, score: existing.score });
     try {
       return await transaction(async (d, session) => {
         const c = d.collection<RunDoc>('runs');
@@ -29,7 +27,9 @@ export async function POST(request: Request) {
         const at = new Date();
         if (previous && at.getTime() - previous.at.getTime() < RUN_SUBMIT_COOLDOWN_MS) return bad('Please wait before submitting another run.', 429);
         const { xp, ...result } = verified;
-        await c.insertOne({ ...filter, username: u.username, instrument: b.instrument as RunDoc['instrument'], ...result, endedBy: b.endedBy as RunDoc['endedBy'], ...(b.durationMs === undefined ? {} : { durationMs: Math.round(Math.max(0, Math.min(86400_000, b.durationMs as number))) }), weekKey: weekKey(at), at }, { session });
+        const run: RunDoc = { ...filter, username: u.username, instrument: b.instrument as RunDoc['instrument'], ...result, endedBy: b.endedBy as RunDoc['endedBy'], ...(b.durationMs === undefined ? {} : { durationMs: Math.round(Math.max(0, Math.min(86400_000, b.durationMs as number))) }), weekKey: weekKey(at), at };
+        await c.insertOne(run, { session });
+        await recordBest(d, session, run);
         // All submissions write this user, serializing cooldown checks across instances.
         await d.collection<UserDoc>('users').updateOne({ _id: u._id }, { $inc: { xp }, $set: { lastRunAt: at } }, { session });
         await d.collection<{ _id: string }>('saves').deleteOne({ _id: u._id, 'run.id': b.runId }, { session });

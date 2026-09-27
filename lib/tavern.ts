@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { ac, duetTone, effectsOutput } from './audio';
 import { INSTRUMENTS } from './content';
 import { tavernDurationMs, tavernExercise } from './tavern-exercise';
-import { TAVERN_POLL_MS, TAVERN_WAITING_POLL_MS } from './config';
+import { TAVERN_AUDIO_MAX_BYTES, TAVERN_POLL_MS, TAVERN_WAITING_POLL_MS } from './config';
 import type { PublicTavernPlayer, PublicTavernRoom, TavernEntry } from './tavern-types';
 
 let sessionGuestName = '';
@@ -16,8 +16,20 @@ export class TavernError extends Error {
   constructor(message: string, public status: number) { super(message); }
 }
 
+/**
+ * A take upload as one binary body: a 4-byte big-endian JSON length, the JSON
+ * result, then the raw recording. No base64: a third smaller on the wire, and
+ * neither side has to hold an encoded copy of the clip.
+ */
+export function takeBody(result: unknown, audio: Blob): Blob {
+  const json = new TextEncoder().encode(JSON.stringify(result));
+  const size = new Uint8Array(4); new DataView(size.buffer).setUint32(0, json.length);
+  return new Blob([size, json, audio], { type: 'application/octet-stream' });
+}
+
 /** Tokens travel in headers/body so local request logs never contain them. */
 export async function tavernRequest<T>(path: string, body?: unknown, seat?: TavernSeat, signal?: AbortSignal): Promise<T> {
+  const raw = body instanceof Blob;
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener('abort', abort, { once: true });
@@ -26,8 +38,8 @@ export async function tavernRequest<T>(path: string, body?: unknown, seat?: Tave
   try {
     const response = await fetch(path, {
       method: body === undefined ? 'GET' : 'POST',
-      headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...(seat ? { Authorization: `Bearer ${seat.token}` } : {}) },
-      body: body === undefined ? undefined : JSON.stringify(body), signal: controller.signal, cache: 'no-store',
+      headers: { ...(body === undefined ? {} : { 'Content-Type': raw ? 'application/octet-stream' : 'application/json' }), ...(seat ? { Authorization: `Bearer ${seat.token}` } : {}) },
+      body: body === undefined ? undefined : raw ? body : JSON.stringify(body), signal: controller.signal, cache: 'no-store',
     });
     const data = await response.json();
     if (!response.ok) throw new TavernError(data.error ?? 'The tavern is unavailable.', response.status);
@@ -88,7 +100,8 @@ export function useTavernRoom(seat: TavernSeat | null, disconnected: () => void)
   return { room, offset };
 }
 
-export interface TavernClip { audio?: string; mime?: string; offsetMs: number }
+/** A recorded take kept as the browser's own Blob (never base64-encoded). */
+export interface TavernClip { audio?: Blob; mime?: string; offsetMs: number }
 export class TavernRecorder {
   private recorder: MediaRecorder | null = null;
   private chunks: Blob[] = [];
@@ -106,11 +119,8 @@ export class TavernRecorder {
         recorder.onstop = async () => {
           try {
             const blob = new Blob(this.chunks, { type: recorder.mimeType });
-            if (!blob.size || blob.size > 400 * 1024) return resolve({ offsetMs: this.offsetMs });
-            const bytes = new Uint8Array(await blob.arrayBuffer());
-            let binary = '';
-            for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-            resolve({ audio: btoa(binary), mime: recorder.mimeType, offsetMs: this.offsetMs });
+            if (!blob.size || blob.size > TAVERN_AUDIO_MAX_BYTES) return resolve({ offsetMs: this.offsetMs });
+            resolve({ audio: blob, mime: recorder.mimeType, offsetMs: this.offsetMs });
           } catch { resolve({ offsetMs: this.offsetMs }); }
           finally { this.chunks = []; }
         };
@@ -136,14 +146,19 @@ export class TavernRecorder {
   }
 }
 
-/** Decode the two ephemeral takes; use precisely the hit notes for a missing take. */
-export async function playDuet(room: PublicTavernRoom, seat: TavernSeat, offset: number, signal: AbortSignal, activity: (levels: [number, number]) => void) {
+/**
+ * Decode the two ephemeral takes; use precisely the hit notes for a missing take.
+ * The player's own take plays from `ownTake` (this tab's recording) when it has one,
+ * so only the partner's clip is downloaded.
+ */
+export async function playDuet(room: PublicTavernRoom, seat: TavernSeat, offset: number, signal: AbortSignal, activity: (levels: [number, number]) => void, ownTake?: Blob) {
   const mine = seat.part === 'A' ? room.host : room.guest!;
   const partner = seat.part === 'A' ? room.guest! : room.host;
   const players = [mine, partner];
   const ctx = ac();
   const clips = await Promise.all(players.map(async (player, index) => {
     if (!player.result?.hasAudio) return null;
+    if (index === 0 && ownTake) { try { return await ctx.decodeAudioData(await ownTake.arrayBuffer()); } catch { /* fetch it instead */ } }
     const clipController = new AbortController();
     const abort = () => clipController.abort();
     signal.addEventListener('abort', abort, { once: true });

@@ -102,11 +102,18 @@ Handhelds change where things sit, never how they move. Rails and cluster scalin
 
 ### 12. Weight: light art, no idle work
 
-- Draw sprite, background and character art through `art(src)` from `lib/art.ts`. Phones get 512px WebP copies (`m/`); small portraits use `art(src, 'thumb')`, a 256px copy (`t/`). On phones, 43 MB of PNG becomes 3.1 MB.
-- After adding or changing art, run `node scripts/optimize-art.mjs` and commit the generated files.
+- Draw sprite, background and character art through `art(src)` from `lib/art.ts`, always passing the source `.png` path. No screen downloads a PNG any more:
+  - Desktop and tablets get full-size WebP (`d/`): lossless for sprites, characters and the logo (pixel-exact), lossy q92 for backgrounds (visually identical, ~1/20 the size). 43.8 MB of PNG becomes 16 MB.
+  - Phones get 512px WebP copies (`m/`): 3 MB in all.
+  - Small portraits use `art(src, 'thumb')`, a 256px copy (`t/`).
+- After adding or changing art, run `node scripts/optimize-art.mjs` and commit the generated files. It only re-encodes images whose PNG is newer than their WebP copies.
 - Art rendered on the server, before boot, can't call `art()` (the server can't see the device). Use a `<picture>` with a media query, as `BootGate` does.
-- Do no work nobody sees. The mic loop sleeps without listeners, the tavern clock only runs in timed phases, and during a performance only the sheet re-renders (the `LiveSheet` store), with live grading throttled to every 66ms.
-- Revoke object URLs, memoise heavy static layers with `React.memo`, and bake expensive looks into images: the menu backdrop is a pre-blurred WebP, not a live `filter: blur()`.
+- Do no work nobody sees:
+  - The mic loop sleeps without listeners. Subscribe through `useHearing(active)` (`components/PerformOverlay.tsx`) in the smallest component that shows the pitch, and only while it's on screen. Combat's mic meter listens only on the player's turn.
+  - During a performance only the sheet re-renders. Combat uses the `LiveSheet` store and Training uses its frame store. Live grading re-reads the whole take, so it's throttled to every 66ms (Tavern grades on every other 50ms clock tick).
+  - Clocks stop when nothing is timed: the tavern clock runs only in timed phases, the Training clock idles until the next UTC day rollover, and the act-clear/victory clocks stop at their last cue.
+  - `<Staff>` memoises its engraving (beams, accidentals, note positions), so a cursor move only redraws the cursor, rings and colours.
+- Revoke object URLs, memoise heavy static layers with `React.memo`, and bake expensive looks into images: the menu backdrop is a pre-blurred WebP, not a live `filter: blur()`, and the title's two silhouettes are pre-darkened copies (`<name>-shadow`), not a live `filter: brightness(0)`.
 
 ## Forms
 

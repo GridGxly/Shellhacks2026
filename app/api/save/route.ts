@@ -1,16 +1,14 @@
 import { guarded } from '@/lib/server/api-guard';
 import { currentUser, db, dbConfigured, offline, unauthorized } from '@/lib/db';
 import { bad, mutation, readJson } from '@/lib/server/http';
+import { climbEnded, liveSave, saves } from '@/lib/server/saves';
 import { saveRun } from '@/lib/server/validation';
-
-type SaveDoc = { _id: string; version: 1; run: NonNullable<ReturnType<typeof saveRun>>; updatedAt: Date };
 
 export async function GET(request: Request) {
   return guarded(request, async () => {
     if (!dbConfigured()) return offline();
     const u = await currentUser(); if (!u) return unauthorized();
-    const s = await (await db()).collection<SaveDoc>('saves').findOne({ _id: u._id });
-    return Response.json({ run: s?.run ?? null });
+    return Response.json({ run: await liveSave(await db(), u._id) });
   });
 }
 
@@ -21,7 +19,9 @@ export async function PUT(request: Request) {
     const run = saveRun(b.run); if (!run) return bad('Bad save.');
     if (!dbConfigured()) return offline();
     const u = await currentUser(); if (!u) return unauthorized();
-    await (await db()).collection<SaveDoc>('saves').updateOne({ _id: u._id }, { $set: { version: 1, run, updatedAt: new Date() } }, { upsert: true });
+    const d = await db();
+    if (await climbEnded(d, u._id, run.id)) return bad('That climb has already ended.', 409);
+    await saves(d).updateOne({ _id: u._id }, { $set: { version: 1, run, updatedAt: new Date() } }, { upsert: true });
     return Response.json({ ok: true });
   });
 }
@@ -31,7 +31,7 @@ export async function DELETE(request: Request) {
     const guard = mutation(request, false); if (guard) return guard;
     if (!dbConfigured()) return offline();
     const u = await currentUser(); if (!u) return unauthorized();
-    await (await db()).collection<SaveDoc>('saves').deleteOne({ _id: u._id });
+    await saves(await db()).deleteOne({ _id: u._id });
     return Response.json({ ok: true });
   });
 }

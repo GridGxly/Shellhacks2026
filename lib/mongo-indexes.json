@@ -2,13 +2,9 @@
   { "collection": "sessions", "keys": { "expiresAt": 1 }, "options": { "expireAfterSeconds": 0 }, "why": "sessions expire" },
   { "collection": "rateLimits", "keys": { "expiresAt": 1 }, "options": { "expireAfterSeconds": 0 }, "why": "rate-limit windows expire" },
 
-  { "collection": "runs", "keys": { "score": -1, "at": 1, "userId": 1 }, "why": "all-time leaderboard + rank (ranking.ts sort order)" },
-  { "collection": "runs", "keys": { "weekKey": 1, "score": -1, "at": 1, "userId": 1 }, "why": "weekly leaderboard + rank" },
-  { "collection": "runs", "keys": { "userId": 1, "score": -1 }, "why": "a player's best run" },
+  { "collection": "bests", "keys": { "scope": 1, "score": -1, "at": 1, "userId": 1 }, "why": "leaderboards and ranks (all-time and weekly), in ranking.ts sort order" },
   { "collection": "runs", "keys": { "userId": 1, "at": -1 }, "why": "a player's recent runs, submit cooldown, mentor file" },
   { "collection": "runs", "keys": { "userId": 1, "runId": 1 }, "options": { "unique": true, "partialFilterExpression": { "runId": { "$type": "string" } } }, "why": "a run is submitted once" },
-
-  { "collection": "fights", "keys": { "enemyId": 1 }, "why": "per-enemy danger stats" },
 
   { "collection": "tavernRooms", "keys": { "expiresAt": 1 }, "options": { "expireAfterSeconds": 0 }, "why": "shows are short-lived" },
   { "collection": "tavernTakes", "keys": { "expiresAt": 1 }, "options": { "expireAfterSeconds": 0 }, "why": "recorded clips are short-lived" },
@@ -20,6 +16,8 @@
   { "collection": "performanceEvents", "keys": { "userId": 1, "source": 1, "attemptId": 1 }, "options": { "unique": true }, "why": "each attempt is learned from once" },
   { "collection": "performanceEvents", "keys": { "userId": 1, "at": -1 }, "why": "mentor file: recent accuracy per mode" },
   { "collection": "performanceEvents", "keys": { "at": 1 }, "options": { "expireAfterSeconds": 15552000 }, "why": "180 days; the long-term summary lives in practiceProfiles, so events only need to cover the recent window (fits M0's 512 MB)" },
+
+  { "collection": "ttsCache", "keys": { "createdAt": 1 }, "options": { "expireAfterSeconds": 2592000 }, "why": "synthesized voice lines are re-made after 30 days" },
 
   { "collection": "rewardClaims", "keys": { "userId": 1, "runId": 1 }, "options": { "unique": true }, "why": "a climb claims its buffs once" }
 ]
