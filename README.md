@@ -1,7 +1,7 @@
 <div align="center">
 <img src="docs/readme/header.webp" alt="Slay the Choir: a roguelike where every card is music you play into the mic." width="100%">
 <br><br>
-<a href="https://slaythechoir.club/"><img src="docs/readme/btn-play.png" alt="Play Demo" width="22.6%"></a><a href="#"><img src="docs/readme/btn-devpost.png" alt="Devpost" width="19.8%"></a><a href="#"><img src="docs/readme/btn-watch.png" alt="Watch Demo" width="24.2%"></a><a href="https://app.paper.design/file/01M3DRNNWNJ9ZYFPFHF5YF6BJQ/p-2-0"><img src="docs/readme/btn-design.png" alt="Design mockups in Paper" width="17.3%"></a>
+<a href="https://slaythechoir.club/"><img src="docs/readme/btn-play.png" alt="Play Demo" width="22.6%"></a><a href="https://devpost.com/software/slaythechoir"><img src="docs/readme/btn-devpost.png" alt="Devpost" width="19.8%"></a><a href="https://www.youtube.com/watch?v=rBND0AHqjGE&t=385s"><img src="docs/readme/btn-watch.png" alt="Watch Demo" width="24.2%"></a><a href="https://app.paper.design/file/01M3DRNNWNJ9ZYFPFHF5YF6BJQ/p-2-0"><img src="docs/readme/btn-design.png" alt="Design mockups in Paper" width="17.3%"></a>
 </div>
 
 ---
@@ -27,7 +27,7 @@ Trumpet, clarinet, alto and tenor sax, flute or French horn. Every card is trans
 <tr>
 <td width="42%">
 <h3>Climb the spire</h3>
-6 acts, 18 foes, no retries. Bosses taunt you out loud, and get meaner every time you miss.
+6 acts, 18 foes, no retries. Every villain has its own voice and taunts you out loud, and gets meaner every time you miss.
 </td>
 <td width="58%"><img src="docs/readme/tile-climb.webp" alt="The spire path with a goblin drummer, a brass serpent and the Choir boss" width="100%"></td>
 </tr>
@@ -42,11 +42,11 @@ Chords, rhythms and scales graded live, note by note. Clear 80% and the card hit
 
 ---
 
-<img src="docs/readme/loadout.png" alt="Built with: Next.js 16, React 19 + TypeScript, Zustand, Pitchy + Web Audio, MongoDB Atlas, ElevenLabs" width="100%">
+<img src="docs/readme/loadout.png" alt="Built with: Next.js 16, React 19 + TypeScript, Zustand, Pitchy, MongoDB Atlas, ElevenLabs, Gemini, Vercel" width="100%">
 
 ---
 
-<img src="docs/readme/architecture.png" alt="Architecture: Mic → Pitchy → Web Audio grading → Zustand → Next.js" width="100%">
+<img src="docs/readme/architecture.png" alt="Architecture: Mic → Pitchy → Web Audio grading → Zustand → ElevenLabs taunts → Gemini coaching → Atlas saves → Next.js" width="100%">
 
 ---
 
@@ -59,7 +59,7 @@ npm install
 npm run dev
 ```
 
-Add `ELEVENLABS_API_KEY` and `MONGODB_URI` to `.env.local` for trash talk and accounts. No mic? The game falls back to demo mode. No database? You play as a guest.
+Add `ELEVENLABS_API_KEY` (villain voices), `MONGODB_URI` (accounts, saves, leaderboard, tavern) and `GEMINI_API_KEY` (the twins' coaching) to `.env.local`. No mic? The game falls back to demo mode. No database? You play as a guest.
 
 ---
 
