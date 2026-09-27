@@ -1,7 +1,7 @@
 // One-time Atlas setup for Slay the Choir. Safe to re-run.
 //   node --env-file=.env.local scripts/atlas-setup.mjs
 // 1. Atlas Search index "usernames" (autocomplete) for the leaderboard's find-a-climber box.
-// 2. $jsonSchema validators on users / runs / fights, so a malformed write fails at the database
+// 2. $jsonSchema validators on users / runs / fightStats / training / tavern, so a malformed write fails at the database
 //    instead of landing on the leaderboard. Needs dbAdmin (collMod) on the database; the app's
 //    own readWrite user can't do this step, so run it with an admin connection string if needed:
 //      MONGODB_ADMIN_URI=mongodb+srv://… node --env-file=.env.local scripts/atlas-setup.mjs
@@ -103,17 +103,17 @@ const validators = {
       expiresAt: { bsonType: 'date' },
     },
   },
-  fights: {
+  // Running per-enemy danger totals (app/api/fights/route.ts), one document per enemy.
+  fightStats: {
     bsonType: 'object',
-    required: ['enemyId', 'won', 'accuracy', 'rounds', 'instrument', 'at'],
+    required: ['_id', 'attempts', 'losses', 'accuracySum', 'roundsSum', 'updatedAt'],
     properties: {
-      enemyId: { bsonType: 'string' },
-      won: { bsonType: 'bool' },
-      accuracy: { ...num, minimum: 0, maximum: 100 },
-      rounds: { ...num, minimum: 1, maximum: 50 },
-      instrument: { enum: INSTRUMENTS },
-      userId: { bsonType: ['string', 'null'] },
-      at: { bsonType: 'date' },
+      _id: { bsonType: 'string' },
+      attempts: count,
+      losses: count,
+      accuracySum: count,
+      roundsSum: count,
+      updatedAt: { bsonType: 'date' },
     },
   },
 };
@@ -144,7 +144,8 @@ for (const [name, schema] of Object.entries(validators)) {
     } else throw e;
   }
 }
-// 3. Indexes: the same manifest the app applies on first connect (lib/db.ts).
+// 3. Indexes: the same manifest the app applies once per manifest version (lib/server/schema.ts,
+//    which also backfills the `bests` leaderboard collection from existing runs).
 for (const ix of indexes) await db.collection(ix.collection).createIndex(ix.keys, ix.options);
 console.log(`indexes: ${indexes.length} ensured`);
 await client.close();

@@ -23,8 +23,7 @@ function streakOf(completed: Set<string>, now: number) {
  * from lib/mongo-indexes.json:
  *   practiceProfiles  _id (point read)
  *   performanceEvents { userId: 1, at: -1 }  (last MENTOR_RECENT_DAYS)
- *   runs              { userId: 1, at: -1 }  (recent climbs, and the totals scan below)
- *   runs              { userId: 1, score: -1 } (best)
+ *   runs              { userId: 1, at: -1 }  (one $facet: totals, favourite, best, recent)
  *   trainingDaily     { userId: 1, day: 1 }  (last MENTOR_HISTORY_DAYS)
  * The climb totals read all of one player's runs (index-scoped, not bounded);
  * fine at hackathon scale, move to per-user counters if histories grow large.
@@ -35,22 +34,23 @@ export async function readMentorProfile(d: Db, user: UserDoc, now = Date.now()):
   const since = new Date(now - MENTOR_RECENT_DAYS * DAY);
   const historyFrom = utcDay(now - (MENTOR_HISTORY_DAYS - 1) * DAY);
 
-  const [weaknesses, bySource, recentRuns, climbs, best, days] = await Promise.all([
+  type ClimbRow = Pick<RunDoc, 'floor' | 'accuracy' | 'instrument' | 'endedBy' | 'at'>;
+  const [weaknesses, bySource, climbs, days] = await Promise.all([
     readWeaknesses(d, userId),
     d.collection('performanceEvents').aggregate<{ _id: PerformanceSource } & SourceStats>([
       { $match: { userId, simulated: false, at: { $gte: since } } },
       { $group: { _id: '$source', attempts: { $sum: 1 }, hits: { $sum: '$hits' }, notes: { $sum: '$total' } } },
     ]).toArray(),
-    runs.find({ userId }, { projection: { floor: 1, accuracy: 1, instrument: 1, endedBy: 1, at: 1 } }).sort({ at: -1 }).limit(MENTOR_RECENT_CLIMBS).toArray(),
-    // One pass over the player's runs for both totals and favourite instrument.
-    runs.aggregate<{ totals: { total: number; victories: number; deepest: number }[]; favorite: { _id: InstrumentId }[] }>([
+    // One pass over the player's runs: totals, favourite instrument, best and most recent climbs.
+    runs.aggregate<{ totals: { total: number; victories: number; deepest: number }[]; favorite: { _id: InstrumentId }[]; best: Pick<RunDoc, 'score' | 'floor'>[]; recent: ClimbRow[] }>([
       { $match: { userId } },
       { $facet: {
         totals: [{ $group: { _id: null, total: { $sum: 1 }, victories: { $sum: { $cond: ['$victory', 1, 0] } }, deepest: { $max: '$floor' } } }],
         favorite: [{ $group: { _id: '$instrument', n: { $sum: 1 } } }, { $sort: { n: -1, _id: 1 } }, { $limit: 1 }],
+        best: [{ $sort: { score: -1 } }, { $limit: 1 }, { $project: { _id: 0, score: 1, floor: 1 } }],
+        recent: [{ $sort: { at: -1 } }, { $limit: MENTOR_RECENT_CLIMBS }, { $project: { _id: 0, floor: 1, accuracy: 1, instrument: 1, endedBy: 1, at: 1 } }],
       } },
     ]).next(),
-    runs.findOne({ userId }, { sort: { score: -1 }, projection: { score: 1, floor: 1 } }),
     d.collection<TrainingDailyDoc>('trainingDaily')
       .find({ userId, day: { $gte: historyFrom } }, { projection: { day: 1, completedAt: 1, 'state.status': 1, 'state.claimed': 1, 'state.nextIndex': 1 } })
       .toArray(),
@@ -63,6 +63,7 @@ export async function readMentorProfile(d: Db, user: UserDoc, now = Date.now()):
   const completed = new Set(days.filter((r) => r.completedAt || r.state.status === 'complete').map((r) => r.day));
   const totals = climbs?.totals[0];
   const favorite = climbs?.favorite[0];
+  const best = climbs?.best[0];
   const todayRow = days.find((r) => r.day === utcDay(now));
 
   return {
@@ -75,7 +76,7 @@ export async function readMentorProfile(d: Db, user: UserDoc, now = Date.now()):
       deepest: totals?.deepest ?? 0,
       best: best ? { score: best.score, floor: best.floor } : null,
       favoriteInstrument: favorite?._id ?? null,
-      recent: recentRuns.map((r) => ({ floor: r.floor, accuracy: r.accuracy, instrument: r.instrument as InstrumentId, endedBy: r.endedBy, at: r.at.getTime() })),
+      recent: (climbs?.recent ?? []).map((r) => ({ floor: r.floor, accuracy: r.accuracy, instrument: r.instrument as InstrumentId, endedBy: r.endedBy, at: r.at.getTime() })),
     },
     training: {
       daysCompleted: completed.size,

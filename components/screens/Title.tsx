@@ -99,8 +99,9 @@ export default function Title() {
       <Bg src="/assets/bg/summit.png" />
       <Stars />
       {/* Villain silhouettes (10 Second Ninja X idea) */}
-      <Sprite src="/assets/sprites/choir.png" x={-150} y={150} size={720} style={{ opacity: 0.55, filter: 'brightness(0)', animation: 'bob 6s steps(4) infinite' }} />
-      <Sprite src="/assets/sprites/serpent.png" x={1130} y={60} size={420} style={{ opacity: 0.45, filter: 'brightness(0)', animation: 'bob 5s 1s steps(4) infinite' }} />
+      {/* Pre-darkened silhouettes (scripts/optimize-art.mjs): no live filter on two big, always-bobbing layers. */}
+      <Sprite src="/assets/sprites/choir-shadow.png" x={-150} y={150} size={720} style={{ opacity: 0.55, animation: 'bob 6s steps(4) infinite' }} />
+      <Sprite src="/assets/sprites/serpent-shadow.png" x={1130} y={60} size={420} style={{ opacity: 0.45, animation: 'bob 5s 1s steps(4) infinite' }} />
       <div className="fill" style={{ backgroundImage: 'linear-gradient(180deg, rgba(16,17,38,0) 55%, rgba(16,17,38,0.9) 100%)' }} />
       {/* 01 Title: Riff stands on the summit's flat stone, feet on its front edge. */}
       <div style={{ position: 'absolute', left: 575, top: 366, width: 280, height: 320, backgroundImage: 'radial-gradient(ellipse 50% 50% at 50% 50%, rgba(255,240,190,0.45) 0%, rgba(255,230,140,0.12) 55%, rgba(255,230,140,0) 75%)', animation: 'glow 3s steps(4) infinite' }} />

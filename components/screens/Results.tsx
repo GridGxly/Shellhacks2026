@@ -151,7 +151,8 @@ export function Victory() {
 // ---------------------------------------------------------------- 12 Defeat
 
 export function Loss() {
-  const run = useGame((s) => s.run);
+  // The store resets `run` to default stats on death; the recap shows the climb that fell.
+  const run = useGame((s) => s.fallen ?? s.run);
   const user = useGame((s) => s.user);
   const best = useGame((s) => s.best);
   const lossBy = useGame((s) => s.lossBy);
@@ -163,7 +164,7 @@ export function Loss() {
   const column = useRef<HTMLDivElement>(null);
   const fit = useStageFit(column, 130);
   useEffect(() => playMusic('none'), []);
-  // Straight back to the climb with the same instrument; the title is one pause-menu tap away.
+  // Death is final: a brand-new climb at default stats, same instrument.
   const again = async () => {
     if (await useGame.getState().newRun()) useGame.getState().go('map');
   };
@@ -176,7 +177,7 @@ export function Loss() {
       <div ref={column} className="loss-col" style={{ position: 'absolute', left: 0, top: fit.top, scale: fit.k === 1 ? undefined : fit.k, transformOrigin: '50% 0', width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
         <div className="f-press" style={{ fontSize: 80, color: 'var(--hp)', textShadow: '#101126 8px 8px 0', animation: 'slam 450ms steps(6) both' }}>DEFEAT</div>
         <div className="f-body" style={{ fontSize: 22, color: 'var(--soft)', animation: 'fadeIn 300ms 400ms both' }}>
-          {foe.name} drowned you out on floor {foe.floor}.
+          {foe.name} drowned you out on floor {foe.floor}. Your upgrades and tips are gone.
         </div>
         <div style={{ display: 'flex', gap: 14, marginTop: 20, animation: 'panelIn 400ms 500ms steps(6) both' }}>
           {[
@@ -196,7 +197,7 @@ export function Loss() {
           {run.demo ? 'Practice run (demo mode): not ranked.' : user ? `Posted to the leaderboard as ${user.username}.` : 'Playing as guest. Sign in on the title to post scores.'}
         </div>
         <div style={{ marginTop: 18, animation: 'riseIn 300ms 1800ms steps(4) both' }}>
-          <YellowButton onClick={() => { if (!startingRun) void again(); }}>{startingRun ? 'PREPARING…' : 'TRY AGAIN'}</YellowButton>
+          <YellowButton onClick={() => { if (!startingRun) void again(); }}>{startingRun ? 'PREPARING…' : 'NEW RUN'}</YellowButton>
         </div>
       </div>
     </div>
@@ -205,14 +206,21 @@ export function Loss() {
 
 // ---------------------------------------------------------------- shared cinematic clock
 
-/** ms since mount, ticking at 12fps so everything moves in pixel-art steps. */
-function useClock() {
+/**
+ * ms since mount, ticking at 12fps so everything moves in pixel-art steps.
+ * Stops at `until` (the screen's last timed cue), so a finished scene stops re-rendering.
+ */
+function useClock(until: number) {
   const [t, setT] = useState(0);
   useEffect(() => {
     const t0 = performance.now();
-    const id = window.setInterval(() => setT(performance.now() - t0), 1000 / 12);
+    const id = window.setInterval(() => {
+      const elapsed = performance.now() - t0;
+      setT(Math.min(elapsed, until));
+      if (elapsed >= until) clearInterval(id);
+    }, 1000 / 12);
     return () => clearInterval(id);
-  }, []);
+  }, [until]);
   return t;
 }
 /** Plays each sound once when the clock passes its time. */
@@ -260,7 +268,7 @@ function Portrait({ sprite, spriteFilter, size, boss, t, dropAt, stampAt, dim, t
 export function ActClear() {
   const run = useGame((s) => s.run);
   const go = useGame((s) => s.go);
-  const t = useClock();
+  const t = useClock(4400); // last cue: `ready` at 4300
   const actIdx = run.floor / 3 - 1; // 0-based act just cleared
   const act = ACTS[actIdx];
   const next = ACTS[actIdx + 1];
@@ -369,7 +377,7 @@ export function FinalVictory() {
   const run = useGame((s) => s.run);
   const user = useGame((s) => s.user);
   const inst = instrumentOf(run);
-  const t = useClock();
+  const t = useClock(7100); // last cue at 7000
   const [rank, setRank] = useState<number | null>(null);
   const score = useCountUp(run.score, 4900, 1400);
   const [mins] = useState(() => Math.max(1, Math.round((Date.now() - run.startedAt) / 60000)));
@@ -382,7 +390,7 @@ export function FinalVictory() {
   useEffect(() => {
     if (!user) return;
     const id = window.setTimeout(() => {
-      fetch('/api/leaderboard').then((r) => (r.ok ? r.json() : null)).then((d) => d?.me && setRank(d.me.rank)).catch(() => {});
+      fetch('/api/leaderboard/me', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((d) => d?.me && setRank(d.me.rank)).catch(() => {});
     }, 1500);
     return () => clearTimeout(id);
   }, [user]);

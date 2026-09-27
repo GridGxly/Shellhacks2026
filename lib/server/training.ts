@@ -29,10 +29,11 @@ async function snapshot(d: Db, row: TrainingDailyDoc, session?: ClientSession): 
   const user = await d.collection<UserDoc>('users').findOne({ _id: row.userId }, { session, projection: { trainingBuff: 1 } });
   return { ...row.state, serverNow: Date.now(), pendingBuff: user?.trainingBuff === true, weaknesses: await readWeaknesses(d, row.userId, session) };
 }
-async function save(d: Db, row: TrainingDailyDoc, session: ClientSession) {
+/** Every caller builds row.state from snapshot() in this transaction, so the buff and weaknesses are already current. */
+async function save(d: Db, row: TrainingDailyDoc, session: ClientSession): Promise<TrainingState> {
   row.state = clean(row.state); row.updatedAt = new Date();
   await rows(d).replaceOne({ _id: row._id }, row, { session });
-  return snapshot(d, row, session);
+  return { ...row.state, serverNow: Date.now() };
 }
 function checkIdentity(body: Record<string, unknown>, state: TrainingState) {
   if (body.day !== utcDay() || body.day !== state.day) throw new Problem('A new practice day has begun. Refresh your daily set.', 409, 'day_changed');
@@ -98,8 +99,9 @@ export async function trainingRequest(request: Request, action: Action) {
       if (action === 'review') {
         let state: TrainingState | null = null;
         if (user) {
-          const d = await db(), row = await daily(d, user._id); checkIdentity(body, row.state);
-          state = await snapshot(d, row);
+          // buildReview reads only the plan and receipts, which the stored row already holds.
+          const row = await daily(await db(), user._id); checkIdentity(body, row.state);
+          state = row.state;
         } else {
           state = guestReviewState(body);
         }
@@ -135,8 +137,7 @@ export async function trainingRequest(request: Request, action: Action) {
           if (facts) feedback = offlineFeedback(facts.exercise, facts.notes, facts.final);
         }
         if (!feedback) throw new Problem('No practice feedback is ready to speak.');
-        const budget = await voiceBudget(request); if (budget) return budget;
-        return trainingVoice(feedback, body.speaker);
+        return trainingVoice(feedback, body.speaker, () => voiceBudget(request));
       }
       if (action === 'feedback') {
         if (!user) {
