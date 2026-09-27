@@ -100,3 +100,14 @@
 @keyframes titleLand { 0% { transform:translateY(-760px) scale(.94,1.1); opacity:0; animation-timing-function:cubic-bezier(.5,0,.9,.5); } 8% { opacity:1; } 57% { transform:translateY(0) scale(.96,1.06); animation-timing-function:cubic-bezier(.2,.8,.3,1); } 68% { transform:scale(1.12,.84); animation-timing-function:cubic-bezier(.3,0,.3,1); } 84% { transform:translateY(-10px) scale(.97,1.04); } 100% { transform:none; opacity:1; } }
 @keyframes titleLogo { 0% { transform:scale(2.3) rotate(-3deg); opacity:0; animation-timing-function:cubic-bezier(.6,0,.9,.4); } 40% { transform:scale(.93) rotate(1deg); opacity:1; animation-timing-function:cubic-bezier(.2,.9,.3,1); } 68% { transform:scale(1.03); } 100% { transform:none; opacity:1; } }
 @keyframes titleShock { 0% { opacity:1; transform:scale(.2); } 100% { opacity:0; transform:scale(1.7); border-width:2px; } }
+
+/* Handhelds: the film fills the glass instead of sitting between black bars (docs/MOBILE.md bleed). */
+:root[data-handheld] .intro { overflow:visible; background:none; }
+:root[data-handheld] .intro::before { content:''; position:absolute; inset:calc(-1 * var(--bleed-y)) calc(-1 * var(--bleed-x)); background:#07070f; }
+:root[data-handheld] .intro-beat { transform:scale(var(--intro-k, 1)); transform-origin:50% var(--intro-o, 450px); }
+:root[data-handheld] .intro-bg { left:calc(-80px - var(--bleed-x)) !important; width:calc(1600px + 2 * var(--bleed-x)) !important; }
+:root[data-handheld] .intro-wipe { left:calc(-260px - var(--bleed-x)); width:calc(1960px + 2 * var(--bleed-x)); }
+:root[data-handheld] .intro-screen-flash { inset:calc(-1 * var(--bleed-y)) calc(-1 * var(--bleed-x)); }
+:root[data-handheld] .intro-bars { display:none; }
+:root[data-handheld] .intro-pips { left:calc(40px - var(--rail-l)); bottom:calc(28px - var(--rail-b)); }
+:root[data-handheld] .intro-skip { right:calc(40px - var(--rail-r)); bottom:calc(24px - var(--rail-b)); }

@@ -88,7 +88,7 @@ export function SignIn() {
             <button
               key={t}
               onClick={() => { sfx('click'); setTab(t); setError(null); }}
-              className="f-press"
+              className="f-press account-tab"
               style={{ flex: 1, padding: '18px 0', fontSize: 14, background: tab === t ? '#14162E' : '#0E0F22', color: tab === t ? 'var(--sun)' : 'var(--muted)', borderBottom: tab === t ? '4px solid var(--sun)' : '4px solid #2A2F55' }}
             >
               {t === 'login' ? 'SIGN IN' : 'NEW CLIMBER'}
@@ -96,13 +96,13 @@ export function SignIn() {
           ))}
         </div>
         <div className="account-form-body" key={errKey} style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '26px 32px', animation: errKey ? 'errShake 300ms steps(5)' : undefined }}>
-          <div className="f-body" style={{ fontSize: 17, color: 'var(--soft)' }}>
+          <div className="f-body account-lede" style={{ fontSize: 17, color: 'var(--soft)' }}>
             {tab === 'login' ? 'Pick up your checkpoint on any device.' : 'Save checkpoints and post your scores to the leaderboard.'}
           </div>
           {input({ label: 'USERNAME', value: username, onChange: (e) => setUsername(e.target.value), maxLength: 16, autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false, autoComplete: 'username', innerRef: first })}
           {input({ label: 'PASSWORD', type: 'password', value: password, onChange: (e) => setPassword(e.target.value), autoComplete: tab === 'login' ? 'current-password' : 'new-password' })}
-          {error && <div className="f-body" style={{ padding: '8px 12px', background: 'rgba(232,67,79,0.15)', border: '2px solid var(--hp)', fontSize: 16, color: '#FF8A93' }}>{error}</div>}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+          {error && <div className="f-body account-error" style={{ padding: '8px 12px', background: 'rgba(232,67,79,0.15)', border: '2px solid var(--hp)', fontSize: 16, color: '#FF8A93' }}>{error}</div>}
+          <div className="account-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
             <button className="f-label hoverable" onClick={() => { sfx('back'); useGame.getState().setOverlay(null); }} style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'underline' }}>
               PLAY AS GUEST
             </button>

@@ -2,6 +2,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { playFile, sfx } from '@/lib/audio';
 import { art } from '@/lib/art';
+import { STAGE_W, useViewport } from '@/lib/viewport';
 import './intro.css';
 
 // A3 intro: three exchanges up the Spire, then Riff leaps for the summit and
@@ -35,6 +36,9 @@ const SOUNDS: [number, () => void][] = [
 
 export default function IntroMontage({ onLand }: { onLand: () => void }) {
   const [ready, setReady] = useState(false);
+  // Phones: grow the film toward the glass width, capped so captions and feet stay on screen.
+  const { handheld, bleedX } = useViewport();
+  const introK = handheld ? Math.min(1.45, 1 + (2 * bleedX) / STAGE_W) : 1;
   useEffect(() => {
     let cancelled = false;
     const timers: number[] = [];
@@ -60,7 +64,7 @@ export default function IntroMontage({ onLand }: { onLand: () => void }) {
 
   if (!ready) return <div className="intro" />;
   return (
-    <div className="intro">
+    <div className="intro" style={v({ '--intro-k': introK })}>
       <GoblinBeat />
       <SerpentBeat />
       <ChoirBeat />
@@ -70,20 +74,21 @@ export default function IntroMontage({ onLand }: { onLand: () => void }) {
       <div className="intro-screen-flash" style={v({ '--at': ms(D - 170), '--t': '560ms', '--o': 1, background: '#FFF6E0' })} />
       <div className="intro-screen-flash" style={v({ '--at': ms(INTRO_LAND_MS - 260), '--t': '600ms', '--o': 1, background: '#07070f' })} />
       <div className="intro-bars fill" />
-      <div className="intro-pips">
+      <div className="intro-pips ui-bl">
         {[A, B, C, D].map((at, i) => <i key={at} style={v({ '--at': ms(at), '--dur': ms(([B, C, D, INTRO_LAND_MS][i]) - at) })} />)}
       </div>
-      <div className="intro-skip"><span className="kbd-only">ANY KEY TO SKIP</span><span className="touch-only">TAP TO SKIP</span></div>
+      <div className="intro-skip ui-br"><span className="kbd-only">ANY KEY TO SKIP</span><span className="touch-only">TAP TO SKIP</span></div>
     </div>
   );
 }
 
-function Beat({ at, dur, bg, dim = 0.62, hit, heavy, children }: { at: number; dur: number; bg: string; dim?: number; hit?: number; heavy?: boolean; children: ReactNode }) {
+function Beat({ at, dur, bg, dim = 0.62, hit, heavy, origin = 235, children }: { at: number; dur: number; bg: string; dim?: number; hit?: number; heavy?: boolean; origin?: number; children: ReactNode }) {
   return (
-    <div className="intro-beat" style={v({ '--at': ms(at), '--dur': ms(dur) })}>
+    // `origin` is the stage row that stays put when a phone scales the beat up to fill the glass.
+    <div className="intro-beat" style={v({ '--at': ms(at), '--dur': ms(dur), '--intro-o': `${origin}px` })}>
       <div className="intro-cam">
         <div className="intro-shake" data-hit={hit === undefined ? undefined : heavy ? 'heavy' : ''} style={v({ '--hit': ms(hit ?? 0) })}>
-          <div className="intro-sprite" style={{ left: -80, top: 0, width: 1600, height: 900, backgroundImage: `url(${art(`/assets/bg/${bg}.png`)})`, backgroundSize: 'cover', backgroundPosition: '50%', filter: `brightness(${dim})` }} />
+          <div className="intro-sprite intro-bg" style={{ left: -80, top: 0, width: 1600, height: 900, backgroundImage: `url(${art(`/assets/bg/${bg}.png`)})`, backgroundSize: 'cover', backgroundPosition: '50%', filter: `brightness(${dim})` }} />
           <div className="bleed" style={{ background: 'linear-gradient(180deg, rgba(16,17,38,.25), transparent 45%, rgba(16,17,38,.85))' }} />
           {children}
         </div>
@@ -221,7 +226,7 @@ function SummitBeat() {
   const crouch = D + 200;
   const leap = D + 440;
   return (
-    <Beat at={D} dur={INTRO_LAND_MS - D + 400} bg="summit" dim={0.72}>
+    <Beat at={D} dur={INTRO_LAND_MS - D + 400} bg="summit" dim={0.72} origin={820}>
       {/* The camera tilts up the summit as Riff crouches and leaps out of frame. */}
       <div className="fill" style={v({ animation: `introTilt 1200ms ${ms(D)} cubic-bezier(.45,0,.35,1) both` })}>
         <div className="intro-layer intro-crouch" style={v({ '--at': ms(crouch), transformOrigin: '715px 688px' })}>

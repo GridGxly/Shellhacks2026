@@ -112,3 +112,10 @@
 :root[data-handheld] .training-choice { top: 150px; }
 :root[data-handheld] .training-lab { left: auto; right: calc(40px - var(--rail-r)); top: 110px; width: min(980px, 100%); scale: var(--ui-soft); transform-origin: 100% 0; max-height: calc(770px / var(--ui-soft)); overflow-y: auto; }
 :root[data-handheld] :is(.training-modal, .training-feedback) { top: 110px; max-height: calc(770px / var(--ui-soft)); overflow-y: auto; }
+
+/* Lab card sheet: a modal over the card list (the list alone fits every screen). */
+.training-lab-sheet-modal{position:absolute;inset:0;z-index:40}
+.training-lab-sheet{position:absolute;left:220px;width:1000px;display:flex;flex-direction:column;gap:16px;padding:24px 28px;color:#FFF6E0;background:#1C213E;border:4px solid #FFD23F;box-shadow:9px 9px 0 #090D20;transform-origin:50% 0;animation:panelIn 220ms steps(4) both}
+.training-lab-sheet .training-actions{margin-top:4px}
+.training-lab .training-small{margin-top:4px}
+@media(prefers-reduced-motion:reduce){.training-lab-sheet{animation:none}}

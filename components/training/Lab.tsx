@@ -6,6 +6,7 @@ import { PERFECT_MS } from '@/lib/config';
 import { mic, type NoteResult } from '@/lib/mic';
 import { noteName, writtenKey } from '@/lib/music';
 import { useGame } from '@/lib/store';
+import { useStageFit } from '@/lib/viewport';
 import { TavernRecorder, type TavernClip } from '@/lib/tavern';
 import {
   analyzeTake, buildCards, clampLabSettings, composeOffline, defaultLabSettings, gradeLetter, hintFor, keyIndex, keyLabel,
@@ -38,6 +39,10 @@ export default function Lab({ onBack }: { onBack: () => void }) {
   const [line, setLine] = useState('Folk in D, slow, dotted. I will keep the pulse honest. Compose it, or change a chip.');
   const [cards, setCards] = useState<LabCard[]>([]);
   const [cardId, setCardId] = useState('');
+  // The chosen card's sheet opens as a modal over the list, like every other sheet in the game.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetPanel = useRef<HTMLDivElement>(null);
+  const sheetFit = useStageFit(sheetPanel, 150);
   const [demo, setDemo] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -89,7 +94,8 @@ export default function Lab({ onBack }: { onBack: () => void }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || busy || recording) return;
       sfx('back');
-      if (phase === 'compose') onBack();
+      if (phase === 'cards' && sheetOpen) { stopAudio(); setSheetOpen(false); }
+      else if (phase === 'compose') onBack();
       else { stopAudio(); setPhase('compose'); }
     };
     window.addEventListener('keydown', onKey);
@@ -244,7 +250,7 @@ export default function Lab({ onBack }: { onBack: () => void }) {
   const patch = (next: Partial<LabSettings>) => setSettingsLab(s => clampLabSettings({ ...s, ...next }));
   const stagePhase = recording ? phase : previewAt ? 'preview' : phase === 'review' ? 'feedback' : phase === 'cards' || phase === 'compose' ? 'configure' : phase === 'feedback' ? 'feedback' : 'configure';
 
-  return <TrainingStage phase={stagePhase} activeMentor={speaker} line={line} playbackElapsed={previewAt ? now - previewAt : -1} previewNotes={card ? card.ex.notes.map(n => ({ atMs: 160 + n.startBeat * 60000 / card.ex.tempo, durationMs: n.durBeats * 60000 / card.ex.tempo })) : []} activity={frame.activity}>
+  return <TrainingStage phase={stagePhase} activeMentor={speaker} line={sheetOpen ? null : line} playbackElapsed={previewAt ? now - previewAt : -1} previewNotes={card ? card.ex.notes.map(n => ({ atMs: 160 + n.startBeat * 60000 / card.ex.tempo, durationMs: n.durBeats * 60000 / card.ex.tempo })) : []} activity={frame.activity}>
     <header className="training-header"><div><h1>GEMS AND I</h1><p>TRAINING WITH THE DIOSCURI</p></div><button onClick={() => { stopAudio(); if (phase === 'compose') onBack(); else setPhase('compose'); }} disabled={busy && !recording}><kbd>ESC</kbd>BACK</button></header>
 
     {phase === 'compose' && <section className="training-lab">
@@ -291,16 +297,22 @@ export default function Lab({ onBack }: { onBack: () => void }) {
       <h2>THE CARDS</h2>
       <p className="training-lab-label">{keyLabel(settingsLab)} · {settingsLab.tempo} BPM · {settingsLab.bars} BARS · {settingsLab.style.toUpperCase()}</p>
       <ol className="training-lab-cards">
-        {cards.map((c, i) => <li key={c.id}><button type="button" data-on={c.id === card.id} onClick={() => { stopAudio(); setCardId(c.id); }}><i>{i + 1}</i><strong>{c.title}</strong><em>{c.tag}</em></button></li>)}
+        {cards.map((c, i) => <li key={c.id}><button type="button" data-on={c.id === card.id} onClick={() => { stopAudio(); sfx('click'); setCardId(c.id); setSheetOpen(true); }}><i>{i + 1}</i><strong>{c.title}</strong><em>{c.tag}</em></button></li>)}
       </ol>
-      <div className="training-lab-staff"><span>BAR · {card.title}</span><Staff ex={card.ex} shift={inst.shift} writtenOffset={inst.writtenOffset} keySig={key} width={640} beat={previewAt ? (now - previewAt - 160) / (60000 / card.ex.tempo) : null} results={[]} /></div>
-      <div className="training-lab-playas"><span>PLAY AS</span><button type="button" data-on={!demo} onClick={() => setDemo(false)}>MIC</button><button type="button" data-on={demo} onClick={() => setDemo(true)}>DEMO</button></div>
-      <div className="training-actions">
-        <button disabled={busy} onClick={() => previewAt ? stopAudio() : void preview()}>{previewAt ? 'STOP' : 'HEAR IT'}</button>
-        <button className="training-primary" disabled={busy} onClick={() => void play()}>PLAY</button>
-        <button disabled>REVIEW</button>
-      </div>
+      <p className="training-small">Tap a card to see its sheet and play it.</p>
     </section>}
+    {phase === 'cards' && card && sheetOpen && <div className="training-lab-sheet-modal" role="dialog" aria-modal="true" aria-label={card.title}>
+      <div className="bleed" onClick={() => { stopAudio(); sfx('back'); setSheetOpen(false); }} style={{ background: 'rgba(8,9,20,0.78)', animation: 'fadeIn 180ms steps(3) both' }} />
+      <div ref={sheetPanel} className="training-lab-sheet" style={{ top: sheetFit.top, scale: sheetFit.k === 1 ? undefined : sheetFit.k }}>
+        <div className="training-lab-staff"><span>{card.title} · {card.tag}</span><Staff ex={card.ex} shift={inst.shift} writtenOffset={inst.writtenOffset} keySig={key} width={900} beat={previewAt ? (now - previewAt - 160) / (60000 / card.ex.tempo) : null} results={[]} /></div>
+        <div className="training-lab-playas"><span>PLAY AS</span><button type="button" data-on={!demo} onClick={() => setDemo(false)}>MIC</button><button type="button" data-on={demo} onClick={() => setDemo(true)}>DEMO</button></div>
+        <div className="training-actions">
+          <button onClick={() => { stopAudio(); sfx('back'); setSheetOpen(false); }}>CLOSE</button>
+          <button disabled={busy} onClick={() => previewAt ? stopAudio() : void preview()}>{previewAt ? 'STOP' : 'HEAR IT'}</button>
+          <button className="training-primary" disabled={busy} onClick={() => { setSheetOpen(false); void play(); }}>PLAY</button>
+        </div>
+      </div>
+    </div>}
 
     {recording && card && <>
       <section className="training-sheet">

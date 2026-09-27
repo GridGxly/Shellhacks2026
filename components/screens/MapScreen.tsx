@@ -5,12 +5,15 @@ import { ACTS, ENEMIES } from '@/lib/content';
 import { instrumentOf, useGame } from '@/lib/store';
 import Hud from '../Hud';
 import { Bg, KeyHint, Padlock, Scene, Sprite } from '../ui';
+import { STAGE_H, STAGE_W, useViewport } from '@/lib/viewport';
 import { art } from '@/lib/art';
 
 /** Set by the Victory screen so the map plays the M3 path-update beat. */
 export const mapFx = { reveal: false };
 
 const NODE_Y = [715, 457, 187];
+/** Stage row the current node pans to when the map is cropped (under the act heading, beside the fight panel). */
+const MAP_FOCUS_Y = 560;
 
 export default function MapScreen() {
   const run = useGame((s) => s.run);
@@ -66,10 +69,15 @@ export default function MapScreen() {
   });
 
   const nodeCenter = { x: 720, y: NODE_Y[inAct] };
+  // A wide phone crops the covered map top and bottom; pan so the node you fight next sits in the clear band.
+  const { bleedX, bleedY } = useViewport();
+  const cover = Math.max(1 + (2 * bleedX) / STAGE_W, 1 + (2 * bleedY) / STAGE_H);
+  const room = (STAGE_H / 2) * (cover - 1);
+  const pan = Math.max(-room, Math.min(room, MAP_FOCUS_Y - (STAGE_H / 2 + (nodeCenter.y - STAGE_H / 2) * cover)));
 
   return (
     <div className="fill" style={{ background: '#101126' }}>
-      <Scene>
+      <Scene shift={`${pan}px`}>
       <div
         className="fill"
         style={{

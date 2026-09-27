@@ -98,7 +98,7 @@ export default function ChooseInstrument() {
       </div>
 
       {/* Icon strip */}
-      <div className="ui-b ui-soft" style={{ position: 'absolute', left: 0, top: 690, width: 1440, display: 'flex', justifyContent: 'center', gap: 12 }}>
+      <div className="ui-b ui-soft inst-tiles" style={{ position: 'absolute', left: 0, top: 690, width: 1440, display: 'flex', justifyContent: 'center', gap: 12 }}>
         {INSTRUMENTS.map((it, i) => (
           <button
             key={it.id}
@@ -110,7 +110,7 @@ export default function ChooseInstrument() {
         ))}
       </div>
       <div className="ui-b ui-soft" style={{ position: 'absolute', left: 0, bottom: 'calc(30px - var(--rail-b))', width: 1440, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 40 }}>
-        <button className="f-label tap" onClick={() => { sfx('back'); go('title'); }} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, color: 'var(--muted)' }}><KeyHint k="ESC" /> BACK</button>
+        <button className="f-label tap inst-back" onClick={() => { sfx('back'); go('title'); }} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, color: 'var(--muted)' }}><KeyHint k="ESC" /> BACK</button>
         <YellowButton onClick={choose}>CHOOSE {inst.name.toUpperCase()}</YellowButton>
         <div className="f-label kbd-only" style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, color: 'var(--muted)' }}><KeyHint k="← →" /> BROWSE</div>
       </div>

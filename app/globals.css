@@ -230,9 +230,10 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 :root[data-handheld] .howto-rules { left: 100px !important; width: 1240px !important; top: 640px !important; padding: 16px 28px !important; }
 :root[data-handheld] .howto-rules .f-label { font-size: 17px !important; }
 :root[data-handheld] .howto-rules .f-body { font-size: 24px !important; }
-:root[data-handheld] .credits-rows { top: 200px !important; gap: 18px !important; }
+:root[data-handheld] .credits-rows { top: 196px !important; gap: 12px !important; }
 :root[data-handheld] .credits-rows .f-label { font-size: 19px !important; }
-:root[data-handheld] .credits-rows .f-body { font-size: 30px !important; max-width: 1320px !important; }
+/* 26px keeps the long music credit on one line in Safari; if it still wraps, the rows end well above BACK. */
+:root[data-handheld] .credits-rows .f-body { font-size: 26px !important; max-width: 1360px !important; }
 :root[data-handheld] .credits-rows .f-press { font-size: 24px !important; }
 :root[data-handheld] .mic-panel { left: 250px !important; width: 940px !important; top: 196px !important; gap: 14px !important; padding: 24px 36px !important; }
 :root[data-handheld] .mic-panel .f-label { font-size: 18px !important; }
@@ -280,6 +281,19 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 .account-mobile input { width:100%; min-height:48px; font-size:20px!important; scroll-margin-block:18px; }
 .account-mobile .f-label { font-size:12px!important; }
 .account-mobile button { font-size:12px!important; }
+/* Landscape phones: tabs, one-line lede, both fields on one row, actions — all on one screen. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .account-mobile { padding-top:max(8px, env(safe-area-inset-top)); padding-bottom:8px; display:flex; align-items:center; }
+  .account-mobile .account-modal { min-height:0; width:100%; }
+  .account-mobile .account-modal-panel { width:min(100%,720px)!important; }
+  .account-mobile .account-tab { padding:10px 0!important; }
+  .account-mobile .account-form-body { display:grid!important; grid-template-columns:1fr 1fr; gap:10px 14px!important; padding:12px 16px!important; }
+  .account-mobile .account-lede, .account-mobile .account-error, .account-mobile .account-actions { grid-column:1 / -1; }
+  .account-mobile .account-lede { font-size:15px!important; line-height:20px; }
+  .account-mobile .account-form-body label { gap:6px!important; }
+  .account-mobile input { min-height:44px; padding:8px 12px!important; font-size:17px!important; }
+  .account-mobile .account-actions { margin-top:0!important; }
+}
 .mobile-lobby-back,.mobile-lobby-error { display:none; }
 @media (max-width:1024px), (hover:none) and (pointer:coarse) {
   /* Phone tavern lobby: one landscape screen, no scrolling. Back, title and mode
@@ -306,3 +320,24 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
   .tavern-mobile-lobby .tavern-note { display:none; }
   .tavern-mobile-lobby .mobile-lobby-error { grid-area:error; display:block; margin:0; padding:8px 12px; color:#fff6e0; background:#361b26f5; border:3px solid #ff8a93; font:15px/1.3 var(--body); }
 }
+/* Short landscape glass (Safari with its tab bar leaves ~290px): tighter rows, top-aligned so nothing clips. */
+@media (orientation: landscape) and (max-height: 340px) {
+  .tavern-mobile-lobby { align-content:start; gap:8px 12px; padding-top:8px; padding-bottom:8px; }
+  .tavern-mobile-lobby .tavern-heading p { display:none; }
+  .tavern-mobile-lobby .tavern-lobby-cards { gap:12px; }
+  .tavern-mobile-lobby .tavern-board { gap:8px; padding:10px 14px 12px; }
+  .tavern-mobile-lobby .tavern-board p { display:none; }
+  .tavern-mobile-lobby .tavern-board label { display:none; }
+  .tavern-mobile-lobby .tavern-board h2 { font-size:12px; }
+  .tavern-mobile-lobby .tavern-board { justify-content:center; }
+  .tavern-mobile-lobby .tavern-setup { gap:8px; }
+  .tavern-mobile-lobby .tavern-setup .tavern-outline { min-height:44px; padding:6px 8px; }
+}
+@media (orientation: landscape) and (max-height: 275px) {
+  /* The buttons already say HOST SHOW / JOIN SHOW. */
+  .tavern-mobile-lobby .tavern-board h2 { display:none; }
+}
+
+/* Instrument showroom: the tile row and the choose bar both grow up from their bottoms, so lift the tiles clear. */
+:root[data-handheld] .inst-tiles { top:calc(690px - 96px * (var(--ui-soft) - 1)) !important; }
+:root[data-handheld] .inst-back { font-size:20px !important; color:var(--soft) !important; }
