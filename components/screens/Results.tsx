@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { playMusic, sfx } from '@/lib/audio';
-import { ACT_BONUS_SCORE, ACT_BONUS_TIPS, STATS, TIPS_PER_WIN, XP_PER_WIN } from '@/lib/config';
+import { ACT_BONUS_SCORE, ACT_BONUS_TIPS, TIPS_PER_WIN, XP_PER_WIN } from '@/lib/config';
 import { ACTS, ENEMIES } from '@/lib/content';
-import { accuracy, instrumentOf, stat, useGame } from '@/lib/store';
+import { accuracy, canUpgrade, instrumentOf, stat, useGame } from '@/lib/store';
 import { useStageFit } from '@/lib/viewport';
 import Hud from '../Hud';
 import { Bg, FloatingNotes, Octagon, Ornament, Sprite, Stars, YellowButton } from '../ui';
@@ -75,7 +75,7 @@ export function Victory() {
   const next = ENEMIES[run.floor];
   const tips = useCountUp(TIPS_PER_WIN, 900);
   const xp = useCountUp(XP_PER_WIN, 1300);
-  const canUpgrade = STATS.some((d) => run.tips >= d.cost);
+  const upgradable = useGame(canUpgrade);
   const actDone = run.floor % 3 === 0;
   const [leaving, setLeaving] = useState(false);
   const column = useRef<HTMLDivElement>(null);
@@ -129,7 +129,7 @@ export function Victory() {
           <StatLine label="SCORE" value={run.score.toLocaleString()} delay={1500} />
           <StatLine label="ACCURACY" value={`${accuracy(run.stats)}%`} color="var(--meadow)" delay={1700} />
         </div>
-        {canUpgrade && (
+        {upgradable && (
           <div className="f-body" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', background: 'rgba(76,194,107,0.15)', border: '2px solid var(--meadow)', fontSize: 16, color: 'var(--parchment)', animation: 'popIn 300ms 2000ms steps(4) both' }}>
             <span style={{ width: 10, height: 10, background: 'var(--meadow)' }} /> You can afford an upgrade. <span className="kbd-only">Click</span><span className="touch-only">Tap</span> Riff&apos;s face, top left.
           </div>
@@ -142,7 +142,7 @@ export function Victory() {
         </div>
         </div>
       </div>
-      <Hud center={`FLOOR ${run.floor} OF 18 CLEARED`} pulse={canUpgrade ? 'face' : undefined} />
+      <Hud center={`FLOOR ${run.floor} OF 18 CLEARED`} pulse={upgradable ? 'face' : undefined} />
       <style>{`@keyframes victoryReward{0%{transform:translate(0,0) scale(.4);opacity:0}15%{opacity:1}50%{transform:translate(calc(var(--reward-x)*.5),calc(var(--reward-y)*.5 - 100px)) scale(1.1);opacity:1}90%{opacity:1}100%{transform:translate(var(--reward-x),var(--reward-y)) scale(.5);opacity:0}} @keyframes victoryExit{0%{transform:translateY(0)}30%{transform:translateY(-12px) scaleY(1.02)}100%{transform:translateY(900px) scaleY(.96)}}`}</style>
     </div>
   );
@@ -265,7 +265,7 @@ export function ActClear() {
   const act = ACTS[actIdx];
   const next = ACTS[actIdx + 1];
   const foes = ENEMIES.slice(actIdx * 3, actIdx * 3 + 3);
-  const canUpgrade = STATS.some((d) => run.tips >= d.cost);
+  const upgradable = useGame(canUpgrade);
   const bonus = useCountUp(ACT_BONUS_SCORE, 2300, 600);
   const tips = useCountUp(TIPS_PER_WIN + ACT_BONUS_TIPS, 2600, 500);
   const ready = t >= 4300;
@@ -355,10 +355,10 @@ export function ActClear() {
       {/* Call to action */}
       <div className="ui-b ui-soft" style={{ position: 'absolute', left: 120, top: 790, width: 900, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, opacity: ready ? 1 : 0, transform: `translateY(${ready ? 0 : 20}px)` }}>
         <YellowButton onClick={proceed}>CLIMB TO ACT {actIdx + 2} ▸</YellowButton>
-        <span className="f-label" style={{ fontSize: 11, color: 'var(--muted)' }}>{next ? `${next.name.toUpperCase()} · UNSEALED` : ''}<span className="desk-only">{canUpgrade ? ' · SPEND TIPS: CLICK RIFF, TOP LEFT' : ''}</span> · CHECKPOINT SAVED</span>
+        <span className="f-label" style={{ fontSize: 11, color: 'var(--muted)' }}>{next ? `${next.name.toUpperCase()} · UNSEALED` : ''}<span className="desk-only">{upgradable ? ' · SPEND TIPS: CLICK RIFF, TOP LEFT' : ''}</span> · CHECKPOINT SAVED</span>
       </div>
       {/* Phones: the taller HUD would crowd the headline; the rewards panel already shows tips and HP. */}
-      <div className="desk-only"><Hud center={`ACT ${actIdx + 1} CLEARED`} pulse={ready && canUpgrade ? 'face' : undefined} /></div>
+      <div className="desk-only"><Hud center={`ACT ${actIdx + 1} CLEARED`} pulse={ready && upgradable ? 'face' : undefined} /></div>
     </div>
   );
 }

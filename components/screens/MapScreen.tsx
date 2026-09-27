@@ -4,7 +4,7 @@ import { playFile, playMusic, playVoice, sfx } from '@/lib/audio';
 import { ACTS, ENEMIES } from '@/lib/content';
 import { instrumentOf, useGame } from '@/lib/store';
 import Hud from '../Hud';
-import { Bg, KeyHint, Sprite } from '../ui';
+import { Bg, KeyHint, Padlock, Sprite } from '../ui';
 import { art } from '@/lib/art';
 
 /** Set by the Victory screen so the map plays the M3 path-update beat. */
@@ -146,7 +146,7 @@ function MapNode({ enemy, state, y, justCleared, justUnlocked, pressed, onClick 
             {[0, 2, 6, 8].map((v) => <rect key={`b${v}`} x={8 - v} y={v} width="2" height="2" fill="#E8434F" />)}
           </svg>
         )}
-        {state === 'locked' && !justUnlocked && <LockIcon size={28} />}
+        {state === 'locked' && !justUnlocked && <Padlock size={28} style={CENTER} />}
         {justUnlocked && <ShatterLock />}
         {state === 'boss' && <SuperLock size={size} />}
       </button>
@@ -166,14 +166,7 @@ function MapNode({ enemy, state, y, justCleared, justUnlocked, pressed, onClick 
   );
 }
 
-function LockIcon({ size }: { size: number }) {
-  return (
-    <svg style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }} width={size} height={size * 1.16} viewBox="0 0 6 7" shapeRendering="crispEdges">
-      <rect x="1" y="0" width="4" height="1" fill="#E6E8F7" /><rect x="0" y="1" width="1" height="2" fill="#E6E8F7" /><rect x="5" y="1" width="1" height="2" fill="#E6E8F7" />
-      <rect x="0" y="3" width="6" height="4" fill="#E6E8F7" /><rect x="2" y="4" width="2" height="2" fill="#3A3F70" />
-    </svg>
-  );
-}
+const CENTER = { position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)' } as const;
 
 function ShatterLock() {
   return (
@@ -184,7 +177,7 @@ function ShatterLock() {
           <div key={i} style={{ position: 'absolute', width: 8, height: 8, background: '#E6E8F7', ['--dx' as string]: `${Math.cos(a) * 70}px`, ['--dy' as string]: `${Math.sin(a) * 70}px`, animation: 'pixelDrift 500ms 900ms steps(6) both' }} />
         );
       })}
-      <div style={{ animation: 'fadeOut 100ms 900ms steps(1) forwards' }}><LockIcon size={28} /></div>
+      <div style={{ animation: 'fadeOut 100ms 900ms steps(1) forwards' }}><Padlock size={28} style={CENTER} /></div>
     </div>
   );
 }

@@ -93,6 +93,15 @@ export function canAfford(run: Run, id: StatId) {
   const maxed = d.step > 0 ? v >= d.max : v <= d.max;
   return { maxed, affordable: !maxed && run.tips >= d.cost, cost: d.cost };
 }
+/** Why upgrades are closed right now, or null. They open after the first win and never mid-fight. */
+export function upgradeLock(s: { run: Run; combat: Combat | null; screen: Screen }): 'fight' | 'first' | null {
+  if (s.combat && s.screen === 'combat') return 'fight';
+  if (s.run.floor === 0) return 'first';
+  return null;
+}
+/** An upgrade the player could buy right now (drives the HUD's upgrade pip). */
+export const canUpgrade = (s: { run: Run; combat: Combat | null; screen: Screen }) =>
+  !upgradeLock(s) && STATS.some((d) => canAfford(s.run, d.id).affordable);
 export const accuracy = (s: RunStats) => (s.notesTotal ? Math.round((s.notesHit / s.notesTotal) * 100) : 0);
 
 const newRunId = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -378,8 +387,8 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   buy: (id) => {
-    const { run, screen, user } = get();
-    if (screen === 'combat') return false;
+    const { run, user } = get();
+    if (upgradeLock(get())) return false;
     const { affordable, cost } = canAfford(run, id);
     if (!affordable) return false;
     const levels = { ...run.levels, [id]: run.levels[id] + 1 };
@@ -566,8 +575,7 @@ async function flushPending() {
   for (const p of pendingRuns().filter((q) => q.owner === owner)) {
     if (useGame.getState().user?.username.toLowerCase() !== owner) return; // signed out/switched mid-flush
     try {
-      const { owner: _owner, ...body } = p;
-      const res = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const res = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...p, owner: undefined }) });
       if (res.status === 429) {
         // Submission cooldown: try again after the server's Retry-After.
         const wait = Math.min(120, Number(res.headers.get('Retry-After')) || 60);

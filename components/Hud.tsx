@@ -1,7 +1,6 @@
 'use client';
 import { sfx } from '@/lib/audio';
-import { instrumentOf, level, stat, useGame } from '@/lib/store';
-import { STATS } from '@/lib/config';
+import { canUpgrade, instrumentOf, level, stat, useGame } from '@/lib/store';
 import { art } from '@/lib/art';
 
 export default function Hud({ center, pulse }: { center: string; pulse?: 'map' | 'gear' | 'face' }) {
@@ -9,7 +8,7 @@ export default function Hud({ center, pulse }: { center: string; pulse?: 'map' |
   const setOverlay = useGame((s) => s.setOverlay);
   const inst = instrumentOf(run);
   const maxHp = stat(run, 'maxHp');
-  const canUpgrade = STATS.some((d) => run.tips >= d.cost);
+  const upgradable = useGame(canUpgrade);
   const open = (o: 'stats' | 'pause' | 'mappeek') => {
     sfx('click');
     setOverlay(o);
@@ -41,7 +40,7 @@ export default function Hud({ center, pulse }: { center: string; pulse?: 'map' |
           <div className="f-press hud-level" style={{ position: 'absolute', left: 4, top: 34, padding: '2px 4px', background: '#101126', border: '2px solid var(--sun)', fontSize: 8, lineHeight: '10px', color: 'var(--sun)' }}>
             LV{level(run)}
           </div>
-          {canUpgrade && (
+          {upgradable && (
             <div style={{ position: 'absolute', left: 34, top: -7, width: 16, height: 16, display: 'grid', placeItems: 'center', background: 'var(--meadow)', border: '2px solid #101126', animation: 'bob 1.2s steps(2) infinite' }}>
               <svg width="8" height="8" viewBox="0 0 4 4" shapeRendering="crispEdges"><rect x="1" y="0" width="2" height="4" fill="#101126" /><rect x="0" y="1" width="4" height="2" fill="#101126" /></svg>
             </div>

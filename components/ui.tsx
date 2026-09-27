@@ -168,3 +168,12 @@ export function Octagon({ size, children, ring = '#3A3F70', fill = '#1E2140', st
     </div>
   );
 }
+
+/** Pixel padlock. */
+export function Padlock({ size, color = '#E6E8F7', style }: { size: number; color?: string; style?: CSSProperties }) {
+  return (
+    <svg style={style} width={size} height={size * 1.16} viewBox="0 0 6 7" shapeRendering="crispEdges" aria-hidden="true">
+      <path d="M1 0h4v1H1zM0 1h1v2H0zM5 1h1v2H5zM0 3h6v4H0z" fill={color} /><rect x="2" y="4" width="2" height="2" fill="#3A3F70" />
+    </svg>
+  );
+}
