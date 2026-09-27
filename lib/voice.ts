@@ -43,6 +43,16 @@ export function buildFacts(
   };
 }
 
+// Lines heard in recent fights, so a boss doesn't open with the line you heard last climb.
+const RECENT_KEY = 'stc.taunts.recent';
+function recentTaunts(): string[] {
+  try { const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]'); return Array.isArray(v) ? v.filter((s) => typeof s === 'string').slice(-30) : []; } catch { return []; }
+}
+function rememberTaunt(id: string) {
+  if (!id) return;
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify([...recentTaunts().filter((s) => s !== id), id].slice(-30))); } catch { /* storage blocked */ }
+}
+
 /** Asks the server for a line. Resolves with text (and audio when ready in time). */
 export async function fetchTaunt(
   enemy: Enemy,
@@ -59,12 +69,13 @@ export async function fetchTaunt(
     const res = await fetch('/api/taunt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enemy: enemy.voice, heat: h, moment, facts, used: used.slice(-50) }),
+      body: JSON.stringify({ enemy: enemy.voice, enemyId: enemy.id, heat: h, moment, facts, used: [...new Set([...recentTaunts(), ...used])].slice(-50) }),
       signal: ctrl.signal,
     });
     if (res.status === 204) return null;
     const text = decodeURIComponent(res.headers.get('X-Taunt-Text') ?? '');
     const id = res.headers.get('X-Taunt-Id') ?? '';
+    rememberTaunt(id);
     let audio: string | null = null;
     if (res.headers.get('Content-Type')?.includes('audio')) {
       const blob = await res.blob();
