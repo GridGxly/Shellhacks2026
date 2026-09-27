@@ -14,7 +14,7 @@ export interface AudioSettings {
 }
 
 export const settings: AudioSettings = {
-  music: 0.6,
+  music: 0.5,
   sfx: 0.8,
   voice: 0.7,
   trashTalk: 'spicy',
@@ -23,12 +23,13 @@ export const settings: AudioSettings = {
   approach: 'on',
 };
 
-// Keep background arrangements beneath instrument practice, even for saved sliders.
-const MUSIC_BED_GAIN = 0.35;
+// Music is a quiet bed under play, even for saved sliders at full.
+const MUSIC_BED_GAIN = 0.14;
 let ctx: AudioContext | null = null;
 let musicGain: GainNode;
 let chipGain: GainNode;
 let sfxGain: GainNode;
+let master: DynamicsCompressorNode;
 
 export function ac(): AudioContext {
   if (!ctx) {
@@ -40,8 +41,21 @@ export function ac(): AudioContext {
     sfxGain.gain.value = settings.sfx;
     chipGain.gain.value = 0.22;
     chipGain.connect(musicGain);
-    musicGain.connect(ctx.destination);
-    sfxGain.connect(ctx.destination);
+    // Everything meets a soft limiter, so stacked sounds duck together instead of clipping.
+    master = ctx.createDynamicsCompressor();
+    master.threshold.value = -16;
+    master.knee.value = 8;
+    master.ratio.value = 8;
+    master.attack.value = 0.004;
+    master.release.value = 0.2;
+    master.connect(ctx.destination);
+    musicGain.connect(master);
+    // Raw square waves are harsh on laptop speakers: roll off the fizz above 5 kHz.
+    const tame = ctx.createBiquadFilter();
+    tame.type = 'lowpass';
+    tame.frequency.value = 5200;
+    tame.Q.value = 0.5;
+    sfxGain.connect(tame).connect(master);
   }
   if (ctx.state !== 'running' && ctx.state !== 'closed') void ctx.resume().catch(() => {});
   return ctx;
@@ -289,7 +303,7 @@ export function sfx(name: Sfx, when = 0) {
   const t = c.currentTime + when;
   const o = sfxGain;
   switch (name) {
-    case 'hover': return tone(84, t, 0.04, 'square', 0.08, o);
+    case 'hover': return tone(84, t, 0.035, 'triangle', 0.07, o);
     case 'click': tone(76, t, 0.05, 'square', 0.15, o); return tone(88, t + 0.05, 0.07, 'square', 0.15, o);
     case 'back': tone(81, t, 0.05, 'square', 0.14, o); return tone(72, t + 0.05, 0.08, 'square', 0.14, o);
     case 'deal': return noise(t, 0.08, 0.18, o, 2500, 9000);
