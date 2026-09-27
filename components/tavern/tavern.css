@@ -39,7 +39,6 @@
 .tavern-confetti { position:absolute; top:-20px; animation:tavern-confetti-fall 2300ms steps(16) infinite both; }
 .tavern-content { position:absolute; inset:0; z-index:20; pointer-events:none; }
 .tavern-content > * { pointer-events:auto; }
- }
 @keyframes tavern-light-on { 0%,49% { filter:brightness(1.4); } 50%,100% { filter:brightness(1); } }
 @keyframes tavern-play { 0%,100% { transform:translateY(0) rotate(-1deg); } 50% { transform:translateY(-7px) rotate(1deg); } }
 @keyframes tavern-breathe { 0%,100% { transform:scaleY(1); } 50% { transform:scaleY(1.014); } }
