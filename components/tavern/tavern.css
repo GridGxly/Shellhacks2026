@@ -1,5 +1,6 @@
-.tavern-room { position:absolute; inset:0; overflow:hidden; background:#3B2414; }
-.tavern-backdrop, .tavern-crowd, .tavern-gags { position:absolute; inset:0; width:1440px; height:900px; pointer-events:none; }
+.tavern-room { position:absolute; inset:0; background:#3B2414; }
+/* The room, crowd and gags scale as one scene to cover the window (see .scene in globals.css). */
+.tavern-backdrop, .tavern-crowd, .tavern-gags { position:absolute; inset:0; width:1440px; height:900px; pointer-events:none; transform:scale(var(--cover)); transform-origin:720px 450px; }
 .tavern-backdrop { z-index:0; }
 .tavern-lamp-glow { position:absolute; top:110px; width:260px; height:330px; z-index:1; background:radial-gradient(ellipse,#FFB34732 0%,#FFB34716 38%,transparent 70%); pointer-events:none; transition:opacity 300ms steps(4); }
 .tavern-house-shade { position:absolute; inset:0; z-index:2; background:#101126; pointer-events:none; transition:opacity 300ms steps(4); }
