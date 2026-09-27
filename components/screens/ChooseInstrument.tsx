@@ -60,9 +60,9 @@ export default function ChooseInstrument() {
   return (
     <div className="fill" style={{ background: '#140d0a' }}>
       <Bg src="/assets/bg/showroom.png" style={{ filter: 'brightness(0.55)' }} />
-      <div className="fill" style={{ background: 'linear-gradient(180deg, rgba(16,17,38,0.4), rgba(16,17,38,0.1) 40%, rgba(16,17,38,0.85))' }} />
+      <div className="bleed" style={{ background: 'linear-gradient(180deg, rgba(16,17,38,0.4), rgba(16,17,38,0.1) 40%, rgba(16,17,38,0.85))' }} />
       {/* Spotlight cone */}
-      <div style={{ position: 'absolute', left: 520, top: -40, width: 400, height: 720, background: 'linear-gradient(180deg, rgba(255,230,150,0.35), rgba(255,230,150,0.05))', clipPath: 'polygon(40% 0, 60% 0, 100% 100%, 0 100%)', animation: 'glow 3s steps(4) infinite' }} />
+      <div style={{ position: 'absolute', left: 520, top: -40, width: 400, height: 720, background: 'linear-gradient(180deg, rgba(255,230,150,0.35), rgba(255,230,150,0.05))', clipPath: 'polygon(40% 0, 60% 0, 100% 100%, 0 100%)' }} />
       <div style={{ position: 'absolute', left: 560, top: 600, width: 320, height: 40, borderRadius: '50%', background: 'rgba(255,230,150,0.25)' }} />
 
       <div className="f-label" style={{ position: 'absolute', left: 0, top: 44, width: 1440, textAlign: 'center', fontSize: 14, color: 'var(--sun)', letterSpacing: '0.22em' }}>THE SHOWROOM</div>
@@ -71,14 +71,14 @@ export default function ChooseInstrument() {
       {/* 02 Choose Instrument: Riff stands on the showroom floor, EQUIPPED tagged above him. */}
       <div style={{ position: 'absolute', left: 'calc(70px - var(--rail-l))', top: 430, width: 300, height: 300 }}>
         <div style={{ position: 'absolute', left: 70, bottom: 10, width: 160, height: 16, borderRadius: '50%', background: '#100A1899' }} />
-        <Sprite key={inst.id} src={inst.sprite} x={0} y={0} size={300} style={{ transformOrigin: '50% 98%', animation: 'popIn 300ms steps(5) both, breathe 1.2s 300ms steps(2) infinite' }} />
+        <Sprite key={inst.id} src={inst.sprite} x={0} y={0} size={300} style={{ transformOrigin: '50% 98%', animation: 'popIn 300ms steps(5) both' }} />
         <div className="f-press" style={{ position: 'absolute', left: 40, top: -6, padding: '5px 10px', rotate: '-4deg', transformOrigin: '0 0', background: 'var(--magenta)', border: '3px solid #101126', fontSize: 13, color: '#FFF6E0' }}>EQUIPPED</div>
       </div>
 
       {/* Floating instrument */}
       <button onClick={() => move(-1)} className="hoverable tap" style={{ position: 'absolute', left: 470, top: 360 }} aria-label="Previous"><Arrow dir="left" size={56} /></button>
       <div key={idx} style={{ position: 'absolute', left: 540, top: 230, width: 360, height: 400, display: 'grid', placeItems: 'center', animation: `${dir >= 0 ? 'slideInRight' : 'slideInLeft'} 260ms steps(5) both` }}>
-        <div style={{ animation: 'bob 1.6s steps(4) infinite' }}><Icon i={inst.iconIndex} scale={2.6} /></div>
+        <div><Icon i={inst.iconIndex} scale={2.6} /></div>
       </div>
       <button onClick={() => move(1)} className="hoverable tap" style={{ position: 'absolute', left: 914, top: 360 }} aria-label="Next"><Arrow size={56} /></button>
 

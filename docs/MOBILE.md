@@ -1,10 +1,12 @@
 # Handheld standards
 
-How Slay the Choir plays on phones and tablets, and the rules every new screen follows. The desktop design is the source of truth: the Paper board (page "v2 · Redesign") defines every screen, and a phone gets those same screens, never a separate phone layout. The board's Section 13, "P1 · Handheld Standards", summarises this file.
+How Slay the Choir plays on phones and tablets, and the rules every new screen follows.
+
+Desktop screens are designed at 1440×900. Phone screens that need their own layout (home, combat, Gemini Lab) are designed in Paper at 1950×900 stage px, which is 852×393 landscape at 2.29×. `components/Game.tsx` still scales one 1440×900 stage to the glass; the extra phone width in Paper is how we compose a landscape layout before it is implemented with rails, bleed, and `Scene` cover. Section 13 (P1) and Section 14 (S2, S3, S7/S8 phone) on page v2 are the boards for this.
 
 ## The model: one stage, controls on rails
 
-Every screen is designed on a 1440×900 stage. `components/Game.tsx` scales that stage uniformly to fit the glass. On a handheld the art frame keeps its composition, and three things change around it:
+Every implemented screen lives on a 1440×900 stage. `components/Game.tsx` scales that stage uniformly to fit the glass. On a handheld the art frame keeps its composition, and three things change around it:
 
 1. **Bleed.** Full-screen layers run past the frame into the leftover glass, so play never sits between letterbox bars.
 2. **Rails.** Edge controls leave the frame and hug the safe edge of the glass.
@@ -75,9 +77,9 @@ Every control must take a 44px (rendered) finger. When the design calls for a sm
 
 Copy the player reads during play gets handheld sizes in the "Handheld type" block of `app/globals.css`. They're set before the stage scale, so each box keeps its shape: card titles 26px, card text 28px, sheet labels 18px. Give the element a class and add a `:root[data-handheld]` rule; don't branch font sizes in JSX.
 
-### 8. Priority: leave out, don't shrink
+### 8. Priority: leave out, or design the phone board
 
-When something doesn't fit, keep what the player acts on and mark the rest `.desk-only` (the HUD identity, key hints, the stats showcase, two leaderboard columns). When a phone needs a compact stand-in, add it with `.hand-only` (the LV chip in the stats panel). Don't invent phone-only UI the desktop design doesn't have.
+When something doesn't fit, keep what the player acts on and mark the rest `.desk-only` (the HUD identity, key hints, the stats showcase, two leaderboard columns). When a phone needs a compact stand-in, add it with `.hand-only` (the LV chip in the stats panel). When the desktop composition cannot be honest on a 852×393 landscape glass, design a phone board in Paper at 1950×900 (S2 home, S3 combat, S7/S8 lab) and implement that. Never paper over a bad phone layout with a background-image.
 
 ### 9. Fit to glass: centred panels
 
@@ -96,9 +98,9 @@ Give the panel a compact handheld layout first (a class plus `:root[data-handhel
 
 The stage is landscape. Portrait phones see the rotate card (`RotateHint` in `Game.tsx`). Turning to landscape plays `stageWake`, a 460ms stepped iris, or a short fade with reduced motion. Full screen is offered from menus (the title links and the pause panel) where the browser supports it, never as a floating button over play. iPhone Safari has no element full screen, so the rotate card suggests adding the game to the home screen.
 
-### 11. Motion: exactly as designed
+### 11. Motion: stepped, never idle
 
-Handhelds change where things sit, never how they move. Rails and cluster scaling never add, drop or retime an animation: each screen keeps the motion the desktop design gives it, the stepped `steps(n)` timing of the motion spec (Paper M6, "Nothing sits still"). The one motion phones add, the rotate wake, is stepped too: 460ms in 8 steps. Respect `prefers-reduced-motion`.
+Handhelds change where things sit, never how they move. Rails and cluster scaling never add, drop or retime an animation. Motion uses `steps(n)`. Idle loops (infinite breathe, bob, glow, rattle) stay off. The rotate wake is stepped too: 460ms in 8 steps. Respect `prefers-reduced-motion`.
 
 ### 12. Weight: light art, no idle work
 
@@ -114,7 +116,7 @@ Text entry is the one exception to "never reflow": a phone keyboard needs native
 
 ## New screen checklist
 
-- [ ] Designed at 1440×900 in Paper, positioned in stage px.
+- [ ] Designed at 1440×900 in Paper, positioned in stage px. Phones that need their own layout also get a 1950×900 board.
 - [ ] Root is `.fill .screen-clip`; full-screen layers use `.bleed`.
 - [ ] Edge controls carry a rail offset and a `.ui-*` anchor class.
 - [ ] Labels and tags inside the composition add `.ui-soft`.

@@ -138,7 +138,7 @@ export function GeminiLab() {
 
 
   return (
-    <MenuShell title="GEMINI LAB" onBack={() => useGame.getState().go('training', 'iris')}>
+    <MenuShell title="GEMINI LAB" onBack={() => useGame.getState().go('training')}>
       {/* ---------- student + analysis ---------- */}
       <div style={{ ...panel, left: 30, top: 145, width: 470, height: 310 }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>

@@ -3,9 +3,10 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { sfx } from '@/lib/audio';
 import { mic, type Reading } from '@/lib/mic';
 import { INSTRUMENTS } from '@/lib/content';
+import { CARD_DAMAGE, PASS_THRESHOLD } from '@/lib/config';
 import { instrumentOf, useGame } from '@/lib/store';
 import { noteName, writtenKey } from '@/lib/music';
-import { Arrow, Bg, FloatingNotes, Ornament, Sprite } from '../ui';
+import { Arrow, Bg, Ornament, Sprite } from '../ui';
 
 export function MenuShell({ title, children, onBack }: { title: string; children: ReactNode; onBack?: () => void }) {
   const go = useGame((s) => s.go);
@@ -20,8 +21,7 @@ export function MenuShell({ title, children, onBack }: { title: string; children
       {/* Pre-dimmed, pre-blurred copy (scripts/optimize-art.mjs): no live blur filter to re-run each frame. */}
       <Bg src="/assets/bg/t/summit-dim.webp" style={{ imageRendering: 'auto' }} />
       <div style={{ position: 'absolute', left: 420, top: -100, width: 600, height: 900, backgroundImage: 'radial-gradient(ellipse 50% 60% at 50% 15%, rgba(255,246,224,0.12) 0%, rgba(255,246,224,0) 70%)' }} />
-      <div className="fill" style={{ backgroundImage: 'radial-gradient(ellipse 70% 70% at 50% 45%, rgba(16,17,38,0) 30%, rgba(16,17,38,0.9) 100%)' }} />
-      <div style={{ opacity: 0.3 }}><FloatingNotes count={8} /></div>
+      <div className="bleed" style={{ backgroundImage: 'radial-gradient(ellipse 70% 70% at 50% 45%, rgba(16,17,38,0) 30%, rgba(16,17,38,0.9) 100%)' }} />
       <div className="menu-head ui-t ui-soft" style={{ position: 'absolute', left: 0, top: 84, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
         <div className="f-press" style={{ fontSize: 36, lineHeight: '40px', color: 'var(--parchment)', textShadow: '#101126 4px 4px 0, rgba(255,210,63,0.35) 0 0 18px', animation: 'dropIn 300ms steps(5) both' }}>{title}</div>
         <Ornament />
@@ -46,34 +46,33 @@ const panel = { background: 'rgba(16,17,38,0.75)', border: '3px solid #3A3F70' }
 export function HowToPlay() {
   const steps = [
     {
-      n: 1, title: 'PICK A CARD', body: 'Drag Chord, Rhythm or Scale onto the enemy. One card per round.',
+      n: 1, title: 'PICK A CARD', body: 'Pick Chord, Rhythm or Scale and aim it at the enemy. One card a round.',
       art: (
         <>
-          <div style={{ position: 'absolute', left: 46, top: 40, width: 150, height: 200, background: '#C9901B', border: '4px solid #101126', boxShadow: '#FFE08A 0 0 0 3px inset', rotate: '-8deg', animation: 'bob 2s steps(4) infinite' }}>
+          <div style={{ position: 'absolute', left: 46, top: 40, width: 150, height: 200, background: '#C9901B', border: '4px solid #101126', boxShadow: '#FFE08A 0 0 0 3px inset', rotate: '-8deg' }}>
             <div className="f-press" style={{ margin: 8, padding: 6, background: 'var(--parchment)', color: '#101126', fontSize: 10, textAlign: 'center' }}>RHYTHM</div>
             <div className="f-music" style={{ textAlign: 'center', fontSize: 40, color: '#fff' }}>♩♫♪</div>
           </div>
-          <div style={{ position: 'absolute', left: 226, top: 60, width: 50, height: 50, border: '3px dashed var(--sun)', animation: 'blink 800ms steps(1) infinite' }} />
+          <div style={{ position: 'absolute', left: 226, top: 60, width: 50, height: 50, border: '3px dashed var(--sun)' }} />
         </>
       ),
     },
     {
-      n: 2, title: 'PLAY IT', body: 'After a 4-beat count-in, play the notes into your mic as the cursor sweeps.',
+      n: 2, title: 'PLAY IT', body: 'Four clicks count you in. Play each note into your mic as the circle closes on it.',
       art: (
         <div style={{ position: 'absolute', left: 20, top: 36, width: 254, height: 112, background: 'var(--parchment)', overflow: 'hidden' }}>
           {[30, 44, 58, 72, 86].map((y) => <div key={y} style={{ position: 'absolute', left: 10, top: y, width: 234, height: 2, background: '#1B1F3B' }} />)}
           {[40, 80, 150, 196].map((x, i) => <div key={x} style={{ position: 'absolute', left: x, top: 76 - i * 8, width: 14, height: 10, borderRadius: '50%', background: i < 2 ? '#3FA75C' : i === 2 ? '#1B1F3B' : '#9A9CB4' }} />)}
-          <div style={{ position: 'absolute', left: 0, top: 18, width: 3, height: 80, background: 'var(--magenta)', animation: 'sweep 2.4s linear infinite' }} />
-          <style>{`@keyframes sweep { from { transform: translateX(20px); } to { transform: translateX(240px); } }`}</style>
+          <div style={{ position: 'absolute', left: 150, top: 18, width: 3, height: 80, background: 'var(--magenta)' }} />
         </div>
       ),
     },
     {
-      n: 3, title: 'LAND IT', body: 'Hit 80% of the notes and the card deals 30. Miss and it comes back with new music.',
+      n: 3, title: 'LAND IT', body: `Hit ${Math.round(PASS_THRESHOLD * 100)}% of the notes and the card deals ${CARD_DAMAGE}. Miss, and it returns with new music.`,
       art: (
         <>
-          <Sprite src="/assets/sprites/goblin.png" x={110} y={24} size={170} style={{ animation: 'hitFlash 1.6s steps(2) infinite' }} />
-          <div className="f-press" style={{ position: 'absolute', left: 18, top: 30, fontSize: 34, color: '#FF4F5E', textShadow: '#101126 3px 0 0, #101126 -3px 0 0, #101126 0 3px 0, #101126 0 -3px 0, #FFD23F 4px 6px 0', animation: 'dmgPop 1.6s steps(8) infinite' }}>-30</div>
+          <Sprite src="/assets/sprites/goblin.png" x={110} y={24} size={170} />
+          <div className="f-press" style={{ position: 'absolute', left: 18, top: 30, fontSize: 34, color: '#FF4F5E', textShadow: '#101126 3px 0 0, #101126 -3px 0 0, #101126 0 3px 0, #101126 0 -3px 0, #FFD23F 4px 6px 0' }}>-{CARD_DAMAGE}</div>
         </>
       ),
     },
@@ -96,8 +95,8 @@ export function HowToPlay() {
         {[
           ['TO WIN', 'Land all 3 cards', 'var(--sun)'],
           ['THEY HIT BACK', 'Every round, harder each act', 'var(--hp)'],
-          ['AFTER A WIN', 'Heal + earn tips', 'var(--meadow)'],
-          ['BOSSES', 'Play the ENCORE', '#FF7DB8'],
+          ['AFTER A WIN', 'Heal to full, earn tips', 'var(--meadow)'],
+          ['THE BOSS', 'Land the ENCORE to end it', '#FF7DB8'],
         ].map(([k, v, c]) => (
           <div key={k} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div className="f-label" style={{ fontSize: 12, color: c }}>{k}</div>

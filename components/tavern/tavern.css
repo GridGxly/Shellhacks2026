@@ -1,7 +1,8 @@
-.tavern-room { position:absolute; inset:0; overflow:hidden; background:#3B2414; }
-.tavern-backdrop, .tavern-crowd, .tavern-gags { position:absolute; inset:0; width:1440px; height:900px; pointer-events:none; }
+.tavern-room { position:absolute; inset:0; background:#3B2414; }
+/* The room, crowd and gags scale as one scene to cover the window (see .scene in globals.css). */
+.tavern-backdrop, .tavern-crowd, .tavern-gags { position:absolute; inset:0; width:1440px; height:900px; pointer-events:none; transform:scale(var(--cover)); transform-origin:720px 450px; }
 .tavern-backdrop { z-index:0; }
-.tavern-lamp-glow { position:absolute; top:110px; width:260px; height:330px; z-index:1; background:radial-gradient(ellipse,#FFB34732 0%,#FFB34716 38%,transparent 70%); pointer-events:none; animation:tavern-lantern 3s steps(4) infinite; transition:opacity 300ms steps(4); }
+.tavern-lamp-glow { position:absolute; top:110px; width:260px; height:330px; z-index:1; background:radial-gradient(ellipse,#FFB34732 0%,#FFB34716 38%,transparent 70%); pointer-events:none; transition:opacity 300ms steps(4); }
 .tavern-house-shade { position:absolute; inset:0; z-index:2; background:#101126; pointer-events:none; transition:opacity 300ms steps(4); }
 .tavern-chain { position:absolute; top:0; right:82px; width:22px; height:300px; z-index:4; pointer-events:none; }
 .tavern-chain div { height:272px; width:6px; margin:auto; background:repeating-linear-gradient(#BB8747 0 8px,#3B2414 8px 12px); border-right:2px solid #101126; }
@@ -18,7 +19,7 @@
 .tavern-join-shake { animation:tavern-stage-thud 150ms 300ms steps(3); }
 .tavern-landing-dust { position:absolute; left:50px; bottom:0; width:250px!important; height:30px!important; }
 .tavern-landing-dust i { position:absolute; bottom:0; display:block; width:24px; height:16px; background:#BC99704D; opacity:0; animation:tavern-dust 280ms steps(4) both; }
-.tavern-empty { position:absolute; top:342px; left:766px; width:226px; height:286px; z-index:4; border:4px dashed #FFF6E070; clip-path:polygon(22% 0,78% 0,78% 25%,100% 38%,100% 100%,0 100%,0 38%,22% 25%); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:30px; color:#FFF6E0; background:#10112625; animation:tavern-slot 1200ms steps(4) infinite; }
+.tavern-empty { position:absolute; top:342px; left:766px; width:226px; height:286px; z-index:4; border:4px dashed #FFF6E070; clip-path:polygon(22% 0,78% 0,78% 25%,100% 38%,100% 100%,0 100%,0 38%,22% 25%); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:30px; color:#FFF6E0; background:#10112625; }
 .tavern-empty > span { font-family:var(--press); font-size:80px; color:#FFD23F; }
 .tavern-empty > div { font-size:13px; }
 .tavern-nameplate { position:absolute; top:663px; width:296px; min-height:64px; padding:10px 12px; z-index:8; border:3px solid #101126; background:#FFF6E0; color:#101126; box-shadow:5px 5px 0 #101126; }
@@ -28,18 +29,17 @@
 .tavern-instrument-name { display:block; font-size:12px; color:#665649; margin-top:7px; }
 .tavern-accuracy { position:absolute; right:8px; bottom:7px; background:#101126; border:3px solid #101126; font-size:18px; }
 .tavern-crowd { z-index:10; }
-.tavern-crowd-sway { animation:tavern-sway 1200ms steps(2) infinite; transform-origin:50% 100%; }
+.tavern-crowd-sway { transform-origin:50% 100%; }
 .tavern-clap-open { animation:tavern-clap-open 250ms steps(1) infinite; animation-delay:inherit; }
 .tavern-clap-closed { animation:tavern-clap-closed 250ms steps(1) infinite; animation-delay:inherit; }
 .tavern-gags { z-index:12; }
 .tavern-activity-notes { position:absolute; top:390px; width:110px; height:150px; z-index:6; pointer-events:none; }
 .tavern-activity-notes span { position:absolute; font-size:40px; font-family:var(--body); text-shadow:4px 4px 0 #101126; animation:tavern-music-note 900ms steps(9) infinite; }
 .tavern-ovation { position:absolute; inset:0; z-index:13; overflow:hidden; pointer-events:none; }
-.tavern-cheer-note { position:absolute; font-size:34px; text-shadow:3px 3px 0 #101126; animation:tavern-cheer-rise 1600ms steps(12) infinite both; }
-.tavern-confetti { position:absolute; top:-20px; animation:tavern-confetti-fall 2300ms steps(16) infinite both; }
+.tavern-cheer-note { position:absolute; font-size:34px; text-shadow:3px 3px 0 #101126; animation:tavern-cheer-rise 1600ms steps(12) both; }
+.tavern-confetti { position:absolute; top:-20px; animation:tavern-confetti-fall 2300ms steps(16) both; }
 .tavern-content { position:absolute; inset:0; z-index:20; pointer-events:none; }
 .tavern-content > * { pointer-events:auto; }
-@keyframes tavern-lantern { 0%,100% { transform:scale(0.94); } 50% { transform:scale(1.02); } }
 @keyframes tavern-light-on { 0%,49% { filter:brightness(1.4); } 50%,100% { filter:brightness(1); } }
 @keyframes tavern-play { 0%,100% { transform:translateY(0) rotate(-1deg); } 50% { transform:translateY(-7px) rotate(1deg); } }
 @keyframes tavern-breathe { 0%,100% { transform:scaleY(1); } 50% { transform:scaleY(1.014); } }

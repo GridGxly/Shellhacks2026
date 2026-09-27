@@ -62,7 +62,7 @@
 .tavern-mic { position:relative; display:flex; flex-direction:column; align-items:center; gap:6px; }
 .tavern-mic small { font:11px var(--label); letter-spacing:.12em; color:#C9B8E8; }
 .tavern-mic[data-state=off] { color:#FFD23F; border-color:#FFD23F; }
-.tavern-mic[data-state=off]::after { content:''; position:absolute; inset:-9px; border:3px solid #FFD23F; opacity:0; pointer-events:none; animation:tavern-mic-call 1.4s steps(2) infinite; }
+.tavern-mic[data-state=off]::after { content:''; position:absolute; inset:-9px; border:3px solid #FFD23F; opacity:0.55; pointer-events:none; }
 .tavern-mic[data-state=asking] { color:#FFD23F; border-color:#FFD23F; }
 .tavern-mic[data-state=blocked] { color:#FF8A93; border-color:#FF8A93; }
 .tavern-mic[data-state=ready] { color:#4CC26B; border-color:#4CC26B; }

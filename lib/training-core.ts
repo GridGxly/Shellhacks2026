@@ -113,12 +113,43 @@ export function validatePlan(v: unknown, regiment: TrainingRegiment): TrainingPl
   if (exercises[3].music.notes.some(n => !practiced.has(`${n.midi}:${n.durBeats}`))) return null;
   return { id: v.id, source: v.source as TrainingPlan['source'], regiment, focusSummary: v.focusSummary, exercises, ...(v.source === 'offline' ? { fallbackReason: ['not_configured', 'unavailable', 'invalid_response'].includes(String(v.fallbackReason)) ? v.fallbackReason as TrainingPlan['fallbackReason'] : 'not_configured' } : {}) };
 }
+const pick = <T,>(lines: T[]) => lines[Math.floor(Math.random() * lines.length)];
+/** The twins' built-in coaching, in their own voices: Castor on pitch, Pollux on pulse. */
 export function offlineFeedback(ex: Exercise, notes: NoteResult[], final = false): TrainingFeedback {
+  const total = notes.length;
   const hits = notes.filter(n => n.status === 'hit').length;
   const silent = notes.filter(n => n.status === 'silent').length;
   const offsets = notes.flatMap(n => n.onsetOffsetMs === null ? [] : [n.onsetOffsetMs]);
   const average = offsets.length ? offsets.reduce((a, b) => a + b, 0) / offsets.length : null;
-  return { source: 'offline', castor: `${final ? 'Across this set, ' : ''}${hits} of ${notes.length} notes matched. ${silent ? 'Give each note a clear start and enough breath.' : hits === notes.length ? 'Keep that clear pitch as you connect the phrase.' : 'Isolate the missed notes slowly, then reconnect them.'}`, pollux: average === null ? `Try a relaxed count at ${ex.tempo} beats per minute before you begin.` : average < -60 ? 'Your measured attacks leaned early. Let the beat arrive before starting each note.' : average > 60 ? 'Your measured attacks leaned late. Prepare the breath before the beat.' : 'Your measured attacks stayed close to the pulse. Keep the spaces between notes even.' };
+  const across = final ? 'Across the whole set, ' : '';
+  const castor = hits === total ? pick([
+    `${across}every pitch rang true. That is how a prince would play it.`,
+    `${across}clean from the first note to the last. The Canon itself approves.`,
+    `${hits} of ${total}, all true. Keep that ear exactly as it is.`,
+  ]) : silent > 0 ? pick([
+    `${across}${silent} ${silent === 1 ? 'note' : 'notes'} never reached me. Give each one a clear start, and breathe before the phrase.`,
+    `Some notes went missing, ${silent} of them. Play a touch louder and commit to every start.`,
+  ]) : hits / Math.max(1, total) >= 0.7 ? pick([
+    `${across}${hits} of ${total} true. Take the stray notes slowly, then weave them back in.`,
+    `Nearly there, ${hits} of ${total}. Hum each wandering note once before you play it.`,
+  ]) : pick([
+    `${across}only ${hits} of ${total} landed. Slow it down: accuracy first, speed later.`,
+    `The pitches wandered today, ${hits} of ${total}. Try the phrase at half speed and listen for each landing.`,
+  ]);
+  const pollux = average === null ? pick([
+    `I couldn't catch your attacks. Count four out loud at ${ex.tempo} and come in strong.`,
+    `Too quiet to time, bard. Give me a firm start on every note at ${ex.tempo}.`,
+  ]) : average < -60 ? pick([
+    'You jumped the gun! Let the beat land first, then strike.',
+    'Too eager. Wait for the beat the way a boxer waits for an opening.',
+  ]) : average > 60 ? pick([
+    'You came in behind the beat. Breathe before it, so the note lands on it.',
+    'A step slow on the attacks. Have your breath ready one beat early.',
+  ]) : pick([
+    "Right on the pulse. That's footwork even my brother can't match.",
+    'Your timing held tight. Now keep the gaps between notes just as even.',
+  ]);
+  return { source: 'offline', castor, pollux };
 }
 function ordinal(n: number): string {
   if (n % 100 >= 11 && n % 100 <= 13) return `${n}th`;
