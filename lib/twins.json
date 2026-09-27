@@ -1,0 +1,46 @@
+{
+  "voices": {
+    "castor": {
+      "name": "Bradford",
+      "id": "NNl6r8mD7vthiJatiJt1",
+      "rate": 0.95,
+      "settings": {
+        "stability": 0.65,
+        "similarity_boost": 0.85,
+        "style": 0.2,
+        "speed": 0.92
+      }
+    },
+    "pollux": {
+      "name": "Bradford",
+      "id": "NNl6r8mD7vthiJatiJt1",
+      "rate": 1.07,
+      "settings": {
+        "stability": 0.3,
+        "similarity_boost": 0.75,
+        "style": 0.7,
+        "speed": 1.1
+      }
+    }
+  },
+  "model": "eleven_multilingual_v2",
+  "greetings": [
+    {
+      "castor": "Welcome, bard. I am Castor. I listen for pitch: every note, true or wandering.",
+      "pollux": "And I am Pollux. I keep the pulse. Sit with us at the Canon, and we will sharpen you for the Choir."
+    },
+    {
+      "castor": "Back again? Good. The Choir grows louder every night, and so shall you.",
+      "pollux": "My brother means that kindly. Tune up, bard. Let's find your beat."
+    },
+    {
+      "castor": "The Canon is tuned and the stars are out. A fine night to practise.",
+      "pollux": "A fine night to win, too. Show us what the climb has taught you."
+    },
+    {
+      "castor": "Ah, our favourite bard. Your ear has grown since we last met.",
+      "pollux": "Your timing, though? Let's see if it kept up. Hands ready."
+    }
+  ],
+  "note": "One voice, two princes: Castor is steadier, slower and pitched a little down (rate); Pollux looser, quicker and pitched a little up. rate is applied at playback."
+}

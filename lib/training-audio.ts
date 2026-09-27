@@ -1,4 +1,5 @@
 'use client';
+import twins from './twins.json';
 import { ac, clickAt, duetTone, effectsOutput, muteMusic, settings, stopVoices } from './audio';
 import { TIMING_WINDOW_MS } from './config';
 import { grade, mic, simulate, type NoteResult } from './mic';
@@ -181,17 +182,29 @@ export async function playTake(clip: { audio?: string; offsetMs: number }, fromM
 }
 
 /** Voices use decoded buffers so cancellation stops speech immediately, without leaked URLs. */
-export async function speakTraining(body: unknown, signal: AbortSignal): Promise<boolean> {
+export async function speakTraining(body: { speaker: 'castor' | 'pollux' } & Record<string, unknown>, signal: AbortSignal): Promise<boolean> {
   if (signal.aborted || !settings.voice) return false;
   const response = await fetch('/api/training/voice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.any([signal, AbortSignal.timeout(10000)]) });
   if (!response.ok || !response.headers.get('content-type')?.includes('audio')) return false;
-  const bytes = await response.arrayBuffer();
+  return playTwin(await response.arrayBuffer(), body.speaker, signal);
+}
+
+/** A twin's greeting, recorded ahead of time (scripts/voice/twins.mjs). */
+export async function greetTwin(greeting: number, speaker: 'castor' | 'pollux', signal: AbortSignal): Promise<boolean> {
+  if (signal.aborted || !settings.voice) return false;
+  const response = await fetch(`/audio/voice/twins-greet-${greeting}-${speaker}.mp3`, { signal });
+  if (!response.ok) return false;
+  return playTwin(await response.arrayBuffer(), speaker, signal);
+}
+
+/** Both twins share one voice; each plays at his own rate so they sound like two people. */
+async function playTwin(bytes: ArrayBuffer, speaker: 'castor' | 'pollux', signal: AbortSignal): Promise<boolean> {
   if (signal.aborted) return false;
   const ctx = ac();
   const buffer = await ctx.decodeAudioData(bytes);
   if (signal.aborted) return false;
   const volume = ctx.createGain(); volume.gain.value = settings.voice; volume.connect(ctx.destination);
-  const source = ctx.createBufferSource(); source.buffer = buffer; source.connect(volume);
+  const source = ctx.createBufferSource(); source.buffer = buffer; source.playbackRate.value = twins.voices[speaker].rate; source.connect(volume);
   await new Promise<void>((resolve) => {
     const stop = () => { try { source.stop(); } catch {} resolve(); };
     source.onended = () => { signal.removeEventListener('abort', stop); source.disconnect(); volume.disconnect(); resolve(); };
