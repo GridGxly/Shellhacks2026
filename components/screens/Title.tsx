@@ -129,6 +129,8 @@ export default function Title() {
       </Scene>
       {/* The left of the scene darkens so the menu reads over the sky at any window shape. */}
       <div className="bleed" style={{ background: 'linear-gradient(90deg, rgba(16,17,38,0.8) 0%, rgba(16,17,38,0.5) 30%, rgba(16,17,38,0) 55%)' }} />
+      {/* A plain img: pixel art must not be resampled, and art() already picks the light copy. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="title-logo" src={art('/assets/logo.png')} alt="Slay the Choir" style={{ animation: landing ? `titleLogo 700ms ${LAND_MS}ms both` : undefined }} />
 
       {shot >= 5 && <>

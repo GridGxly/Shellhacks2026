@@ -29,7 +29,7 @@ const RIFF = { x: 210, size: 320 };
 
 export default function Combat() {
   const combat = useGame((s) => s.combat)!;
-  const { handheld, ui, bleedX, bleedY } = useViewport();
+  const { handheld, bleedX, bleedY } = useViewport();
   const run = useGame((s) => s.run);
   const demoMode = useGame((s) => s.demoMode);
   const overlay = useGame((s) => s.overlay);
