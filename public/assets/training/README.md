@@ -1,7 +1,6 @@
-# Gems and I stage artwork
+# Gems and I art
 
-Original editable vector artwork exported from Shellhacks / v2 · Redesign in Paper, board I0 Scene & Cast (8L8-0). https://app.paper.design/file/01M3DRNNWNJ9ZYFPFHF5YF6BJQ/p-2-0
+- `dioscuri.svg`: Castor and Pollux together, Pollux's arm over his brother's shoulder. Pixel art drawn by `scripts/art/twins.mjs` (edit and re-run to change it).
+- `harmonic-canon.svg`: the Harmonic Canon II they play together, the instrument Harry Partch built for his *Castor and Pollux*. Two string boxes in a shared redwood tray.
 
-The files preserve the native Paper shapes, colors and pixel geometry. Castor and Pollux omit one playing-arm path so TrainingStage can draw and animate that same path separately above the shared instrument. No teammate assets were replaced.
-
-Harmonic Canon II is represented as two string boxes in a shared redwood tray. The pixel artwork abstracts the string count for clarity. Instrument construction reference: https://www.harrypartch.com/instruments
+Designed in Paper, Shellhacks / v2 · Redesign, Section 14 (S4 cast sheet, S5 layout).
