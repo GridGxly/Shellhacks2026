@@ -8,7 +8,8 @@ import { useGame } from '@/lib/store';
 import { defaultRegiment, makeOfflinePlan, TRAINING_BUFF_TIPS } from '@/lib/training-core';
 import { TavernRecorder, type TavernClip } from '@/lib/tavern';
 import { TrainingClient, TrainingError } from '@/lib/training';
-import { performTraining, playTake, previewTraining, speakTraining, type TrainingFrame } from '@/lib/training-audio';
+import { greetTwin, performTraining, playTake, previewTraining, speakTraining, type TrainingFrame } from '@/lib/training-audio';
+import twins from '@/lib/twins.json';
 import type { ReviewStop, ReviewSummary, TrainingFeedback, TrainingRegiment, TrainingState } from '@/lib/training-types';
 import Staff from '../Staff';
 import TrainingStage from '../training/TrainingStage';
@@ -154,16 +155,37 @@ export default function Training() {
     catch (err) { if (!controller.signal.aborted) failure(err); }
     finally { if (audio.current === controller) { audio.current = null; setPreviewAt(0); } }
   };
+  // Without a voice, each line still holds long enough to read before the other twin answers.
+  const hold = (text: string, signal: AbortSignal) => new Promise<void>((done) => {
+    const timer = setTimeout(done, Math.min(7000, Math.max(2600, text.length * 55)));
+    signal.addEventListener('abort', () => { clearTimeout(timer); done(); }, { once: true });
+  });
+  const [greeting] = useState(() => Math.floor(Math.random() * twins.greetings.length));
+  const greeted = useRef(false);
+  // The twins greet you when you first walk in: Castor, then Pollux.
+  useEffect(() => {
+    if (!state || phase !== 'welcome' || greeted.current) return;
+    greeted.current = true;
+    const controller = audio.current = new AbortController();
+    void (async () => {
+      for (const twin of ['castor', 'pollux'] as const) {
+        if (controller.signal.aborted) return;
+        setSpeaker(twin);
+        const spoke = await greetTwin(greeting, twin, controller.signal).catch(() => false);
+        if (!spoke) await hold(twins.greetings[greeting][twin], controller.signal);
+      }
+      if (audio.current === controller) setSpeaker(null);
+    })();
+  }, [state, phase, greeting]);
   const playFeedback = async (next: TrainingState, final: boolean, token?: string) => {
     audio.current?.abort(); const controller = audio.current = new AbortController();
     setVoiceStatus('');
     for (const twin of ['castor', 'pollux'] as const) {
       if (controller.signal.aborted || lifetime.current?.signal.aborted) break;
       setSpeaker(twin);
-      try {
-        const played = await speakTraining(client.current!.voiceBody(next, twin, final, token), controller.signal);
-        if (!played && !controller.signal.aborted) setVoiceStatus('Voice unavailable · read the twins’ feedback below.');
-      } catch { if (!controller.signal.aborted) setVoiceStatus('Voice unavailable · read the twins’ feedback below.'); }
+      const text = (final ? next.finalFeedback : next.receipts.at(-1)?.feedback)?.[twin] ?? '';
+      const played = await speakTraining(client.current!.voiceBody(next, twin, final, token), controller.signal).catch(() => false);
+      if (!played && !controller.signal.aborted) await hold(text, controller.signal);
     }
     if (audio.current === controller) setSpeaker(null);
   };
@@ -318,17 +340,24 @@ export default function Training() {
   const change = (patch: Partial<TrainingRegiment>) => { stopAudio(); setRegiment(r => ({ ...r, ...patch })); };
   const changeAccidentals = (n: number) => change({ concertKey: ((n * 7) % 12 + 12) % 12, spelling: n < 0 ? 'flats' : 'sharps' });
   const completeFeedback = feedback ?? state?.finalFeedback;
+  // What the speaking twin is saying, for the bubble over his head.
+  const reviewStop = phase === 'review' ? review?.stops[stopIndex] : undefined;
+  const line = !speaker ? null
+    : pausedStop?.speaker === speaker ? pausedStop.line
+    : reviewStop?.speaker === speaker ? reviewStop.line
+    : phase === 'welcome' ? twins.greetings[greeting][speaker]
+    : completeFeedback?.[speaker] ?? null;
   const notes = state?.receipts.flatMap(r => r.notes) ?? [];
   const measured = notes.filter(n => n.onsetOffsetMs !== null);
   // 'feedback' is the stage's twin-addresses-you pose, which is also what a
   // paused playback wants.
   const stagePhase = recording ? phase : pausedStop ? 'feedback' : previewAt ? 'preview' : phase === 'claimed' ? 'complete' : phase === 'review' ? 'feedback' : ['choose', 'configure', 'ready'].includes(phase) ? 'configure' : phase;
 
-  return <TrainingStage phase={stagePhase as 'welcome' | 'configure' | 'preview' | 'countin' | 'performing' | 'feedback' | 'complete' | 'paused'} activeMentor={speaker} introElapsed={now - enteredAt} playbackElapsed={previewAt ? now - previewAt : -1} previewNotes={exercise.music.notes.map(n => ({ atMs: 160 + n.startBeat * 60000 / exercise.music.tempo, durationMs: n.durBeats * 60000 / exercise.music.tempo }))} rewardTarget={rewardTarget} rewardElapsed={rewardAt ? now - rewardAt : -1} activity={frame.activity}>
-    <header className="training-header"><div><h1>GEMS AND I</h1><p>TRAINING WITH THE DISCO-CURI</p></div><button onClick={() => void pause('end', true)} disabled={busy && !recording}>END TRAINING</button></header>
+  return <TrainingStage phase={stagePhase as 'welcome' | 'configure' | 'preview' | 'countin' | 'performing' | 'feedback' | 'complete' | 'paused'} activeMentor={speaker} line={line} introElapsed={now - enteredAt} playbackElapsed={previewAt ? now - previewAt : -1} previewNotes={exercise.music.notes.map(n => ({ atMs: 160 + n.startBeat * 60000 / exercise.music.tempo, durationMs: n.durBeats * 60000 / exercise.music.tempo }))} rewardTarget={rewardTarget} rewardElapsed={rewardAt ? now - rewardAt : -1} activity={frame.activity}>
+    <header className="training-header"><div><h1>GEMS AND I</h1><p>TRAINING WITH THE DIOSCURI</p></div><button onClick={() => hasPlan && !state?.claimed ? void pause('pause', true) : void pause('end', true)} disabled={busy && !recording}><kbd>ESC</kbd>HOME</button></header>
     {!state && <div className="training-dialog"><h2>{error ? 'PRACTICE IS UNAVAILABLE' : 'THE TWINS ARE GETTING READY…'}</h2><p>{error || 'Preparing today’s practice.'}</p><button onClick={() => useGame.getState().go('title')}>BACK HOME</button></div>}
-    {state && phase === 'welcome' && <section className="training-dialog"><div><h2>BEHOLD, THE RENOWNED DISCO-CURI!</h2><p>Grow stronger with us, so that we may<br />strike down the Choir for good!</p></div><button className="training-primary" onClick={() => setPhase('choose')}>LET’S TRAIN →</button></section>}
-    {state && phase === 'choose' && <section className="training-choice"><h2>HOW SHALL WE PRACTICE?</h2><p>Face off against the infamous Disco-curi in a friendly training session.</p><div><button disabled={busy} onClick={() => void makePlan('recommended')}><strong>THE TWINS’ PROGRAM</strong><span>Practice built around your recent pitch and timing.</span></button><button disabled={busy} onClick={() => { change({ mode: 'custom' }); setPhase('configure'); }}><strong>CUSTOMIZE MY TRAINING</strong><span>Choose your key, accidentals, pace and focus.</span></button></div><p className="training-small">Three short exercises build toward one final phrase. No combat, cards or pass mark.</p></section>}
+    {state && phase === 'welcome' && <section className="training-dialog"><div><h2>THE DIOSCURI AWAIT</h2><p>Castor hears your pitch. Pollux keeps your pulse. Train with us, and the Choir falls.</p></div><button className="training-primary" onClick={() => setPhase('choose')}>LET’S TRAIN →</button></section>}
+    {state && phase === 'choose' && <section className="training-choice"><h2>HOW SHALL WE TRAIN?</h2><div><button disabled={busy} onClick={() => void makePlan('recommended')}><em>RECOMMENDED</em><strong>THE TWINS’ PROGRAM</strong><span>Built from your recent pitch and timing.</span></button><button disabled={busy} onClick={() => { change({ mode: 'custom' }); setPhase('configure'); }}><em>YOUR CALL</em><strong>BUILD MY OWN</strong><span>Pick the key, the pace and the focus.</span></button></div><p className="training-small">Three short exercises, then one final phrase. No pass mark · +{TRAINING_BUFF_TIPS} tips once a day.</p></section>}
     {state && phase === 'configure' && <section className="training-modal"><h2>BUILD YOUR PRACTICE</h2><p>Three short exercises. One final phrase. Your own pace.</p><div className="training-fields">
       <label>CONCERT KEY<select value={regiment.concertKey} onChange={e => change({ concertKey: Number(e.target.value) })}>{KEYS.map(pc => <option key={pc} value={pc}>{writtenKey(0, pc, regiment.spelling).name} major</option>)}</select></label>
       <label>SHARPS<select value={Math.max(0, concertKey.accidentals)} onChange={e => changeAccidentals(Number(e.target.value))}>{[0, 1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}{n ? ' ♯' : ''}</option>)}</select></label>
@@ -336,7 +365,7 @@ export default function Training() {
       <label>INSTRUMENT<select value={regiment.instrument} onChange={e => change({ instrument: e.target.value as InstrumentId })}>{INSTRUMENTS.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select></label>
       <label>TEMPO<select value={regiment.tempo} onChange={e => change({ tempo: Number(e.target.value) })}>{[60, 70, 80, 90, 100, 110, 120].map(n => <option key={n} value={n}>{n} BPM</option>)}</select></label>
       <label>FOCUS<select value={regiment.focus} onChange={e => change({ focus: e.target.value as TrainingRegiment['focus'] })}><option value="mixed">Pitch + pulse</option><option value="pitch">Clear pitches</option><option value="rhythm">Steady rhythm</option></select></label>
-    </div><p className="training-small">Key and accidentals change together. Written key for {previewInst.name}: {key.name} major.</p><div className="training-preview"><strong>EXAMPLE PHRASE</strong><Staff ex={exercise.music} shift={previewInst.shift} writtenOffset={previewInst.writtenOffset} keySig={key} width={990} beat={previewAt ? (now - previewAt - 160) / (60000 / exercise.music.tempo) : null} results={[]} /></div><div className="training-actions"><button onClick={() => previewAt ? stopAudio() : void preview()}>{previewAt ? 'STOP PREVIEW' : 'HEAR PREVIEW'}</button><button disabled={busy} className="training-primary" onClick={() => void makePlan('custom')}>{busy ? 'PREPARING…' : 'CREATE MY SET →'}</button></div><p className="training-small">Hear an example before creating your practice set.</p></section>}
+    </div><p className="training-small">Key and accidentals change together. Written key for {previewInst.name}: {key.name} major.</p><div className="training-preview"><strong>EXAMPLE PHRASE</strong><Staff ex={exercise.music} shift={previewInst.shift} writtenOffset={previewInst.writtenOffset} keySig={key} width={680} beat={previewAt ? (now - previewAt - 160) / (60000 / exercise.music.tempo) : null} results={[]} /></div><div className="training-actions"><button onClick={() => previewAt ? stopAudio() : void preview()}>{previewAt ? 'STOP PREVIEW' : 'HEAR PREVIEW'}</button><button disabled={busy} className="training-primary" onClick={() => void makePlan('custom')}>{busy ? 'PREPARING…' : 'CREATE MY SET →'}</button></div><p className="training-small">Hear an example before creating your practice set.</p></section>}
     {state && phase === 'ready' && <section className="training-modal training-plan"><h2>{shownPlan.regiment.mode === 'recommended' ? 'YOUR RECOMMENDED SET' : 'YOUR PRACTICE SET'}</h2><p>{shownPlan.focusSummary}</p><ol>{shownPlan.exercises.map((ex, i) => <li key={ex.id} className={i === state.nextIndex ? 'current' : ''}><span>{i < state.nextIndex ? '✓' : String(i + 1).padStart(2, '0')}</span><div><strong>{ex.role === 'final' ? 'FINAL PHRASE' : `SHORT EXERCISE ${i + 1}`}</strong><p>{ex.goal}</p></div></li>)}</ol><div className="training-ready-controls"><label>PLAY AS<select value={demo ? 'demo' : 'mic'} onChange={e => setDemo(e.target.value === 'demo')}><option value="mic">Real microphone</option><option value="demo">Demo practice</option></select></label><button disabled={busy} onClick={() => previewAt ? stopAudio() : void preview()}>{previewAt ? 'STOP PREVIEW' : 'HEAR NEXT EXERCISE'}</button><button className="training-primary" disabled={busy} onClick={() => void perform()}>{busy ? 'GETTING READY…' : `PLAY EXERCISE ${state.nextIndex + 1} →`}</button></div><p className="training-small">{inst.name} · written {key.name} major · {shownPlan.regiment.tempo} BPM · Headphones recommended.<br />{demo ? 'DEMO: simulated notes do not update your learning history.' : 'Music and mentor voices are silent while you play.'}</p></section>}
     {state && recording && <><section className="training-sheet"><header><strong>{exercise.role === 'final' ? 'FINAL PHRASE' : `EXERCISE ${activeIndex + 1} / 4`}</strong><span>{demo ? 'DEMO' : 'YOUR TURN'} · {inst.name} · ♩ {exercise.music.tempo}</span></header><h2>{exercise.goal}</h2><Staff ex={exercise.music} shift={inst.shift} writtenOffset={inst.writtenOffset} keySig={key} width={1160} barsPerLine={2} beat={frame.beat} results={frame.results} approach /><footer><span>{phase === 'countin' ? 'GET READY' : 'PLAYING · MUSIC MUTED'}</span><span>{frame.pitch === null ? '—' : noteName(Math.round(frame.pitch) + inst.writtenOffset, key)} · {frame.results.filter(n => n?.status === 'hit').length}/{frame.results.filter(Boolean).length} NOTES</span></footer><div className="training-input-meter"><i style={{ width: `${frame.activity * 100}%` }} /></div></section>{phase === 'countin' && <div className="training-count" key={frame.count}>{frame.count}</div>}<button className="training-pause-action" onClick={() => void pause('pause')}>PAUSE PRACTICE</button></>}
     {state && phase === 'feedback' && feedback && <section className="training-feedback"><h2>ONE STEP STRONGER</h2><p className="training-small">{feedback.source === 'offline' ? 'BUILT-IN COACHING' : 'GEMINI COACHING'} · {state.receipts.at(-1)?.simulated ? 'DEMO RESULTS' : 'MEASURED RESULTS'}</p><Feedback feedback={feedback} speaker={speaker} /><div className="training-actions"><button onClick={() => void playFeedback(state, false, voiceToken)}>REPLAY VOICES</button><button className="training-primary" onClick={() => { stopAudio(); operation.current++; setPhase('ready'); }}>NEXT EXERCISE →</button></div><p className="training-small">{voiceStatus || `${state.receipts.at(-1)!.hits}/${state.receipts.at(-1)!.total} matching notes. There is no pass mark.`}</p></section>}
@@ -362,7 +391,7 @@ export default function Training() {
         <ol className="training-review-list">{review.perExercise.map(ex => <li key={ex.exerciseId} className={stop?.exerciseId === ex.exerciseId ? 'current' : ''}><span>{ex.role === 'final' ? 'FINAL' : `EX ${ex.exerciseIndex + 1}`}</span><strong>{ex.hits}/{ex.total}</strong><i>{review.stops.filter(s => s.exerciseId === ex.exerciseId).length || 'no'} to review</i></li>)}</ol>
         {stop && music && <>
           <p className="training-small">STOP {stopIndex + 1} OF {review.stops.length} · {stop.exerciseIndex === 3 ? 'FINAL PHRASE' : `EXERCISE ${stop.exerciseIndex + 1}`} · {stop.reason === 'pitch' ? 'PITCH' : stop.reason === 'timing' ? 'TIMING' : 'NO SOUND'}{hasClip ? '' : ' · NO RECORDING'}</p>
-          <Staff ex={music} shift={inst.shift} writtenOffset={inst.writtenOffset} keySig={key} width={1080} barsPerLine={2} beat={stop.startBeat} results={receipt?.notes ?? []} />
+          <Staff ex={music} shift={inst.shift} writtenOffset={inst.writtenOffset} keySig={key} width={680} barsPerLine={2} beat={stop.startBeat} results={receipt?.notes ?? []} />
           <div className="training-twins-feedback"><article data-twin={stop.speaker} className={speaker === stop.speaker ? 'speaking' : ''}><h3>{stop.speaker === 'castor' ? 'CASTOR · PITCH' : 'POLLUX · PULSE'}</h3><p>{stop.line}</p></article></div>
           <div className="training-actions">
             <button disabled={stopIndex === 0} onClick={() => void playStop(stopIndex - 1)}>← PREVIOUS</button>
@@ -379,7 +408,6 @@ export default function Training() {
     })()}
     {state && phase === 'claimed' && <section className="training-dialog training-claimed"><div><h2>TRAINING TIPS BANKED</h2><strong ref={rewardCounter}>+{Math.round(Math.min(1, Math.max(0, now - rewardAt - 900) / 600) * TRAINING_BUFF_TIPS)} TIPS</strong><p>{username ? 'Saved to your account.' : 'Ready in this guest session.'} One training bonus, plus one Tavern bonus if earned.</p></div><div><button className="training-primary" onClick={() => { stopAudio(); operation.current++; setPhase('choose'); }}>KEEP TRAINING →</button><button onClick={() => void pause('pause', true)}>BACK HOME</button></div></section>}
     {state && phase === 'paused' && <section className="training-dialog training-paused"><div><h2>TAKE A BREATH</h2><p>{state.nextIndex}/4 exercises finished. Your next exercise restarts from its first note.<br />{username ? 'Progress is saved until the next 00:00 UTC reset.' : 'Guest progress stays in this tab until refresh or the daily reset.'}</p></div><div><button className="training-primary" disabled={busy} onClick={() => void pause('resume')}>RESUME PRACTICE →</button><button disabled={busy} onClick={() => void pause('pause', true)}>{state.claimed ? 'BACK HOME' : 'FINISH TRAINING LATER'}</button></div></section>}
-    {state && !recording && !['welcome', 'claimed', 'paused'].includes(phase) && <button className="training-later" disabled={busy} onClick={() => hasPlan ? void pause('pause', true) : useGame.getState().go('title')}>{hasPlan && !state.claimed ? 'FINISH TRAINING LATER' : 'BACK HOME'}</button>}
     {state && error && <div className="training-error" role="alert">{error}<button aria-label="Dismiss message" onClick={() => setError('')}>×</button></div>}
   </TrainingStage>;
 }
