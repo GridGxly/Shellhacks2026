@@ -105,6 +105,8 @@ export function pickTaunt(
   facts: TauntFacts,
   used: string[],
 ): { id: string; text: string } | null {
+  // A miss is a failed card, which is what heat 2 lines are written for; below that a first miss found no line at all.
+  if (moment === 'miss') heat = Math.max(2, heat);
   const ok = T.filter(
     (t) =>
       (t.who === who || t.who === 'any') &&
