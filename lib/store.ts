@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { ACT_BONUS_TIPS, ENCORE_TEMPO_BASE, ENCORE_TEMPO_PER_ACT, STATS, TAVERN_BUFF_TIPS, TIPS_PER_WIN, TIPS_START, XP_PER_LEVEL, XP_PER_WIN, LOW_HP_TAUNT, type StatId } from './config';
 import { ENEMIES, INSTRUMENTS, type InstrumentId } from './content';
-import { exerciseKey, makeExercise, GRAN_VALS, type CardType, type Exercise } from './music';
+import { exerciseKey, makeExercise, tierForFloor, GRAN_VALS, type CardType, type Exercise, type Tier } from './music';
 import { addScore, type RunEvent } from './score';
 import { resetTrainingMemory } from './training';
 import { TRAINING_BUFF_TIPS } from './training-core';
@@ -70,7 +70,7 @@ export interface User {
 
 const SAVE_KEY = 'stc.save.v1';
 const BEST_KEY = 'stc.best.v1';
-const PENDING_KEY = 'stc.pending.v1'; // a finished run the server hasn't acknowledged yet
+const PENDING_KEY = 'stc.pending.v2'; // finished runs the server hasn't acknowledged yet, per account
 const REWARD_KEY = 'stc.reward-start.v1';
 let rewardStarting = false;
 interface PendingRewardStart { username: string; run: Run }
@@ -120,10 +120,14 @@ function migrateRun(r: Run | null): Run | null {
   return { ...r, id: r.id ?? newRunId(), demo: r.demo ?? false, log: Array.isArray(r.log) ? r.log : [] };
 }
 
-/** A new exercise whose notes weren't already dealt this fight (a few tries, then accept). */
-function freshExercise(type: CardType, tempo: number, seen: string[]): Exercise {
-  let ex = makeExercise(type, tempo);
-  for (let i = 0; i < 12 && seen.includes(exerciseKey(ex)); i++) ex = makeExercise(type, tempo);
+/**
+ * A new exercise whose notes weren't already dealt this fight (a few tries,
+ * then accept). Exercises are deterministic per tier, so a retry only finds
+ * something new where a generator still varies.
+ */
+function freshExercise(type: CardType, tempo: number, tier: Tier, seen: string[]): Exercise {
+  let ex = makeExercise(type, tempo, tier);
+  for (let i = 0; i < 12 && seen.includes(exerciseKey(ex)); i++) ex = makeExercise(type, tempo, tier);
   seen.push(exerciseKey(ex));
   return ex;
 }
@@ -136,7 +140,7 @@ function newCombat(enemyIdx: number): Combat {
     enemyIdx,
     enemyHp: enemy.hp,
     round: 1,
-    hand: types.map((type) => ({ type, exercise: freshExercise(type, enemy.tempo, seen), landed: false, fails: 0 })),
+    hand: types.map((type) => ({ type, exercise: freshExercise(type, enemy.tempo, tierForFloor(enemy.floor), seen), landed: false, fails: 0 })),
     heat: 0,
     failStreak: 0,
     used: [],
@@ -473,13 +477,13 @@ export const useGame = create<GameState>((set, get) => ({
   nextRound: () =>
     set((s) => {
       const c = s.combat!;
-      const tempo = ENEMIES[c.enemyIdx].tempo;
+      const { tempo, floor } = ENEMIES[c.enemyIdx];
       const seen = [...c.seen];
       return {
         combat: {
           ...c,
           round: c.round + 1,
-          hand: c.hand.map((card) => (card.landed ? card : { ...card, exercise: freshExercise(card.type, tempo, seen) })),
+          hand: c.hand.map((card) => (card.landed ? card : { ...card, exercise: freshExercise(card.type, tempo, tierForFloor(floor), seen) })),
           seen,
         },
       };
@@ -534,6 +538,7 @@ function logFight(s: GameState, won: boolean) {
 }
 
 interface PendingRun {
+  owner: string; // lowercased username the run was played under; only that account may post it
   runId: string;
   events: RunEvent[];
   endedBy: 'loss' | 'victory';
@@ -541,23 +546,38 @@ interface PendingRun {
   durationMs: number;
 }
 
+const MAX_PENDING_RUNS = 10;
+const pendingRuns = () => {
+  const q = readJSON<PendingRun[]>(PENDING_KEY);
+  return Array.isArray(q) ? q : [];
+};
+/** Drop one acknowledged run, re-reading the queue so entries added meanwhile survive. */
+const settlePending = (runId: string) => writeJSON(PENDING_KEY, pendingRuns().filter((p) => p.runId !== runId));
+
 /**
- * Posts the queued finished run. It stays queued until the server answers:
- * a 2xx or 4xx (rejected, retrying won't help) clears it; 429 (cooldown),
- * network errors and 5xx keep it for a retry. The server dedupes by runId.
+ * Posts the signed-in account's queued runs, oldest first. An entry stays queued
+ * until the server answers: 2xx or 4xx (rejected, retrying won't help) settles it;
+ * 429 (cooldown), network errors and 5xx keep it for a retry. The server dedupes by runId.
  */
 async function flushPending() {
-  const p = readJSON<PendingRun>(PENDING_KEY);
-  if (!p || !useGame.getState().user) return;
-  try {
-    const res = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
-    if (res.status === 429) {
-      // Submission cooldown: try once more after the server's Retry-After.
-      const wait = Math.min(120, Number(res.headers.get('Retry-After')) || 60);
-      window.setTimeout(() => void flushPending(), wait * 1000);
-    } else if (res.status < 500) writeJSON(PENDING_KEY, null);
-  } catch {
-    /* offline: try again later */
+  const user = useGame.getState().user;
+  if (!user) return;
+  const owner = user.username.toLowerCase();
+  for (const p of pendingRuns().filter((q) => q.owner === owner)) {
+    if (useGame.getState().user?.username.toLowerCase() !== owner) return; // signed out/switched mid-flush
+    try {
+      const { owner: _owner, ...body } = p;
+      const res = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (res.status === 429) {
+        // Submission cooldown: try again after the server's Retry-After.
+        const wait = Math.min(120, Number(res.headers.get('Retry-After')) || 60);
+        window.setTimeout(() => void flushPending(), wait * 1000);
+        return;
+      }
+      if (res.status < 500) settlePending(p.runId);
+    } catch {
+      return; /* offline: try again later */
+    }
   }
 }
 
@@ -566,16 +586,15 @@ function finishRun(run: Run, endedBy: 'loss' | 'victory') {
   const best = readJSON<{ score: number; floor: number }>(BEST_KEY);
   if (!best || run.score > best.score) writeJSON(BEST_KEY, { score: run.score, floor: run.floor });
   useGame.setState({ saved: null, best: readJSON(BEST_KEY) });
-  if (!run.demo && run.log.length) {
-    writeJSON(PENDING_KEY, { runId: run.id, events: run.log, endedBy, instrument: run.instrument, durationMs: Date.now() - run.startedAt } satisfies PendingRun);
+  const user = useGame.getState().user;
+  if (user && !run.demo && run.log.length) {
+    const entry: PendingRun = { owner: user.username.toLowerCase(), runId: run.id, events: run.log, endedBy, instrument: run.instrument, durationMs: Date.now() - run.startedAt };
+    writeJSON(PENDING_KEY, [...pendingRuns().filter((p) => p.runId !== run.id), entry].slice(-MAX_PENDING_RUNS));
   }
-  if (useGame.getState().user) {
+  if (user) {
     void syncSave(null);
     void flushPending();
   }
 }
-
-/** Retry a queued run submission (e.g. after a reload while signed in). */
-export const retryPendingRun = () => void flushPending();
 
 export const instrumentOf = (run: Run) => INSTRUMENTS.find((i) => i.id === run.instrument)!;

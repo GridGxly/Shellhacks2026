@@ -1,9 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useGame } from '@/lib/store';
+import { useGame, type Screen } from '@/lib/store';
 import { ac, applySettings, playMusic, preload, sfx } from '@/lib/audio';
 import { ENEMIES } from '@/lib/content';
 import { mic } from '@/lib/mic';
+import { applyViewport, enterFullscreen, measureViewport, touchDevice } from '@/lib/viewport';
+import { art } from '@/lib/art';
 import Title from './screens/Title';
 import Tavern from './screens/Tavern';
 import Training from './screens/Training';
@@ -26,20 +28,38 @@ export default function Game() {
   const overlay = useGame((s) => s.overlay);
   const transition = useGame((s) => s.transition);
   const toast = useGame((s) => s.toast);
+  // The ambient backdrop beside the frame on wide phones continues the current scene.
+  const scene = useGame((s) => sceneBackground(s.screen, s.combat?.enemyIdx, s.run.floor));
+  useEffect(() => { document.documentElement.style.setProperty('--scene-background', `url(${art(scene)})`); }, [scene]);
 
   useEffect(() => {
     // visualViewport tracks the area left after mobile browser bars show or hide.
+    let stableHeight = window.innerHeight;
+    let focusFrame = 0;
     const fit = () => {
       const v = window.visualViewport;
       const width = v?.width ?? window.innerWidth;
-      const height = v?.height ?? window.innerHeight;
-      setView({
-        scale: Math.min(width / 1440, height / 900),
-        x: (v?.offsetLeft ?? 0) + width / 2,
-        y: (v?.offsetTop ?? 0) + height / 2,
+      const visibleHeight = v?.height ?? window.innerHeight;
+      const editing = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement;
+      if (!editing) stableHeight = visibleHeight;
+      const height = editing ? Math.max(stableHeight, visibleHeight) : visibleHeight;
+      document.documentElement.style.setProperty('--visual-height', `${visibleHeight}px`);
+      document.documentElement.style.setProperty('--visual-top', `${v?.offsetTop ?? 0}px`);
+
+      const next = measureViewport(width, height, v?.offsetLeft ?? 0, v?.offsetTop ?? 0);
+      applyViewport(next);
+      setView({ scale: next.scale, x: next.x, y: next.y });
+    };
+    const revealInput = () => {
+      cancelAnimationFrame(focusFrame);
+      focusFrame = requestAnimationFrame(() => {
+        fit();
+        const input = document.activeElement;
+        if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) input.scrollIntoView({ block: 'nearest' });
       });
     };
     fit();
+    document.addEventListener('focusin', revealInput);
     window.addEventListener('resize', fit);
     window.visualViewport?.addEventListener('resize', fit);
     window.visualViewport?.addEventListener('scroll', fit);
@@ -65,6 +85,8 @@ export default function Game() {
       })
       .catch(() => {});
     return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener('focusin', revealInput);
       window.removeEventListener('resize', fit);
       window.visualViewport?.removeEventListener('resize', fit);
       window.visualViewport?.removeEventListener('scroll', fit);
@@ -150,44 +172,19 @@ export default function Game() {
           </>
         )}
       </div>
-      {booted && <FullscreenButton />}
       <RotateHint />
     </div>
   );
 }
 
-const touchDevice = () => typeof window !== 'undefined' && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-
-/** Android Chrome goes full screen and locks landscape; iPhone Safari has no element full screen and skips this. */
-async function enterFullscreen() {
-  try {
-    if (!document.fullscreenElement && document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
-    await (screen.orientation as (ScreenOrientation & { lock?: (o: string) => Promise<void> }) | undefined)?.lock?.('landscape');
-  } catch { /* not supported: the stage still scales to fit */ }
-}
-
-function FullscreenButton() {
-  const [full, setFull] = useState(false);
-  useEffect(() => {
-    const on = () => setFull(!!document.fullscreenElement);
-    on();
-    document.addEventListener('fullscreenchange', on);
-    return () => document.removeEventListener('fullscreenchange', on);
-  }, []);
-  if (full || typeof document === 'undefined' || !document.fullscreenEnabled) return null;
-  return (
-    <button
-      className="touch-only"
-      aria-label="Full screen"
-      onClick={() => { sfx('click'); void enterFullscreen(); }}
-      style={{ position: 'fixed', right: 'max(10px, env(safe-area-inset-right))', bottom: 10, zIndex: 300, width: 40, height: 40, display: 'grid', placeItems: 'center', background: 'rgba(16,17,38,0.85)', border: '3px solid #3A3F70' }}
-    >
-      <svg width="18" height="18" viewBox="0 0 9 9" shapeRendering="crispEdges" fill="#FFD23F">
-        <rect x="0" y="0" width="3" height="1" /><rect x="0" y="0" width="1" height="3" /><rect x="6" y="0" width="3" height="1" /><rect x="8" y="0" width="1" height="3" />
-        <rect x="0" y="8" width="3" height="1" /><rect x="0" y="6" width="1" height="3" /><rect x="6" y="8" width="3" height="1" /><rect x="8" y="6" width="1" height="3" />
-      </svg>
-    </button>
-  );
+function sceneBackground(screen: Screen, enemyIdx: number | undefined, floor: number) {
+  if (screen === 'combat' && enemyIdx !== undefined) return ENEMIES[enemyIdx].bg;
+  if (screen === 'victory' || screen === 'actclear') return ENEMIES[Math.max(0, floor - 1)].bg;
+  if (screen === 'loss') return ENEMIES[Math.min(ENEMIES.length - 1, floor)].bg;
+  if (screen === 'map') return '/assets/bg/map.png';
+  if (screen === 'instrument') return '/assets/bg/showroom.png';
+  if (screen === 'tavern' || screen === 'training') return '/assets/bg/tavern.png';
+  return '/assets/bg/summit.png';
 }
 
 /** Portrait phones: the 1440×900 stage would be a thin strip, so ask for landscape. */
@@ -210,7 +207,11 @@ function BootGate({ onStart }: { onStart: () => void }) {
   return (
     <button className="fill" onClick={onStart} style={{ display: 'grid', placeItems: 'center', background: '#07070f' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28 }}>
-        <img src="/assets/logo.png" alt="Slay the Choir" width={520} style={{ animation: 'fadeIn 800ms both' }} />
+        {/* Server-rendered, so phones pick the light logo by media query rather than art(). */}
+        <picture>
+          <source media="(pointer: coarse) and (max-width: 500px), (pointer: coarse) and (max-height: 500px)" srcSet="/assets/m/logo.webp" type="image/webp" />
+          <img src="/assets/logo.png" alt="Slay the Choir" width={520} style={{ display: 'block', animation: 'fadeIn 800ms both' }} />
+        </picture>
         <div className="f-press boot-start" style={{ fontSize: 16, color: 'var(--sun)', animation: 'blink 1.1s steps(1) infinite' }}>
           <span className="kbd-only">PRESS ANY KEY</span>
           <span className="touch-only">TAP TO START</span>
@@ -228,16 +229,17 @@ function Wipe() {
   useEffect(() => sfx('wipe'), []);
   const steps = 10;
   return (
-    <div className="fill" style={{ zIndex: 100, pointerEvents: 'none', overflow: 'hidden' }}>
+    // Strips are sized in percent so the wipe covers the whole glass on handhelds.
+    <div className="fill bleed" style={{ zIndex: 100, pointerEvents: 'none', overflow: 'hidden' }}>
       {Array.from({ length: steps }, (_, i) => (
         <div
           key={i}
           style={{
             position: 'absolute',
             left: -40,
-            top: i * 90,
-            width: 1560,
-            height: 90,
+            top: `${i * 10}%`,
+            width: 'calc(100% + 80px)',
+            height: 'calc(10% + 1px)',
             background: '#101126',
             boxShadow: '16px 0 0 #FF4FA3',
             animation: `wipeIn 360ms ${i * 22}ms steps(8) both, wipeOut 360ms ${420 + i * 22}ms steps(8) forwards`,
@@ -250,7 +252,7 @@ function Wipe() {
 
 function Iris() {
   return (
-    <div className="fill" style={{ zIndex: 100, pointerEvents: 'none' }}>
+    <div className="fill bleed" style={{ zIndex: 100, pointerEvents: 'none' }}>
       <div className="fill" style={{ background: '#07070f', animation: 'irisOpenClose 1100ms steps(14) both' }} />
       <style>{`@keyframes irisOpenClose { 0% { clip-path: circle(0% at 50% 50%); } 45%, 55% { clip-path: circle(80% at 50% 50%); } 100% { clip-path: circle(0% at 50% 50%); } }`}</style>
     </div>
@@ -260,10 +262,11 @@ function Iris() {
 function Toast({ text }: { text: string }) {
   return (
     <div
+      className="ui-tl"
       style={{
         position: 'absolute',
-        left: 40,
-        top: 170,
+        left: 'calc(40px - var(--rail-l))',
+        top: 'calc(var(--hud-bottom) + 107px)',
         zIndex: 90,
         display: 'flex',
         alignItems: 'center',

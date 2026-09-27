@@ -1,4 +1,16 @@
 :root {
+  /* Handheld standards (docs/MOBILE.md). lib/viewport.ts updates these on every
+     resize and rotation; the values below are the desktop defaults. */
+  --stage-scale: 1; /* rendered px per stage px */
+  --ui: 1; /* control-cluster scale */
+  --bleed-x: 0px; /* stage px from the art frame to the screen edge */
+  --bleed-y: 0px;
+  --safe-l: 0px; --safe-r: 0px; --safe-t: 0px; --safe-b: 0px; /* notch + home indicator, in stage px */
+  --rail-l: 0px; --rail-r: 0px; --rail-t: 0px; --rail-b: 0px; /* how far edge controls move outward */
+  --tap: 44px; /* minimum rendered touch target */
+  --ui-soft: 1; /* half-strength --ui for things that live inside the composition */
+  --hud-bottom: 63px; /* bottom edge of the scaled HUD, in stage px */
+
   --ink: #1b1f3b;
   --night: #101126;
   --panel: #14162e;
@@ -30,6 +42,8 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 .viewport { position: fixed; inset: 0; display: grid; place-items: center; overflow: hidden; }
 .stage { position: absolute; left: 50%; top: 50%; width: 1440px; height: 900px; overflow: hidden; background: var(--night); transform-origin: center; }
 .fill { position: absolute; inset: 0; }
+/* A full-screen layer (dims, flashes, transitions): the frame on desktop, the whole glass on handhelds. */
+.bleed { position: absolute; inset: calc(-1 * var(--bleed-y)) calc(-1 * var(--bleed-x)); }
 .bg { position: absolute; background-size: cover; background-position: 50%; image-rendering: pixelated; }
 .sprite { position: absolute; background-size: contain; background-repeat: no-repeat; background-position: 50% 100%; image-rendering: pixelated; }
 
@@ -50,6 +64,7 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 @keyframes riseIn { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes slideInLeft { from { transform: translateX(-80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes slideInRight { from { transform: translateX(80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideInTop { from { transform: translateY(-40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes popIn { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
 @keyframes slam { 0% { transform: scale(3); opacity: 0; } 40% { transform: scale(0.92); opacity: 1; } 60% { transform: scale(1.05); } 100% { transform: scale(1); } }
 @keyframes shake { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(-6px, 3px); } 40% { transform: translate(5px, -4px); } 60% { transform: translate(-4px, -2px); } 80% { transform: translate(4px, 3px); } }
@@ -101,46 +116,192 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 @media (hover: none) and (pointer: coarse) { .kbd-only { display: none !important; } }
 @media (hover: hover), (pointer: fine) { .touch-only { display: none !important; } }
 
-/* The stage is landscape: phones held upright get a rotate card instead. */
-.rotate-hint { display: none; }
-@media (orientation: portrait) and (pointer: coarse) { .rotate-hint { display: grid; } }
-@keyframes rotatePhone { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+/* ---------- handheld standards (docs/MOBILE.md) ----------
+   [data-handheld] is set by lib/viewport.ts for touch screens and short windows.
+   The art frame keeps its 1440×900 composition; controls ride rails at the safe
+   edge of the glass and scale as whole clusters, so their design never changes. */
+:root[data-handheld] {
+  --safe-l: calc(env(safe-area-inset-left, 0px) / var(--stage-scale));
+  --safe-r: calc(env(safe-area-inset-right, 0px) / var(--stage-scale));
+  --safe-t: calc(env(safe-area-inset-top, 0px) / var(--stage-scale));
+  --safe-b: calc(env(safe-area-inset-bottom, 0px) / var(--stage-scale));
+  /* Negative when the frame itself sits under the notch: controls move inward. */
+  --rail-l: calc(var(--bleed-x) - var(--safe-l));
+  --rail-r: calc(var(--bleed-x) - var(--safe-r));
+  --rail-t: calc(var(--bleed-y) - var(--safe-t));
+  --rail-b: calc(var(--bleed-y) - var(--safe-b));
+  --ui-soft: calc(1 + (var(--ui) - 1) * 0.5);
+  --hud-bottom: calc(63px * var(--ui) - var(--bleed-y));
+  --banner-gap: 8px; /* turn banners tuck under the taller HUD, clear of enemy tags */
+}
+/* Screens clip to the frame on desktop. Handheld rails live beside the frame, so
+   there the stage and screens stop clipping and the viewport clips at the glass. */
+.screen-clip { overflow: hidden; }
+:root[data-handheld] :is(.stage, .screen-clip) { overflow: visible; }
+:root[data-handheld] .stage { --tap: calc(44px / var(--stage-scale)); }
+/* Control clusters: the same design, scaled from the corner they are anchored to. */
+:root[data-handheld] :is(.ui-tl, .ui-tr, .ui-bl, .ui-br, .ui-t, .ui-b, .ui-l, .ui-r) { scale: var(--ui); --tap: calc(44px / var(--stage-scale) / var(--ui)); }
+:root[data-handheld] .ui-tl { transform-origin: 0 0; }
+:root[data-handheld] .ui-tr { transform-origin: 100% 0; }
+:root[data-handheld] .ui-bl { transform-origin: 0 100%; }
+:root[data-handheld] .ui-br { transform-origin: 100% 100%; }
+:root[data-handheld] .ui-t { transform-origin: 50% 0; }
+:root[data-handheld] .ui-b { transform-origin: 50% 100%; }
+:root[data-handheld] .ui-l { transform-origin: 0 50%; }
+:root[data-handheld] .ui-r { transform-origin: 100% 50%; }
+:root[data-handheld] .ui-soft { scale: var(--ui-soft); --tap: calc(44px / var(--stage-scale) / var(--ui-soft)); }
+/* Touch slop: a small control keeps its look but answers to a 44px (rendered) finger. */
+:where(:root[data-handheld] .tap) { position: relative; }
+:root[data-handheld] .tap::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, var(--tap)); height: max(100%, var(--tap)); translate: -50% -50%; }
+/* Content priority: secondary detail that handhelds leave out, and handheld-only additions. */
+:root[data-handheld] .desk-only { display: none !important; }
+:root:not([data-handheld]) .hand-only { display: none !important; }
 
-/* Preserve the 1440×900 composition; increase important type before phone scaling. */
-@media (hover: none) and (pointer: coarse) {
-  .game-hud { height: 108px !important; padding: 0 20px !important; gap: 20px; }
-  .hud-party { gap: 20px !important; flex-shrink: 0; }
-  .hud-avatar, .hud-button { width: 96px !important; height: 96px !important; flex-shrink: 0; }
-  .hud-avatar .sprite { width: 300px !important; height: 300px !important; left: -136px !important; top: 4px !important; }
-  .combat-turn-banner, .map-act-heading { top: 126px !important; }
-  .combat-turn-banner .f-press { font-size: 24px !important; }
-  .combat-turn-banner .f-body { font-size: 28px !important; }
-  .hud-button svg { width: 44px; height: 44px; }
-  .hud-level { top: 70px !important; font-size: 18px !important; line-height: 20px !important; }
-  .hud-identity { display: none !important; }
-  .hud-value { font-size: 28px !important; white-space: nowrap; }
-  .hud-center { font-size: 26px !important; line-height: 32px; letter-spacing: .03em !important; text-align: center; }
-  .game-card .card-title { height: 44px !important; flex-shrink: 0; }
-  .game-card .card-title .f-press { font-size: 26px !important; }
-  .game-card .card-damage { width: 54px !important; height: 54px !important; }
-  .game-card .card-damage .f-press { font-size: 24px !important; }
-  .game-card .card-art { height: 70px !important; flex-shrink: 0; }
-  .game-card .card-art svg { height: 60px; }
-  .game-card .card-bars { font-size: 22px !important; letter-spacing: .03em !important; white-space: nowrap; }
-  .game-card .card-description { font-size: 28px !important; line-height: 30px !important; }
-  .performance-panel .f-label { font-size: 24px !important; letter-spacing: .03em !important; }
-  .performance-panel .f-body { font-size: 26px !important; line-height: 30px; }
-  .performance-note-total { width: 270px !important; flex-shrink: 0; }
-  .performance-tempo { font-size: 22px !important; }
-  .performance-tempo .f-music { font-size: 24px !important; }
-  .performance-title { font-size: 28px !important; }
-  .performance-tag { font-size: 22px !important; white-space: nowrap; }
-  .performance-value { font-size: 30px !important; }
-  .performance-key-detail { display: none; }
-  .performance-footer { min-height: 160px !important; }
-  .performance-recording { width: 360px !important; flex-shrink: 0; }
-  .performance-hearing { width: 230px !important; flex-shrink: 0; }
-  .boot-hint { font-size: 26px !important; line-height: 34px; max-width: 1000px; text-align: center; }
-  .boot-start { font-size: 32px !important; }
-  .mobile-audio-hint { font-size: 24px !important; line-height: 28px; }
+/* The stage is landscape: phones held upright get a rotate card, and turning
+   the phone irises the stage back open instead of showing half-resized frames. */
+.rotate-hint { display: grid; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 200ms steps(4), visibility 0s 200ms; }
+@media (orientation: portrait) and (pointer: coarse) { .rotate-hint { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity 240ms steps(4); } }
+@keyframes rotatePhone { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+@keyframes stageWake { from { clip-path: circle(0% at 50% 50%); } to { clip-path: circle(160% at 50% 50%); } }
+:root[data-waking] :is(.stage, .mobile-surface) { animation: stageWake 460ms steps(8) backwards; }
+@media (prefers-reduced-motion: reduce) { :root[data-waking] :is(.stage, .mobile-surface) { animation: fadeIn 200ms steps(3) backwards; } }
+
+/* Handheld type: copy the player must read in play is set larger inside its box,
+   before the stage scale. The sheet-music panel is also fit-scaled to the glass
+   (PerformOverlay), so its sizes here are moderate. */
+:root[data-handheld] .game-card .card-title { height: 44px !important; flex-shrink: 0; }
+:root[data-handheld] .game-card .card-title .f-press { font-size: 26px !important; }
+:root[data-handheld] .game-card .card-damage { width: 54px !important; height: 54px !important; }
+:root[data-handheld] .game-card .card-damage .f-press { font-size: 24px !important; }
+:root[data-handheld] .game-card .card-art { height: 70px !important; flex-shrink: 0; }
+:root[data-handheld] .game-card .card-art svg { height: 60px; }
+:root[data-handheld] .game-card .card-bars { font-size: 22px !important; letter-spacing: .03em !important; white-space: nowrap; }
+:root[data-handheld] .game-card .card-description { font-size: 28px !important; line-height: 30px !important; }
+:root[data-handheld] .performance-panel .f-label { font-size: 18px !important; letter-spacing: .06em !important; }
+:root[data-handheld] .performance-panel .f-body { font-size: 20px !important; line-height: 24px; }
+:root[data-handheld] .performance-note-total { width: 230px !important; flex-shrink: 0; }
+:root[data-handheld] .performance-tempo { font-size: 16px !important; }
+:root[data-handheld] .performance-tempo .f-music { font-size: 18px !important; }
+:root[data-handheld] .performance-title { font-size: 22px !important; }
+:root[data-handheld] .performance-tag { font-size: 17px !important; white-space: nowrap; }
+:root[data-handheld] .performance-value { font-size: 24px !important; }
+:root[data-handheld] .performance-key-detail { display: none; }
+:root[data-handheld] .performance-footer { min-height: 128px !important; }
+:root[data-handheld] .performance-recording { width: 320px !important; flex-shrink: 0; }
+:root[data-handheld] .performance-hearing { width: 210px !important; flex-shrink: 0; }
+:root[data-handheld] .boot-hint { font-size: 26px !important; line-height: 34px; max-width: 1000px; text-align: center; }
+:root[data-handheld] .boot-start { font-size: 32px !important; }
+:root[data-handheld] .mobile-audio-hint { font-size: 24px !important; line-height: 28px; }
+
+/* Handheld overlays: compact layouts first, then useStageFit grows them to the glass. */
+:root[data-handheld] .stats-panel { left: 320px !important; width: 800px !important; height: auto !important; }
+:root[data-handheld] .stats-panel .f-label { font-size: 15px !important; }
+:root[data-handheld] .stats-panel .f-body { font-size: 18px !important; }
+:root[data-handheld] .stats-panel button.f-press { font-size: 16px !important; padding: 14px 12px !important; }
+:root[data-handheld] .pause-panel { left: 110px !important; width: 1220px !important; }
+:root[data-handheld] .pause-rows { display: grid !important; grid-template-columns: 1fr 1fr; gap: 20px 48px !important; }
+:root[data-handheld] .pause-mic { grid-column: 1 / -1; }
+:root[data-handheld] .pause-panel .f-label { font-size: 17px !important; }
+:root[data-handheld] .pause-panel .f-body { font-size: 18px !important; }
+:root[data-handheld] .pause-step { width: 30px !important; height: 40px !important; }
+:root[data-handheld] .pause-choice { font-size: 14px !important; padding: 12px 14px !important; }
+:root[data-handheld] .pause-panel button.f-press { font-size: 15px !important; }
+:root[data-handheld] .peek-panel .f-press { font-size: 15px !important; }
+:root[data-handheld] .peek-act { width: 290px !important; font-size: 13px !important; line-height: 18px; }
+:root[data-handheld] .peek-panel .f-label { font-size: 15px !important; }
+
+.victory-group { display: contents; }
+:root[data-handheld] .victory-col { left: 150px !important; width: 1140px !important; flex-direction: row !important; align-items: center !important; justify-content: center; gap: 72px !important; }
+:root[data-handheld] .victory-group { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+:root[data-handheld] .loss-col { left: 250px !important; width: 940px !important; }
+
+/* Handheld menus: the title rises, BACK sits on the bottom rail, and each page
+   trades the frame's spare height for the glass's spare width with larger type. */
+:root[data-handheld] .menu-head { top: 34px !important; }
+:root[data-handheld] .menu-back { top: auto !important; bottom: calc(52px - var(--rail-b)); }
+:root[data-handheld] .menu-demo { font-size: 18px !important; }
+:root[data-handheld] .howto-steps { top: 206px !important; gap: 36px !important; }
+:root[data-handheld] .howto-step { width: 440px !important; gap: 14px !important; }
+:root[data-handheld] .howto-art { align-self: center; }
+:root[data-handheld] .howto-step .f-press { font-size: 20px !important; }
+:root[data-handheld] .howto-step .f-body { font-size: 27px !important; line-height: 32px !important; }
+:root[data-handheld] .howto-rules { left: 100px !important; width: 1240px !important; top: 640px !important; padding: 16px 28px !important; }
+:root[data-handheld] .howto-rules .f-label { font-size: 17px !important; }
+:root[data-handheld] .howto-rules .f-body { font-size: 24px !important; }
+:root[data-handheld] .credits-rows { top: 200px !important; gap: 18px !important; }
+:root[data-handheld] .credits-rows .f-label { font-size: 19px !important; }
+:root[data-handheld] .credits-rows .f-body { font-size: 30px !important; max-width: 1320px !important; }
+:root[data-handheld] .credits-rows .f-press { font-size: 24px !important; }
+:root[data-handheld] .mic-panel { left: 250px !important; width: 940px !important; top: 196px !important; gap: 14px !important; padding: 24px 36px !important; }
+:root[data-handheld] .mic-panel .f-label { font-size: 18px !important; }
+:root[data-handheld] .mic-panel .f-body { font-size: 24px !important; }
+:root[data-handheld] .boss-intro { top: 186px !important; font-size: 24px !important; padding: 0 120px; }
+:root[data-handheld] .boss-grid { left: 60px !important; width: 1320px !important; top: 262px !important; }
+:root[data-handheld] .boss-grid > button { height: 200px !important; }
+:root[data-handheld] .boss-card-text { width: 250px !important; }
+:root[data-handheld] .boss-grid .f-label { font-size: 16px !important; }
+:root[data-handheld] .boss-grid .f-press { font-size: 22px !important; line-height: 26px !important; }
+:root[data-handheld] .boss-grid .f-body { font-size: 19px !important; }
+
+/* Handheld leaderboard and profile: wider, larger type; the leaderboard keeps rank,
+   player, floor and score (instrument and accuracy live on each profile). */
+:root[data-handheld] .lb-col { left: 80px !important; width: 1280px !important; top: 196px !important; gap: 12px !important; }
+:root[data-handheld] .lb-tab { font-size: 16px !important; padding: 12px 18px !important; }
+:root[data-handheld] .lb-col > div:first-child .f-label { font-size: 15px !important; }
+:root[data-handheld] .lb-search { font-size: 18px !important; }
+:root[data-handheld] .lb-search input { height: 56px !important; font-size: 26px !important; }
+:root[data-handheld] .lb-grid { grid-template-columns: 90px 1fr 150px 220px !important; }
+:root[data-handheld] .lb-grid > :nth-child(3), :root[data-handheld] .lb-grid > :nth-child(5) { display: none !important; }
+:root[data-handheld] .lb-head { font-size: 16px !important; }
+:root[data-handheld] .lb-body { height: 250px !important; }
+:root[data-handheld] .lb-row { padding: 12px 22px !important; }
+:root[data-handheld] .lb-row .f-press { font-size: 22px !important; }
+:root[data-handheld] .lb-row .f-body { font-size: 27px !important; }
+:root[data-handheld] .lb-foot .f-body { font-size: 22px !important; }
+:root[data-handheld] .profile-col { left: 60px !important; width: 1320px !important; top: 186px !important; }
+:root[data-handheld] .profile-card { width: 420px !important; }
+:root[data-handheld] .profile-col .f-label { font-size: 15px !important; }
+:root[data-handheld] .profile-col .f-body { font-size: 21px !important; }
+:root[data-handheld] .profile-card .f-press { font-size: 18px !important; }
+:root[data-handheld] .profile-heading { font-size: 19px !important; }
+:root[data-handheld] .profile-run { grid-template-columns: 170px 1fr 150px 170px !important; }
+:root[data-handheld] .profile-run .f-press { font-size: 17px !important; }
+
+/* Native-sized phone controls: never scale a form down with the game artwork. */
+.mobile-surface { position:fixed; inset-inline:0; top:var(--visual-top,0px); height:var(--visual-height,100dvh); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; z-index:50; padding:12px max(16px,env(safe-area-inset-right)) 16px max(16px,env(safe-area-inset-left)); background:#101126; }
+.mobile-surface button { min-height:44px; touch-action:manipulation; }
+.account-mobile { z-index:600; background:#080914ed; padding-top:12px; }
+.account-mobile .account-modal { position:relative; inset:auto; min-height:100%; }
+.account-mobile .account-modal>.fill { position:fixed; }
+.account-mobile .account-modal-panel { position:relative!important; top:auto!important; left:auto!important; width:min(100%,560px)!important; margin:0 auto; animation:none!important; }
+.account-mobile .account-form-body { padding:18px!important; gap:14px!important; }
+.account-mobile input { width:100%; min-height:48px; font-size:20px!important; scroll-margin-block:18px; }
+.account-mobile .f-label { font-size:12px!important; }
+.account-mobile button { font-size:12px!important; }
+.mobile-lobby-back,.mobile-lobby-error { display:none; }
+@media (max-width:1024px), (hover:none) and (pointer:coarse) {
+  .viewport { background-image:linear-gradient(#10112644,#10112666),var(--scene-background); background-size:cover; background-position:center; }
+  /* Phone tavern lobby: one landscape screen, no scrolling. Back, title and mode
+     share the top row; the two show boards sit side by side; performer, mic and
+     demo sit under them. The microphone state is always in view. */
+  .tavern-mobile-lobby { background:linear-gradient(#101126b0,#101126e8),url('/assets/bg/m/tavern.webp') center/cover; display:grid; grid-template-columns:auto minmax(0,1fr) auto; grid-template-areas:"back head mode" "cards cards cards" "setup setup setup" "error error error"; align-content:center; gap:12px 16px; }
+  .tavern-mobile-lobby .mobile-lobby-back { grid-area:back; display:block; align-self:center; min-height:44px; padding:10px 14px; font:12px var(--label); letter-spacing:.1em; color:#fff6e0; background:#1b1d3a; border:3px solid #ac7544; box-shadow:3px 3px #101126; }
+  .tavern-mobile-lobby .tavern-heading { grid-area:head; position:static; width:auto; min-width:0; text-align:left; text-shadow:#101126 3px 3px 0; }
+  .tavern-mobile-lobby .tavern-heading h1 { margin:0; font-size:16px; line-height:20px; }
+  .tavern-mobile-lobby .tavern-heading svg { display:none; }
+  .tavern-mobile-lobby .tavern-heading p { width:auto; max-width:none; margin:4px 0 0; padding:0; border:0; background:none; font-size:13px; line-height:16px; }
+  .tavern-mobile-lobby .tavern-mode-choice { grid-area:mode; position:static; width:auto; gap:8px; }
+  .tavern-mobile-lobby .tavern-mode-choice button { min-width:88px; min-height:44px; padding:10px 12px; font-size:11px; }
+  .tavern-mobile-lobby .tavern-lobby-cards { grid-area:cards; position:static; display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .tavern-mobile-lobby .tavern-board { width:auto; height:auto; display:flex; flex-direction:column; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px 16px; border-width:4px; box-shadow:inset 0 0 0 2px #513728,5px 5px #101126; }
+  .tavern-mobile-lobby .tavern-board-number { display:none; }
+  .tavern-mobile-lobby .tavern-board h2 { margin:0; font-size:14px; }
+  .tavern-mobile-lobby .tavern-board p { margin:0; min-height:0; font-size:16px; line-height:21px; }
+  .tavern-mobile-lobby .tavern-board label { font-size:11px; }
+  .tavern-mobile-lobby .tavern-board input { width:100%; max-width:220px; height:44px; margin:0; font-size:22px; letter-spacing:8px; scroll-margin-block:18px; }
+  .tavern-mobile-lobby .tavern-action { min-height:44px; padding:12px 16px; font-size:12px; }
+  .tavern-mobile-lobby .tavern-setup { grid-area:setup; position:static; width:auto; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+  .tavern-mobile-lobby .tavern-setup .tavern-outline { min-height:52px; padding:8px 10px; font-size:10px; line-height:15px; }
+  .tavern-mobile-lobby .tavern-note { display:none; }
+  .tavern-mobile-lobby .mobile-lobby-error { grid-area:error; display:block; margin:0; padding:8px 12px; color:#fff6e0; background:#361b26f5; border:3px solid #ff8a93; font:15px/1.3 var(--body); }
 }

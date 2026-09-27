@@ -45,6 +45,17 @@ export default function Staff({ ex, shift, writtenOffset, width, beat, results, 
   const right = 20;
   const beatsPerLine = barsPerLine * ex.beatsPerBar;
   const beatW = (width - left - right) / beatsPerLine;
+  /**
+   * Centre a notehead inside the time it occupies rather than a fixed 0.45 of
+   * a whole beat — otherwise a short note (an 8th on the and-of-3) is pushed
+   * nearly a full beat right and collides with the next barline.
+   */
+  const noteOffset = (durBeats: number) => Math.min(durBeats, 1) * beatW * 0.45;
+  // An accidental is drawn to the left of its note head. Nudge the head right
+  // by that much so the sign sits inside its own bar instead of overlapping
+  // the barline (or the clef, on the first note of a line).
+  const ACC_SIZE = 40;
+  const ACC_GAP = ACC_SIZE * 0.72; // how far left of the head the glyph starts
   const yOf = (step: number) => 48 + GAP * 4 - step * (GAP / 2);
   const mspb = 60000 / ex.tempo;
 
@@ -52,7 +63,24 @@ export default function Staff({ ex, shift, writtenOffset, width, beat, results, 
   // one rhythmic group instead of separate flagged notes. A beamed group takes
   // a single stem direction and a shared stem end, as engraved music does.
   const stepOf = (n: Exercise['notes'][number]) => staffStep(n.midi + shift + writtenOffset, key);
-  const xOf = (n: Exercise['notes'][number], b0: number) => left + (n.startBeat - b0) * beatW + beatW * 0.45;
+  // Mirrors the note-head x below, accidental shift included, so beams land on
+  // their stems.
+  const accAt = (n: Exercise['notes'][number], idx: number) => {
+    const raw = accidentalFor(n.midi + shift + writtenOffset, key);
+    if (!raw) return 0;
+    const bar = Math.floor(n.startBeat / ex.beatsPerBar);
+    const step = stepOf(n);
+    const marked = ex.notes.some(
+      (o, oi) =>
+        oi < idx &&
+        Math.floor(o.startBeat / ex.beatsPerBar) === bar &&
+        stepOf(o) === step &&
+        accidentalFor(o.midi + shift + writtenOffset, key) === raw,
+    );
+    return marked ? 0 : ACC_GAP;
+  };
+  const xOf = (n: Exercise['notes'][number], b0: number, idx: number) =>
+    left + (n.startBeat - b0) * beatW + noteOffset(n.durBeats) + accAt(n, idx);
   const beamOf = new Map<number, { stemUp: boolean; y: number }>();
   const beamGroups = new Map<number, { x0: number; x1: number; y0: number; y1: number; stemUp: boolean }[]>();
   {
@@ -68,7 +96,7 @@ export default function Staff({ ex, shift, writtenOffset, width, beat, results, 
         const stemUp = avg < 4;
         // Shared stem end, pushed out to clear the most extreme notehead.
         const ys = steps.map((s) => yOf(s));
-        const xs = run.map((i) => xOf(ex.notes[i], b0));
+        const xs = run.map((i) => xOf(ex.notes[i], b0, i));
         // Slope the beam with the notes, as engraved music does, but keep the
         // tilt gentle so stems stay readable.
         const first = ys[0];
@@ -102,7 +130,10 @@ export default function Staff({ ex, shift, writtenOffset, width, beat, results, 
       const sameBar = prev && Math.floor(prev.startBeat / ex.beatsPerBar) === Math.floor(n.startBeat / ex.beatsPerBar);
       const sameLine = prev && Math.floor(prev.startBeat / beatsPerLine) === Math.floor(n.startBeat / beatsPerLine);
       if (n.durBeats > 0.5) { flush(); return; }
-      if (run.length && (!sameBar || !sameLine)) flush();
+      // Beam within a beat, not across one: in 3/4 six eighths read as three
+      // pairs, which is how the pulse is engraved.
+      const sameBeat = prev && Math.floor(prev.startBeat) === Math.floor(n.startBeat);
+      if (run.length && (!sameBar || !sameLine || !sameBeat)) flush();
       run.push(i);
     });
     flush();
@@ -164,7 +195,7 @@ export default function Staff({ ex, shift, writtenOffset, width, beat, results, 
               );
               const accidental = alreadyMarked ? '' : rawAccidental;
               const beam = beamOf.get(i);
-              const x = left + (n.startBeat - b0) * beatW + beatW * 0.45;
+              const x = left + (n.startBeat - b0) * beatW + noteOffset(n.durBeats) + (accidental ? ACC_GAP : 0);
               const y = yOf(step);
               const r = results[i];
               const passed = cursorBeat !== null ? n.startBeat + n.durBeats <= (beat ?? 0) : !!r;
@@ -187,7 +218,7 @@ export default function Staff({ ex, shift, writtenOffset, width, beat, results, 
                   {r?.status === 'hit' && <circle cx={x} cy={y} r={12} fill="none" stroke="#4CC26B" strokeWidth={3} style={{ animation: 'burst 300ms steps(4) forwards', transformOrigin: `${x}px ${y}px` }} />}
                   {ledgers.map((s) => <rect key={s} x={x - 16} y={yOf(s) - 1} width={32} height={2} fill="#1B1F3B" />)}
                   {accidental && (
-                    <text x={x - 34} y={y + 10} fontFamily="var(--music)" fontSize={34} fill={color}>{accidental}</text>
+                    <text x={x - ACC_GAP} y={y + 11} fontFamily="var(--music)" fontSize={ACC_SIZE} textAnchor="middle" fill={color}>{accidental}</text>
                   )}
                   {ghost !== null && <ellipse cx={x + 4} cy={ghost} rx={10} ry={7.5} transform={`rotate(-20 ${x + 4} ${ghost})`} fill="none" stroke="#E8434F" strokeWidth={2} strokeDasharray="3 3" />}
                   <g style={{ animation: r?.status === 'wrong' ? 'shakeSmall 180ms steps(2) 3' : r?.status === 'hit' ? 'popIn 220ms steps(3)' : undefined, transformOrigin: `${x}px ${y}px` }}>

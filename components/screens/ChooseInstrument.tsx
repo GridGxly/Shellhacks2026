@@ -4,6 +4,7 @@ import { playMusic, sfx } from '@/lib/audio';
 import { INSTRUMENTS } from '@/lib/content';
 import { useGame } from '@/lib/store';
 import { Arrow, Bg, KeyHint, Sprite, YellowButton } from '../ui';
+import { art } from '@/lib/art';
 
 // instruments.png is 1776x592: six 296px cells, icons centred around y=300.
 const CELL = 296;
@@ -16,7 +17,7 @@ function Icon({ i, scale, style }: { i: number; scale: number; style?: React.CSS
       style={{
         width: w,
         height: 150 * scale,
-        backgroundImage: 'url(/assets/sprites/instruments.png)',
+        backgroundImage: `url(${art('/assets/sprites/instruments.png')})`,
         backgroundSize: `${1776 * k}px ${592 * k}px`,
         backgroundPosition: `${-i * CELL * k}px ${-115 * k}px`,
         backgroundRepeat: 'no-repeat',
@@ -67,21 +68,22 @@ export default function ChooseInstrument() {
       <div className="f-label" style={{ position: 'absolute', left: 0, top: 44, width: 1440, textAlign: 'center', fontSize: 14, color: 'var(--sun)', letterSpacing: '0.22em' }}>THE SHOWROOM</div>
       <div className="f-press" style={{ position: 'absolute', left: 0, top: 70, width: 1440, textAlign: 'center', fontSize: 30, color: 'var(--parchment)', textShadow: '#101126 4px 4px 0' }}>CHOOSE YOUR INSTRUMENT</div>
 
-      {/* Riff, equipped */}
-      <div style={{ position: 'absolute', left: 60, top: 250, width: 360, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Sprite key={inst.id} src={inst.sprite} x={0} y={0} size={360} style={{ position: 'relative', animation: 'popIn 300ms steps(5) both, breathe 1.2s 300ms steps(2) infinite' }} />
-        <div className="f-press" style={{ marginTop: 6, padding: '6px 12px', background: 'var(--meadow)', color: '#101126', fontSize: 11 }}>EQUIPPED</div>
+      {/* 02 Choose Instrument: Riff stands on the showroom floor, EQUIPPED tagged above him. */}
+      <div style={{ position: 'absolute', left: 'calc(70px - var(--rail-l))', top: 430, width: 300, height: 300 }}>
+        <div style={{ position: 'absolute', left: 70, bottom: 10, width: 160, height: 16, borderRadius: '50%', background: '#100A1899' }} />
+        <Sprite key={inst.id} src={inst.sprite} x={0} y={0} size={300} style={{ transformOrigin: '50% 98%', animation: 'popIn 300ms steps(5) both, breathe 1.2s 300ms steps(2) infinite' }} />
+        <div className="f-press" style={{ position: 'absolute', left: 40, top: -6, padding: '5px 10px', rotate: '-4deg', transformOrigin: '0 0', background: 'var(--magenta)', border: '3px solid #101126', fontSize: 13, color: '#FFF6E0' }}>EQUIPPED</div>
       </div>
 
       {/* Floating instrument */}
-      <button onClick={() => move(-1)} className="hoverable" style={{ position: 'absolute', left: 470, top: 360 }} aria-label="Previous"><Arrow dir="left" size={56} /></button>
+      <button onClick={() => move(-1)} className="hoverable tap" style={{ position: 'absolute', left: 470, top: 360 }} aria-label="Previous"><Arrow dir="left" size={56} /></button>
       <div key={idx} style={{ position: 'absolute', left: 540, top: 230, width: 360, height: 400, display: 'grid', placeItems: 'center', animation: `${dir >= 0 ? 'slideInRight' : 'slideInLeft'} 260ms steps(5) both` }}>
         <div style={{ animation: 'bob 1.6s steps(4) infinite' }}><Icon i={inst.iconIndex} scale={2.6} /></div>
       </div>
-      <button onClick={() => move(1)} className="hoverable" style={{ position: 'absolute', left: 914, top: 360 }} aria-label="Next"><Arrow size={56} /></button>
+      <button onClick={() => move(1)} className="hoverable tap" style={{ position: 'absolute', left: 914, top: 360 }} aria-label="Next"><Arrow size={56} /></button>
 
       {/* Info card */}
-      <div key={`card-${idx}`} style={{ position: 'absolute', left: 1000, top: 250, width: 380, display: 'flex', flexDirection: 'column', gap: 16, padding: 24, background: 'rgba(16,17,38,0.92)', border: '4px solid #101126', boxShadow: '#3A3F70 0 0 0 3px inset, #D1307E 6px 6px 0', animation: 'fadeIn 250ms steps(4) both' }}>
+      <div key={`card-${idx}`} className="ui-tr ui-soft" style={{ position: 'absolute', right: 'calc(60px - var(--rail-r))', top: 250, width: 380, display: 'flex', flexDirection: 'column', gap: 16, padding: 24, background: 'rgba(16,17,38,0.92)', border: '4px solid #101126', boxShadow: '#3A3F70 0 0 0 3px inset, #D1307E 6px 6px 0', animation: 'fadeIn 250ms steps(4) both' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div className="f-press" style={{ fontSize: 20, color: '#fff' }}>{inst.name.toUpperCase()}</div>
           <div className="f-press" style={{ padding: '6px 10px', background: 'var(--sun)', color: '#101126', fontSize: 13 }}>{inst.keyLabel}</div>
@@ -96,7 +98,7 @@ export default function ChooseInstrument() {
       </div>
 
       {/* Icon strip */}
-      <div style={{ position: 'absolute', left: 0, top: 690, width: 1440, display: 'flex', justifyContent: 'center', gap: 12 }}>
+      <div className="ui-b ui-soft" style={{ position: 'absolute', left: 0, top: 690, width: 1440, display: 'flex', justifyContent: 'center', gap: 12 }}>
         {INSTRUMENTS.map((it, i) => (
           <button
             key={it.id}
@@ -107,8 +109,8 @@ export default function ChooseInstrument() {
           </button>
         ))}
       </div>
-      <div style={{ position: 'absolute', left: 0, top: 808, width: 1440, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 40 }}>
-        <button className="f-label" onClick={() => { sfx('back'); go('title'); }} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, color: 'var(--muted)' }}><KeyHint k="ESC" /> BACK</button>
+      <div className="ui-b ui-soft" style={{ position: 'absolute', left: 0, bottom: 'calc(30px - var(--rail-b))', width: 1440, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 40 }}>
+        <button className="f-label tap" onClick={() => { sfx('back'); go('title'); }} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, color: 'var(--muted)' }}><KeyHint k="ESC" /> BACK</button>
         <YellowButton onClick={choose}>CHOOSE {inst.name.toUpperCase()}</YellowButton>
         <div className="f-label kbd-only" style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, color: 'var(--muted)' }}><KeyHint k="← →" /> BROWSE</div>
       </div>

@@ -10,9 +10,10 @@ import { instrumentOf, stat, useGame } from '@/lib/store';
 import { buildFacts, fetchTaunt, speak, type Taunt } from '@/lib/voice';
 import CardView from '../CardView';
 import Hud from '../Hud';
-import PerformOverlay, { type PerformStage } from '../PerformOverlay';
+import PerformOverlay, { createLiveSheet, type PerformStage } from '../PerformOverlay';
 import { Bg, HpBar, Octagon, Sprite } from '../ui';
 import { mapFx } from './MapScreen';
+import { useViewport } from '@/lib/viewport';
 
 type Phase = 'enter' | 'player' | 'perform' | 'attack' | 'enemy' | 'win' | 'ko';
 type Active = number | 'encore';
@@ -20,10 +21,15 @@ type Active = number | 'encore';
 const wait = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 const clock = () => performance.now();
 const FLOOR_Y = 590; // fighters stand on this line
+// Live grading cadence while recording (the cursor still moves every frame).
+const LIVE_GRADE_MS = 66;
+// Safety net for a voice clip that never reports its end; real lines finish well before.
+const LINE_LIMIT_MS = 12000;
 const RIFF = { x: 210, size: 320 };
 
 export default function Combat() {
   const combat = useGame((s) => s.combat)!;
+  const { handheld, ui } = useViewport();
   const run = useGame((s) => s.run);
   const demoMode = useGame((s) => s.demoMode);
   const overlay = useGame((s) => s.overlay);
@@ -35,7 +41,10 @@ export default function Combat() {
   const timing = stat(run, 'timingWindow');
 
   const [phase, setPhase] = useState<Phase>('enter');
-  const [perform, setPerform] = useState<{ ex: Exercise; active: Active; stage: PerformStage; count: number; beat: number | null; results: (NoteResult | undefined)[] } | null>(null);
+  const [perform, setPerform] = useState<{ ex: Exercise; active: Active; stage: PerformStage; count: number } | null>(null);
+  // The cursor beat and live grading change every frame; only the sheet listens
+  // to them, so the fight scene is not re-rendered sixty times a second.
+  const [sheet] = useState(createLiveSheet);
   const [hearing, setHearing] = useState<number | null>(null);
   const [fx, setFx] = useState<{ riff?: 'windup' | 'attack' | 'hurt' | 'encore'; enemy?: 'windup' | 'hit' | 'attack' | 'dissolve'; pop?: { v: number; side: 'enemy' | 'riff'; key: number }; flash?: 'red' | 'white'; barrage?: number; enemyBarrage?: number; burst?: number; riffBurst?: number; flyoff?: { type: string; key: number } }>({});
   const [taunt, setTaunt] = useState<(Taunt & { heat: number; speaking: boolean }) | null>(null);
@@ -51,6 +60,7 @@ export default function Combat() {
   useLayoutEffect(() => { dragRef.current = drag; pickedRef.current = picked; }, [drag, picked]);
   const busy = useRef(false); // one performance at a time
   const performing = useRef(false); // count-in + recording: no voice may start
+  const voiceLine = useRef<Promise<void>>(Promise.resolve()); // the heckle currently being spoken
 
   const size = enemy.size;
   const enemyX = 1030 - size / 2;
@@ -91,12 +101,24 @@ export default function Combat() {
       const c = s.combat!;
       const facts = buildFacts(ex, results, inst.shift, inst.writtenOffset, s.run.hp, failCount);
       const t = await fetchTaunt(enemy, c.heat, moment, facts, c.used);
-      // A slow reply must not start talking once the next performance is under way (it would leak into the mic).
-      if (!t || !alive.current || performing.current) return;
-      s.noteTaunt(t.id);
-      setTaunt({ ...t, heat: c.heat, speaking: true });
-      await Promise.race([speak(t, enemy), wait(5000)]);
-      if (alive.current) setTaunt((cur) => (cur && cur.id === t.id ? { ...cur, speaking: false } : cur));
+      if (!t) return;
+      // One heckle at a time: a new line waits for the current one to finish
+      // instead of cutting it off mid-sentence.
+      const previous = voiceLine.current;
+      let release = () => {};
+      voiceLine.current = previous.then(() => new Promise<void>((r) => (release = r)));
+      await previous;
+      try {
+        // A slow reply must not start talking once the next performance is under way (it would leak into the mic).
+        if (!alive.current || performing.current) return;
+        s.noteTaunt(t.id);
+        setTaunt({ ...t, heat: c.heat, speaking: true });
+        await Promise.race([speak(t, enemy), wait(LINE_LIMIT_MS)]);
+        if (alive.current) setTaunt((cur) => (cur && cur.id === t.id ? { ...cur, speaking: false } : cur));
+      } finally {
+        if (t.audio) URL.revokeObjectURL(t.audio);
+        release();
+      }
     },
     [enemy, inst],
   );
@@ -192,7 +214,8 @@ export default function Combat() {
     if (!alive.current) return;
     setFx({});
     if (hp <= 0) return ko();
-    await Promise.race([talking, wait(4500)]);
+    // The turn comes back once the enemy has finished its line.
+    await Promise.race([talking, wait(LINE_LIMIT_MS)]);
     await wait(250);
     if (!alive.current) return;
     useGame.getState().nextRound();
@@ -225,7 +248,8 @@ export default function Combat() {
       setPhase('perform');
       // M1: flip (card grows + scaleX pinch) then unfold into the sheet
       sfx('flip');
-      setPerform({ ex, active, stage: 'unfold', count: 0, beat: null, results: [] });
+      setPerform({ ex, active, stage: 'unfold', count: 0 });
+      sheet.set({ beat: null, results: [] });
       if (active === 'encore') void playFile('/audio/sfx/encore-charge.mp3', 0.8);
       await wait(450);
       if (!alive.current) return;
@@ -244,7 +268,7 @@ export default function Combat() {
       let counting = true;
       const pre = () => {
         if (!counting || !alive.current) return;
-        setPerform((p) => p && { ...p, beat: (clock() - startPerf) / mspb });
+        sheet.set({ beat: (clock() - startPerf) / mspb });
         requestAnimationFrame(pre);
       };
       requestAnimationFrame(pre);
@@ -255,19 +279,26 @@ export default function Combat() {
       if (!alive.current) return;
       mic.beginRecording();
       const totalBeats = ex.notes[ex.notes.length - 1].startBeat + ex.notes[ex.notes.length - 1].durBeats;
+      setPerform((p) => p && { ...p, stage: 'recording' });
       await new Promise<void>((done) => {
+        let graded = -Infinity;
+        let results: (NoteResult | undefined)[] = [];
         const tick = () => {
           if (!alive.current) return done();
           const now = performance.now();
           const beat = (now - startPerf) / mspb;
-          let results: (NoteResult | undefined)[];
-          if (sim) {
-            results = ex.notes.map((n, i) => (beat >= n.startBeat + n.durBeats ? sim[i] : undefined));
-          } else {
-            const g = grade(ex, mic.peek(), startPerf, inst.shift, timing);
-            results = ex.notes.map((n, i) => (now >= startPerf + (n.startBeat + n.durBeats) * mspb + 110 ? g[i] : undefined));
+          // The cursor moves every frame; grading the growing take only needs
+          // ~15 passes a second (a note's result only lands when it ends).
+          if (now - graded >= LIVE_GRADE_MS) {
+            graded = now;
+            if (sim) {
+              results = ex.notes.map((n, i) => (beat >= n.startBeat + n.durBeats ? sim[i] : undefined));
+            } else {
+              const g = grade(ex, mic.peek(), startPerf, inst.shift, timing);
+              results = ex.notes.map((n, i) => (now >= startPerf + (n.startBeat + n.durBeats) * mspb + 110 ? g[i] : undefined));
+            }
           }
-          setPerform((p) => p && { ...p, stage: 'recording', beat: Math.max(0, beat), results });
+          sheet.set({ beat: Math.max(0, beat), results });
           if (now > startPerf + totalBeats * mspb + RECORD_TAIL_MS) return done();
           requestAnimationFrame(tick);
         };
@@ -283,7 +314,8 @@ export default function Combat() {
       const pass = hits / final.length >= (active === 'encore' ? ULTIMATE_PASS_THRESHOLD : passLine);
       performing.current = false;
       if (!alive.current) return;
-      setPerform((p) => p && { ...p, stage: 'review', beat: null, results: final });
+      sheet.set({ beat: null, results: final });
+      setPerform((p) => p && { ...p, stage: 'review' });
       sfx(pass ? 'stampHit' : 'stampMiss');
 
       const st = useGame.getState();
@@ -395,6 +427,12 @@ export default function Combat() {
   // ---------- layout ----------
   const live = combat.hand.map((card, i) => ({ card, i })).filter(({ card }) => !card.landed);
   const fan = live.length === 3 ? [[436, 630, -6], [620, 612, 0], [804, 622, 6]] : live.length === 2 ? [[528, 620, -4], [712, 620, 4]] : [[620, 612, 0]];
+  // Handhelds: bigger cards in a wider fan. Their tops stay put (the extra height
+  // runs off the bottom of the glass) so the fighters' HP bars stay in view, and a
+  // tapped card rises until all of it shows.
+  const cardK = handheld ? Math.min(1.34, 1 + (ui - 1) * 0.3) : 1;
+  const fanAt = (n: number) => { const [x, y, rot] = fan[n]; return [720 + (x + 100 - 720) * cardK - 100, y + 280 * (cardK - 1) + (handheld ? 18 : 0), rot]; };
+  const liftedTop = (y: number) => (handheld ? 604 : y - 44);
   const landedCount = combat.hand.filter((c) => c.landed).length;
   const riffSprite = fx.riff === 'attack' && inst.id === 'trumpet' ? '/assets/sprites/riff-attack.png' : fx.riff === 'hurt' && inst.id === 'trumpet' ? '/assets/sprites/riff-hurt.png' : inst.sprite;
   const enemySprite = fx.enemy === 'attack' && enemy.attackSprite ? enemy.attackSprite : enemy.sprite;
@@ -406,7 +444,7 @@ export default function Combat() {
   const dark = fx.riff === 'encore';
 
   return (
-    <div ref={rootRef} className="fill" style={{ background: '#101126', overflow: 'hidden', animation: fx.flash === 'red' || phase === 'ko' ? 'shake 300ms steps(4)' : undefined }}>
+    <div ref={rootRef} className="fill screen-clip" style={{ background: '#101126', animation: fx.flash === 'red' || phase === 'ko' ? 'shake 300ms steps(4)' : undefined }}>
       <Bg src={enemy.bg} style={{ filter: `${enemy.bgFilter ?? ''} ${phase === 'ko' ? 'saturate(0.2)' : ''} ${dark ? 'brightness(0.2)' : ''}`, transition: 'filter 300ms steps(3)' }} />
       <div className="fill" style={{ background: 'linear-gradient(180deg, rgba(16,17,38,0.35) 0%, rgba(16,17,38,0.1) 45%, rgba(16,17,38,0.15) 70%, rgba(16,17,38,0.8) 100%)' }} />
       {dark && <div style={{ position: 'absolute', left: 120, top: 0, width: 500, height: 900, background: 'linear-gradient(180deg, rgba(255,230,150,0.4), rgba(255,230,150,0.05))', clipPath: 'polygon(40% 0, 60% 0, 100% 100%, 0 100%)', animation: 'fadeIn 300ms steps(3)' }} />}
@@ -431,7 +469,7 @@ export default function Combat() {
             filter: fx.flash === 'white' ? 'brightness(0)' : undefined,
           }}
         />
-        <HpBar hp={run.hp} max={stat(run, 'maxHp')} style={{ margin: '4px auto 0' }} />
+        <HpBar hp={run.hp} max={stat(run, 'maxHp')} big={handheld} style={{ margin: '4px auto 0' }} />
         {fx.riffBurst && <ImpactBurst key={fx.riffBurst} x={RIFF.size / 2} y={RIFF.size * .45} />}
         {phase === 'ko' && <PixelBurst x={160} y={160} delay={1600} />}
       </div>
@@ -439,7 +477,7 @@ export default function Combat() {
       {/* Enemy */}
       <div style={{ position: 'absolute', left: enemyX, top: enemyY, width: size, zIndex: 5, animation: phase === 'enter' ? 'slideInRight 500ms 300ms steps(6) both' : undefined }}>
         {phase !== 'win' && (
-          <div style={{ position: 'absolute', left: size / 2 - 38, top: -46, display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 6px', background: 'rgba(16,17,38,0.85)', border: '3px solid #101126', animation: 'bob 1.4s steps(2) infinite' }}>
+          <div className="ui-b ui-soft" style={{ position: 'absolute', left: size / 2 - 38, top: -46, display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 6px', background: 'rgba(16,17,38,0.85)', border: '3px solid #101126', animation: 'bob 1.4s steps(2) infinite' }}>
             <svg width="24" height="24" viewBox="0 0 8 8" shapeRendering="crispEdges">
               <rect x="6" y="0" width="2" height="1" fill="#fff" /><rect x="7" y="1" width="1" height="1" fill="#fff" />
               <rect x="5" y="1" width="2" height="1" fill="#E6ECFF" /><rect x="4" y="2" width="2" height="1" fill="#E6ECFF" />
@@ -467,7 +505,7 @@ export default function Combat() {
             filter: fx.flash === 'white' ? 'brightness(0)' : enemy.spriteFilter,
           }}
         />
-        <HpBar hp={combat.enemyHp} max={enemy.hp} width={250} style={{ margin: '4px auto 0' }} />
+        <HpBar hp={combat.enemyHp} max={enemy.hp} width={250} big={handheld} style={{ margin: '4px auto 0' }} />
         {(drag?.overEnemy || (picked !== null && !drag)) && <Reticle size={size} />}
         {fx.burst && <ImpactBurst key={fx.burst} x={size / 2} y={size * 0.45} big={fx.riff === 'encore'} />}
         {phase === 'win' && <PixelBurst x={size / 2} y={size / 2} />}
@@ -483,8 +521,8 @@ export default function Combat() {
           -{fx.pop.v}
         </div>
       )}
-      {fx.flash === 'red' && <div className="fill" style={{ zIndex: 19, background: '#E8434F', animation: 'redFlash 400ms steps(3) forwards', pointerEvents: 'none' }} />}
-      {fx.flash === 'white' && phase === 'ko' && <div className="fill" style={{ zIndex: 19, background: '#fff', animation: 'redFlash 200ms steps(2) forwards' }} />}
+      {fx.flash === 'red' && <div className="fill bleed" style={{ zIndex: 19, background: '#E8434F', animation: 'redFlash 400ms steps(3) forwards', pointerEvents: 'none' }} />}
+      {fx.flash === 'white' && phase === 'ko' && <div className="fill bleed" style={{ zIndex: 19, background: '#fff', animation: 'redFlash 200ms steps(2) forwards' }} />}
       {phase === 'ko' && <KoOverlay />}
 
       {/* Card fly-off (09a) */}
@@ -496,8 +534,8 @@ export default function Combat() {
 
       {/* Turn banner */}
       {banner && (
-        <div key={banner.k} className="combat-turn-banner" style={{ position: 'absolute', left: 0, top: 92, width: 1440, display: 'flex', justifyContent: 'center', zIndex: 8, animation: 'dropIn 260ms steps(4) both' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 28px', backgroundImage: 'linear-gradient(90deg, rgba(27,29,58,0), rgba(27,29,58,0.85) 18%, rgba(27,29,58,0.85) 82%, rgba(27,29,58,0))' }}>
+        <div key={banner.k} className="combat-turn-banner" style={{ position: 'absolute', left: 0, top: 'calc(var(--hud-bottom) + var(--banner-gap, 29px))', width: 1440, display: 'flex', justifyContent: 'center', zIndex: 8, animation: 'dropIn 260ms steps(4) both' }}>
+          <div className="ui-t ui-soft" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 28px', backgroundImage: 'linear-gradient(90deg, rgba(27,29,58,0), rgba(27,29,58,0.85) 18%, rgba(27,29,58,0.85) 82%, rgba(27,29,58,0))' }}>
             <span className="f-press" style={{ fontSize: 16, color: banner.c }}>{banner.k}</span>
             <span style={{ width: 6, height: 6, background: 'var(--muted)' }} />
             <span className="f-body" style={{ fontSize: 17, fontWeight: 600, color: '#E6E8F7' }}>{banner.t}</span>
@@ -511,7 +549,7 @@ export default function Combat() {
       {/* Hand */}
       {(phase === 'player' || phase === 'enemy' || phase === 'attack') &&
         live.map(({ card, i }, n) => {
-          const [x, y, rot] = fan[n];
+          const [x, y, rot] = fanAt(n);
           const dragging = drag?.idx === i;
           return (
             <div
@@ -525,7 +563,7 @@ export default function Combat() {
               onMouseEnter={() => canAct && sfx('hover')}
               style={{
                 position: 'absolute', zIndex: dragging ? 40 : 10 + n, touchAction: 'none', cursor: canAct ? 'grab' : 'default',
-                left: dragging ? drag.x - drag.ox : x, top: dragging ? drag.y - drag.oy - 20 : picked === i ? y - 44 : y,
+                left: dragging ? drag.x - drag.ox : x, top: dragging ? drag.y - drag.oy - 20 : picked === i ? liftedTop(y) : y, scale: cardK === 1 ? undefined : cardK,
                 ['--rot' as string]: `${rot}deg`,
                 transform: dragging ? `rotate(${Math.max(-12, Math.min(12, (drag.x - (x + 100)) / 30))}deg) scale(1.05)` : `rotate(${rot}deg)`,
                 transformOrigin: '50% 100%',
@@ -544,13 +582,14 @@ export default function Combat() {
       {picked !== null && !drag && (() => {
         const n = live.findIndex(({ i }) => i === picked);
         if (n < 0) return null;
-        const [x, y] = fan[n];
+        const [x, y] = fanAt(n);
+        const top = liftedTop(y) + 280 * (1 - cardK);
         return (
           <>
             {/* Tap anywhere else to put the card back; tap the foe to play it. */}
-            <div className="fill" style={{ zIndex: 9 }} onPointerDown={() => { setPicked(null); sfx('back'); }} />
+            <div className="fill bleed" style={{ zIndex: 9 }} onPointerDown={() => { setPicked(null); sfx('back'); }} />
             <div style={{ position: 'absolute', left: enemyRect.x, top: enemyRect.y, width: enemyRect.w, height: enemyRect.h, zIndex: 36, cursor: 'pointer' }} onPointerDown={playPicked} />
-            <DragArrow from={{ x: x + 100, y: y - 34 }} to={{ x: enemyRect.x + enemyRect.w / 2, y: enemyRect.y + enemyRect.h * 0.4 }} active />
+            <DragArrow from={{ x: x + 100, y: top + 10 }} to={{ x: enemyRect.x + enemyRect.w / 2, y: enemyRect.y + enemyRect.h * 0.4 }} active />
           </>
         );
       })()}
@@ -560,7 +599,7 @@ export default function Combat() {
       {combat.encore ? (
         <EncoreButton charged={combat.encore.charged && canAct} damage={encoreDamage} onPlay={() => { sfx('drop'); void performAction('encore'); }} />
       ) : (
-        <div style={{ position: 'absolute', left: 40, top: 738, display: 'flex', alignItems: 'center', gap: 14, zIndex: 12 }}>
+        <div className="ui-bl" style={{ position: 'absolute', left: 'calc(40px - var(--rail-l))', bottom: 'calc(50px - var(--rail-b))', display: 'flex', alignItems: 'center', gap: 14, zIndex: 12 }}>
           <Octagon size={112} ring="#FFD23F" fill="#2A2F55">
             <span className="f-press" style={{ fontSize: 16, color: '#fff' }}>{inst.keyLabel}</span>
             <span className="f-label" style={{ fontSize: 10, color: 'var(--sun)' }}>{inst.name.toUpperCase()}</span>
@@ -575,7 +614,7 @@ export default function Combat() {
       )}
 
       {/* Round badge */}
-      <div style={{ position: 'absolute', right: 40, top: 738, display: 'flex', alignItems: 'center', gap: 14, zIndex: 12 }}>
+      <div className="ui-br" style={{ position: 'absolute', right: 'calc(40px - var(--rail-r))', bottom: 'calc(50px - var(--rail-b))', display: 'flex', alignItems: 'center', gap: 14, zIndex: 12 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
           <span className="f-label" style={{ fontSize: 12, color: '#C9CDE8' }}>LANDED</span>
           <div style={{ display: 'flex', gap: 4 }}>
@@ -603,8 +642,7 @@ export default function Combat() {
             damage={perform.active === 'encore' ? encoreDamage : cardDamage}
             stage={perform.stage}
             count={perform.count}
-            beat={perform.beat}
-            results={perform.results}
+            sheet={sheet}
             hearing={perform.stage === 'recording' ? hearing : null}
             passLine={passLine}
             demo={demoMode || !micReady}
@@ -615,8 +653,8 @@ export default function Combat() {
       {/* Entry letterbox + FIGHT! */}
       {phase === 'enter' && (
         <>
-          <div style={{ position: 'absolute', left: 0, top: 0, width: 1440, height: 450, background: '#101126', zIndex: 50, animation: 'curtainUp 500ms steps(6) forwards' }} />
-          <div style={{ position: 'absolute', left: 0, top: 450, width: 1440, height: 450, background: '#101126', zIndex: 50, animation: 'curtainDown 500ms steps(6) forwards' }} />
+          <div style={{ position: 'absolute', left: 'calc(-1 * var(--bleed-x))', top: 'calc(-1 * var(--bleed-y))', width: 'calc(1440px + 2 * var(--bleed-x))', height: 'calc(450px + var(--bleed-y))', background: '#101126', zIndex: 50, animation: 'curtainUp 500ms steps(6) forwards' }} />
+          <div style={{ position: 'absolute', left: 'calc(-1 * var(--bleed-x))', top: 450, width: 'calc(1440px + 2 * var(--bleed-x))', height: 'calc(450px + var(--bleed-y))', background: '#101126', zIndex: 50, animation: 'curtainDown 500ms steps(6) forwards' }} />
           <div className="f-press" style={{ position: 'absolute', left: 0, top: 360, width: 1440, textAlign: 'center', zIndex: 51, fontSize: 88, color: 'var(--sun)', textShadow: '#101126 6px 6px 0, #D1307E 10px 12px 0', animation: 'slam 400ms 600ms steps(6) both, fadeOut 200ms 1300ms forwards' }}>
             {enemy.boss ? 'BOSS!' : 'FIGHT!'}
           </div>
@@ -697,11 +735,11 @@ function PixelBurst({ x, y, delay = 300 }: { x: number; y: number; delay?: numbe
 
 function KoOverlay() {
   return (
-    <div className="fill" style={{ zIndex: 45, pointerEvents: 'none' }}>
+    <div className="fill bleed" style={{ zIndex: 45, pointerEvents: 'none' }}>
       <div className="fill" style={{ background: 'rgba(232,67,79,0.35)', animation: 'fadeIn 500ms 100ms steps(4) both' }} />
-      <div style={{ position: 'absolute', left: 0, top: 0, width: 1440, height: 60, background: '#101126', animation: 'dropIn 300ms 700ms steps(4) both' }} />
-      <div style={{ position: 'absolute', left: 0, bottom: 0, width: 1440, height: 60, background: '#101126', animation: 'riseIn 300ms 700ms steps(4) both' }} />
-      <div className="f-press" style={{ position: 'absolute', left: 0, top: 330, width: 1440, textAlign: 'center', fontSize: 180, lineHeight: '190px', color: 'var(--sun)', textShadow: '#101126 10px 10px 0, #E8434F 16px 18px 0', animation: 'slam 300ms 700ms steps(4) both' }}>
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 'calc(60px + var(--bleed-y))', background: '#101126', animation: 'dropIn 300ms 700ms steps(4) both' }} />
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 'calc(60px + var(--bleed-y))', background: '#101126', animation: 'riseIn 300ms 700ms steps(4) both' }} />
+      <div className="f-press" style={{ position: 'absolute', left: 0, right: 0, top: 'calc(330px + var(--bleed-y))', textAlign: 'center', fontSize: 180, lineHeight: '190px', color: 'var(--sun)', textShadow: '#101126 10px 10px 0, #E8434F 16px 18px 0', animation: 'slam 300ms 700ms steps(4) both' }}>
         K.O.
       </div>
     </div>
@@ -710,7 +748,7 @@ function KoOverlay() {
 
 function EncoreButton({ charged, damage, onPlay }: { charged: boolean; damage: number; onPlay: () => void }) {
   return (
-    <div style={{ position: 'absolute', left: 36, top: 712, display: 'flex', alignItems: 'center', gap: 18, zIndex: 12 }}>
+    <div className="ui-bl" style={{ position: 'absolute', left: 'calc(36px - var(--rail-l))', bottom: 'calc(40px - var(--rail-b))', display: 'flex', alignItems: 'center', gap: 18, zIndex: 12 }}>
       <button
         disabled={!charged}
         onClick={onPlay}
@@ -736,7 +774,7 @@ function EncoreButton({ charged, damage, onPlay }: { charged: boolean; damage: n
 function TauntBubble({ taunt, name, x, y }: { taunt: Taunt & { heat: number; speaking: boolean }; name: string; x: number; y: number }) {
   const hot = taunt.heat >= 3;
   return (
-    <div key={taunt.id + taunt.text} style={{ position: 'absolute', left: x, top: y, width: 460, zIndex: 35, animation: `popIn 220ms steps(4) both${hot ? ', shakeSmall 200ms 220ms steps(2) 4' : ''}` }}>
+    <div key={taunt.id + taunt.text} className="ui-b ui-soft" style={{ position: 'absolute', left: x, top: y, width: 460, zIndex: 35, animation: `popIn 220ms steps(4) both${hot ? ', shakeSmall 200ms 220ms steps(2) 4' : ''}` }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 20px 18px', background: 'var(--parchment)', border: `4px solid ${hot ? '#E8434F' : '#101126'}`, boxShadow: 'inset 0 -5px 0 #F0DDB4, #101126 6px 6px 0', rotate: hot ? '-1.5deg' : undefined }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

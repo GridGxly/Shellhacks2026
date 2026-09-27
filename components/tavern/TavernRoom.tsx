@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { sfx } from '@/lib/audio';
 import { TAVERN_PASS } from '@/lib/config';
 import { INSTRUMENTS, type InstrumentId } from '@/lib/content';
@@ -38,8 +38,9 @@ const emptyTargets = { hooked: null, tomatoes: [0, 0] as const };
 
 export default function TavernRoom({ phase, mode = 'duet', winnerSide, mine, partner, joined, lightElapsed, verdictElapsed, pass, activity, children }: TavernRoomProps) {
   const verdict = phase === 'verdict';
-  const targets = !verdict ? emptyTargets : mode === 'pvp' ? pvpVerdictTargets(winnerSide) : pass === false ? verdictTargets(mine.accuracy ?? 0, partner?.accuracy ?? 0) : emptyTargets;
-  const throws = tomatoThrows(targets);
+  // Stable between clock ticks so the crowd and gags only redraw when the verdict changes.
+  const targets = useMemo(() => !verdict ? emptyTargets : mode === 'pvp' ? pvpVerdictTargets(winnerSide) : pass === false ? verdictTargets(mine.accuracy ?? 0, partner?.accuracy ?? 0) : emptyTargets, [verdict, mode, winnerSide, pass, mine.accuracy, partner?.accuracy]);
+  const throws = useMemo(() => tomatoThrows(targets), [targets]);
   const quiet = ['countdown', 'performing', 'uploading', 'waiting', 'duet'].includes(phase);
   const lit = lightElapsed >= 0 && (quiet || verdict);
   const shade = quiet ? Math.max(0, Math.min(0.72, Math.floor((lightElapsed - 150) / 75) * 0.18)) : 0;
@@ -123,7 +124,8 @@ function Ovation({ winnerSide }: { winnerSide?: StageSide | null }) {
   </div>;
 }
 
-function RoomBackdrop({ mode }: { mode: TavernMode }) {
+// ~300 static SVG shapes: never re-reconciled on a clock tick.
+const RoomBackdrop = memo(function RoomBackdrop({ mode }: { mode: TavernMode }) {
   return <svg className="tavern-backdrop" viewBox="0 0 1440 900" shapeRendering="crispEdges" aria-hidden="true">
     <rect width="1440" height="900" fill="#3B2414" />
     <g transform="scale(8)">
@@ -166,4 +168,4 @@ function RoomBackdrop({ mode }: { mode: TavernMode }) {
     <path d="M0 0H1440V900H0Z" fill="url(#tavern-vignette)" />
     <defs><radialGradient id="tavern-vignette"><stop offset="0.55" stopColor="#101126" stopOpacity="0" /><stop offset="1" stopColor="#101126" stopOpacity="0.58" /></radialGradient></defs>
   </svg>;
-}
+});

@@ -1,13 +1,32 @@
 'use client';
+import { useRef, useSyncExternalStore } from 'react';
 import { settings } from '@/lib/audio';
+import { useStageFit } from '@/lib/viewport';
 import type { Exercise } from '@/lib/music';
 import type { NoteResult } from '@/lib/mic';
 import type { Enemy, Instrument } from '@/lib/content';
 import { CARD_STYLE } from './CardView';
 import Staff from './Staff';
 import { CONCERT_KEY_NAME, noteName, writtenKey } from '@/lib/music';
+import { art } from '@/lib/art';
 
 export type PerformStage = 'unfold' | 'countin' | 'recording' | 'review';
+
+/** Per-frame sheet state: the cursor beat and the live results, outside React state. */
+export interface LiveSheet {
+  get: () => { beat: number | null; results: (NoteResult | undefined)[] };
+  set: (next: Partial<{ beat: number | null; results: (NoteResult | undefined)[] }>) => void;
+  subscribe: (listener: () => void) => () => void;
+}
+export function createLiveSheet(): LiveSheet {
+  let snapshot: ReturnType<LiveSheet['get']> = { beat: null, results: [] };
+  const listeners = new Set<() => void>();
+  return {
+    get: () => snapshot,
+    set: (next) => { snapshot = { ...snapshot, ...next }; listeners.forEach((l) => l()); },
+    subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+  };
+}
 
 interface Props {
   ex: Exercise;
@@ -16,14 +35,14 @@ interface Props {
   damage: number;
   stage: PerformStage;
   count: number; // count-in beat shown (1..4)
-  beat: number | null;
-  results: (NoteResult | undefined)[];
+  sheet: LiveSheet;
   hearing: number | null; // concert midi
   passLine: number; // 0..1
   demo: boolean;
 }
 
-export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, beat, results, hearing, passLine, demo }: Props) {
+export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, sheet, hearing, passLine, demo }: Props) {
+  const { beat, results } = useSyncExternalStore(sheet.subscribe, sheet.get, sheet.get);
   const encore = ex.type === 'encore';
   const color = encore ? { body: '#D1307E' } : CARD_STYLE[ex.type as 'chord'];
   const done = results.filter(Boolean) as NoteResult[];
@@ -35,14 +54,18 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
   const width = encore ? 1260 : 1164;
   const bars = Array.from({ length: ex.bars }, (_, b) => ex.notes.map((n, i) => ({ n, i })).filter(({ n }) => Math.floor(n.startBeat / ex.beatsPerBar) === b));
   const curBar = beat !== null ? Math.floor(beat / ex.beatsPerBar) : -1;
+  const panel = useRef<HTMLDivElement>(null);
+  // Handhelds: the sheet is what the player reads, so it fills the glass under the HUD.
+  const fit = useStageFit(panel, encore ? 96 : 150, { underHud: true });
 
   return (
     <>
-      <div className="fill" style={{ zIndex: 30, background: 'rgba(12,13,30,0.72)', animation: 'fadeIn 200ms steps(3) both' }} />
+      <div className="fill bleed" style={{ zIndex: 30, background: 'rgba(12,13,30,0.72)', animation: 'fadeIn 200ms steps(3) both' }} />
       <div
+        ref={panel}
         className="performance-panel"
         style={{
-          position: 'absolute', left: (1440 - width - 56) / 2, top: encore ? 96 : 150, width: width + 56, zIndex: 31,
+          position: 'absolute', left: (1440 - width - 56) / 2, top: fit.top, width: width + 56, zIndex: 31, scale: fit.k === 1 ? undefined : fit.k, transformOrigin: '50% 0',
           display: 'flex', flexDirection: 'column', background: '#14162E', border: '4px solid #2A2F55', boxShadow: '#101126 0 0 0 4px, rgba(0,0,0,0.5) 10px 10px 0',
           animation: stage === 'unfold' ? 'unfold 200ms steps(4) both' : undefined,
         }}
@@ -57,7 +80,7 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span className="f-label" style={{ fontSize: 12, color: 'var(--muted)' }}>TARGET</span>
             <div style={{ position: 'relative', width: 36, height: 36, overflow: 'hidden', background: '#2A2240', border: '2px solid #43365F' }}>
-              <div className="sprite" style={{ left: -8, top: -2, width: 52, height: 52, backgroundImage: `url(${enemy.sprite})`, filter: enemy.spriteFilter }} />
+              <div className="sprite" style={{ left: -8, top: -2, width: 52, height: 52, backgroundImage: `url(${art(enemy.sprite, 'thumb')})`, filter: enemy.spriteFilter }} />
             </div>
             <div className="f-press performance-tag" style={{ padding: '8px 12px', background: 'var(--sun)', color: '#101126', fontSize: 13 }}>{damage} DMG</div>
           </div>
@@ -94,7 +117,9 @@ export default function PerformOverlay({ ex, inst, enemy, damage, stage, count, 
             beat={stage === 'recording' || (stage === 'countin' && settings.approach === 'on') ? beat : null}
             approach={settings.approach === 'on'}
             results={results}
-            barsPerLine={encore ? 4 : Math.min(ex.bars, 4)}
+            // Up to 4 bars on a line, but split evenly rather than leaving a
+            // near-empty last line (5 bars reads better as 3+2 than 4+1).
+            barsPerLine={encore ? 4 : Math.ceil(ex.bars / Math.ceil(ex.bars / 4))}
             revealUpTo={stage === 'unfold' ? -1 : Infinity}
           />
           {stage === 'countin' && (

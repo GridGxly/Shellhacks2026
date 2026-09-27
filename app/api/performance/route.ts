@@ -1,12 +1,13 @@
+import { guarded } from '@/lib/server/api-guard';
 import { currentUser, transaction } from '@/lib/db';
 import { validateExercise, validateTrainingResults } from '@/lib/training-core';
 import { instrument } from '@/lib/server/validation';
-import { bad, handled, mutation, readJson } from '@/lib/server/http';
+import { bad, mutation, readJson } from '@/lib/server/http';
 import { clientIp, limit } from '@/lib/server/ratelimit';
 import { PerformanceConflict, recordPerformance } from '@/lib/server/performance';
 
 export async function POST(request: Request) {
-  return handled(async () => {
+  return guarded(request, async () => {
     const guard = mutation(request); if (guard) return guard;
     const body = await readJson(request, 32 * 1024); if (body instanceof Response) return body;
     const user = await currentUser(); if (!user) return bad('Guests keep their practice history in memory.', 401);

@@ -86,7 +86,7 @@ export function playMusic(track: Track) {
   if (fileEl) {
     const old = fileEl;
     fileEl = null;
-    fadeElement(old, 0, 400, () => old.pause());
+    fadeElement(old, 0, 400, () => { old.pause(); fileSources.get(old)?.disconnect(); old.removeAttribute('src'); old.load(); });
   }
   if (track === 'none') return;
   const file = FILES[track];
@@ -106,16 +106,18 @@ export function playMusic(track: Track) {
   }
 }
 
+const fades = new WeakMap<HTMLAudioElement, number>();
 function fadeElement(el: HTMLAudioElement, to: number, ms: number, done?: () => void) {
+  const previous = fades.get(el); if (previous !== undefined) cancelAnimationFrame(previous);
   const from = el.volume;
   const t0 = performance.now();
   const step = () => {
     const k = Math.min(1, (performance.now() - t0) / ms);
     el.volume = from + (to - from) * k;
-    if (k < 1) requestAnimationFrame(step);
-    else done?.();
+    if (k < 1) fades.set(el, requestAnimationFrame(step));
+    else { fades.delete(el); done?.(); }
   };
-  requestAnimationFrame(step);
+  fades.set(el, requestAnimationFrame(step));
 }
 
 /** Lower music while an enemy talks. */
@@ -280,7 +282,7 @@ export type Sfx =
   | 'hover' | 'click' | 'back' | 'deal' | 'drag' | 'drop' | 'flip'
   | 'tick' | 'tickAccent' | 'noteHit' | 'noteMiss' | 'stampHit' | 'stampMiss'
   | 'zap' | 'impact' | 'damage' | 'hurt' | 'coin' | 'upgrade' | 'lockShatter'
-  | 'wipe' | 'pop' | 'denied';
+  | 'wipe' | 'pop' | 'denied' | 'equip';
 
 export function sfx(name: Sfx, when = 0) {
   const c = ac();
@@ -310,6 +312,7 @@ export function sfx(name: Sfx, when = 0) {
     case 'wipe': return noise(t, 0.35, 0.2, o, 1200, 6000);
     case 'pop': return tone(79, t, 0.06, 'square', 0.18, o, 91);
     case 'denied': tone(55, t, 0.08, 'square', 0.18, o); return tone(50, t + 0.09, 0.12, 'square', 0.18, o);
+    case 'equip': return [67, 74, 79].forEach((m, i) => tone(m, t + i * 0.055, 0.1, 'triangle', 0.2, o));
   }
 }
 
@@ -321,11 +324,22 @@ export function clickAt(time: number, accent: boolean): OscillatorNode | undefin
 }
 
 const buffers = new Map<string, Promise<AudioBuffer>>();
+const bufferSizes = new Map<string, number>();
+const BUFFER_BUDGET = 24 * 1024 * 1024;
 function load(url: string) {
-  if (!buffers.has(url)) {
-    buffers.set(url, fetch(url).then((r) => r.arrayBuffer()).then((b) => ac().decodeAudioData(b)));
-  }
-  return buffers.get(url)!;
+  const cached = buffers.get(url);
+  if (cached) { buffers.delete(url); buffers.set(url, cached); return cached; }
+  const pending = fetch(url).then(r => { if (!r.ok) throw new Error('Audio unavailable'); return r.arrayBuffer(); }).then(b => ac().decodeAudioData(b)).then(buffer => {
+    bufferSizes.set(url, buffer.length * buffer.numberOfChannels * 4);
+    let bytes = [...bufferSizes.values()].reduce((a,b) => a+b,0);
+    for (const key of buffers.keys()) {
+      if (bytes <= BUFFER_BUDGET && buffers.size <= 48) break;
+      bytes -= bufferSizes.get(key) ?? 0; buffers.delete(key); bufferSizes.delete(key);
+    }
+    return buffer;
+  }).catch(error => { buffers.delete(url); bufferSizes.delete(url); throw error; });
+  buffers.set(url, pending);
+  return pending;
 }
 export function preload(urls: string[]) {
   urls.forEach((u) => void load(u).catch(() => {}));
@@ -339,6 +353,7 @@ export async function playFile(url: string, vol = 1) {
     g.gain.value = vol;
     s.buffer = buf;
     s.connect(g).connect(sfxGain);
+    s.onended = () => { s.disconnect(); g.disconnect(); s.buffer = null; };
     s.start();
   } catch {
     /* missing file: stay silent */
@@ -348,10 +363,13 @@ export async function playFile(url: string, vol = 1) {
 // ---------------------------------------------------------------- voices
 
 const voices = new Set<HTMLAudioElement>();
+const voiceStops = new Map<HTMLAudioElement, () => void>();
+let voiceGeneration = 0;
 
 /** Plays an enemy line. The Choir is 3 detuned, offset copies. Resolves when done. */
 export function playVoice(src: string, choir: boolean): Promise<void> {
   stopVoices();
+  const generation = voiceGeneration;
   if (settings.voice <= 0) return Promise.resolve();
   duck(true);
   const copies = choir ? [[1, 0, 1], [0.96, 40, 0.6], [1.04, 80, 0.5]] : [[1, 0, 1]];
@@ -363,21 +381,20 @@ export function playVoice(src: string, choir: boolean): Promise<void> {
         el.playbackRate = rate;
         el.volume = Math.min(1, settings.voice * vol);
         voices.add(el);
-        el.onended = el.onerror = () => {
-          voices.delete(el);
-          resolve();
+        const finish = () => {
+          clearTimeout(timer); el.pause(); el.onended = el.onerror = null;
+          el.removeAttribute('src'); el.load(); voices.delete(el); voiceStops.delete(el); resolve();
         };
-        window.setTimeout(() => void el.play().catch(() => resolve()), delay);
+        voiceStops.set(el, finish);
+        el.onended = el.onerror = finish;
+        const timer = setTimeout(() => { if (generation !== voiceGeneration) finish(); else void el.play().catch(finish); }, delay);
       }),
   );
-  return Promise.all(done).then(() => duck(false));
+  return Promise.all(done).then(() => { if (generation === voiceGeneration) duck(false); });
 }
 
 export function stopVoices() {
-  voices.forEach((v) => {
-    v.pause();
-    v.onended?.(new Event('ended'));
-  });
-  voices.clear();
-  duck(false);
+  voiceGeneration++;
+  voiceStops.forEach(stop => stop());
+  voiceStops.clear(); voices.clear(); duck(false);
 }

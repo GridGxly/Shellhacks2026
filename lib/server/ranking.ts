@@ -1,3 +1,4 @@
+import { LEADERBOARD_SIZE } from '@/lib/config';
 import { db, type RunDoc, type UserDoc, publicUser } from '@/lib/db';
 import type { Document } from 'mongodb';
 
@@ -30,7 +31,7 @@ export async function playerRank(userId: string, match: Document = {}) {
 
 export async function leaderboard(match: Document) {
   return (await db()).collection<RunDoc>('runs').aggregate<RunDoc>([
-    ...bestPipeline(match), { $sort: sort }, { $limit: 50 },
+    ...bestPipeline(match), { $sort: sort }, { $limit: LEADERBOARD_SIZE },
   ]).toArray();
 }
 

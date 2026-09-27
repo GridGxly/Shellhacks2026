@@ -4,8 +4,10 @@ import { playMusic, sfx } from '@/lib/audio';
 import { ACT_BONUS_SCORE, ACT_BONUS_TIPS, STATS, TIPS_PER_WIN, XP_PER_WIN } from '@/lib/config';
 import { ACTS, ENEMIES } from '@/lib/content';
 import { accuracy, instrumentOf, stat, useGame } from '@/lib/store';
+import { useStageFit } from '@/lib/viewport';
 import Hud from '../Hud';
 import { Bg, FloatingNotes, Octagon, Ornament, Sprite, Stars, YellowButton } from '../ui';
+import { art } from '@/lib/art';
 
 /** Counts a number up in steps (pixel-game style, not smooth). */
 function useCountUp(to: number, delay = 0, ms = 700) {
@@ -71,12 +73,13 @@ export function Victory() {
   const go = useGame((s) => s.go);
   const beaten = ENEMIES[run.floor - 1];
   const next = ENEMIES[run.floor];
-  const inst = instrumentOf(run);
   const tips = useCountUp(TIPS_PER_WIN, 900);
   const xp = useCountUp(XP_PER_WIN, 1300);
   const canUpgrade = STATS.some((d) => run.tips >= d.cost);
   const actDone = run.floor % 3 === 0;
   const [leaving, setLeaving] = useState(false);
+  const column = useRef<HTMLDivElement>(null);
+  const fit = useStageFit(column, 110, { underHud: true });
 
   useEffect(() => {
     playMusic('encore');
@@ -98,24 +101,27 @@ export function Victory() {
   });
 
   return (
-    <div className="fill" style={{ background: '#101126', overflow: 'hidden' }}>
+    <div className="fill screen-clip" style={{ background: '#101126' }}>
       <Bg src={beaten.bg} style={{ filter: `${beaten.bgFilter ?? ''} brightness(0.45) saturate(0.8)` }} />
       <div className="fill" style={{ background: 'radial-gradient(ellipse 50% 60% at 50% 40%, rgba(255,210,63,0.18), rgba(16,17,38,0.85) 80%)' }} />
       <Confetti />
-      {/* Riff celebrates on the left, the beaten foe fades on the right */}
-      <Sprite src={inst.id === 'trumpet' ? '/assets/sprites/riff-leap.png' : inst.sprite} x={120} y={330} size={360} style={{ animation: 'slideInLeft 400ms steps(6) both, bob 900ms 400ms steps(2) infinite' }} />
+      {/* 10 Victory: no Riff here; the beaten foe fades on the right */}
       <Sprite src={beaten.sprite} x={1010} y={420} size={260} style={{ filter: `${beaten.spriteFilter ?? ''} grayscale(1) brightness(0.5)`, opacity: 0.55, transform: 'rotate(8deg)', animation: 'dissolve 800ms 500ms steps(8) forwards' }} />
       {/* The defeated foe releases tips; the count starts on the first landing. */}
       {[0, 1, 2, 3, 4].map((i) => <div key={i} aria-hidden="true" style={{ position: 'absolute', left: 1130, top: 520 + (i % 2) * 22, zIndex: 7, ['--reward-x' as string]: `${-310 - i * 9}px`, ['--reward-y' as string]: `${-188 - (i % 2) * 22}px`, animation: `victoryReward 400ms ${500 + i * 80}ms steps(6) both` }}>
         <svg width="26" height="26" viewBox="0 0 8 8" shapeRendering="crispEdges"><path d="M2 0H6V1H7V2H8V6H7V7H6V8H2V7H1V6H0V2H1V1H2Z" fill="#FFD23F"/><path d="M2 2H6V6H2Z" fill="#D9A21B"/><path d="M3 1H4V6H3Z" fill="#FFF6E0"/></svg>
       </div>)}
 
-      <div style={{ position: 'absolute', left: 470, top: 110, width: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, zIndex: 5, animation: leaving ? 'victoryExit 500ms steps(6) forwards' : undefined }}>
+      {/* Handhelds lay the headline beside the results so both can be drawn larger. */}
+      <div ref={column} className="victory-col" style={{ position: 'absolute', left: 470, top: fit.top, scale: fit.k === 1 ? undefined : fit.k, transformOrigin: '50% 0', width: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, zIndex: 5, animation: leaving ? 'victoryExit 500ms steps(6) forwards' : undefined }}>
+        <div className="victory-group">
         <div className="f-press" style={{ fontSize: 60, color: 'var(--sun)', textShadow: '#101126 6px 6px 0, #D1307E 10px 10px 0', animation: 'slam 450ms steps(6) both' }}>VICTORY!</div>
         <div className="f-body" style={{ fontSize: 20, color: 'var(--soft)', animation: 'fadeIn 300ms 300ms both' }}>
           {beaten.name} is out of tune for good.
         </div>
         <Ornament width={420} />
+        </div>
+        <div className="victory-group">
         <div style={{ width: 500, padding: '18px 26px', background: 'rgba(16,17,38,0.9)', border: '4px solid #3A3F70', boxShadow: '#101126 8px 8px 0', animation: 'panelIn 400ms 400ms steps(6) both' }}>
           <StatLine label="HP RESTORED" value={`${run.hp}/${stat(run, 'maxHp')}`} color="#FF8A93" delay={600} />
           <StatLine label="TIPS" value={<>+{tips} <span style={{ color: 'var(--muted)', fontSize: 12 }}>· {run.tips} total</span></>} color="var(--sun)" delay={800} />
@@ -125,7 +131,7 @@ export function Victory() {
         </div>
         {canUpgrade && (
           <div className="f-body" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', background: 'rgba(76,194,107,0.15)', border: '2px solid var(--meadow)', fontSize: 16, color: 'var(--parchment)', animation: 'popIn 300ms 2000ms steps(4) both' }}>
-            <span style={{ width: 10, height: 10, background: 'var(--meadow)' }} /> You can afford an upgrade. Click Riff&apos;s face, top left.
+            <span style={{ width: 10, height: 10, background: 'var(--meadow)' }} /> You can afford an upgrade. <span className="kbd-only">Click</span><span className="touch-only">Tap</span> Riff&apos;s face, top left.
           </div>
         )}
         <div style={{ marginTop: 10, animation: 'riseIn 300ms 2100ms steps(4) both' }}>
@@ -133,6 +139,7 @@ export function Victory() {
         </div>
         <div className="f-label" style={{ fontSize: 12, color: 'var(--muted)', animation: 'fadeIn 300ms 2300ms both' }}>
           {actDone ? `ACT ${run.floor / 3} CLEARED · ` : ''}NEXT: {next?.name.toUpperCase()} · CHECKPOINT SAVED
+        </div>
         </div>
       </div>
       <Hud center={`FLOOR ${run.floor} OF 18 CLEARED`} pulse={canUpgrade ? 'face' : undefined} />
@@ -152,17 +159,21 @@ export function Loss() {
   const score = useCountUp(run.score, 700, 900);
   const newBest = best && best.score === run.score && run.score > 0;
 
+  const startingRun = useGame((s) => s.startingRun || Boolean(s.transition));
+  const column = useRef<HTMLDivElement>(null);
+  const fit = useStageFit(column, 130);
   useEffect(() => playMusic('none'), []);
-  const again = () => {
-    useGame.getState().go('title');
+  // Straight back to the climb with the same instrument; the title is one pause-menu tap away.
+  const again = async () => {
+    if (await useGame.getState().newRun()) useGame.getState().go('map');
   };
 
   return (
-    <div className="fill" style={{ background: '#0B0B18', overflow: 'hidden' }}>
+    <div className="fill screen-clip" style={{ background: '#0B0B18' }}>
       <Bg src={foe.bg} style={{ filter: `${foe.bgFilter ?? ''} grayscale(1) brightness(0.25)` }} />
       <div className="fill" style={{ background: 'radial-gradient(ellipse 60% 60% at 50% 45%, rgba(232,67,79,0.18), rgba(11,11,24,0.95) 80%)' }} />
       <Sprite src={foe.sprite} x={1000} y={300} size={foe.size} style={{ opacity: 0.35, filter: `${foe.spriteFilter ?? ''} brightness(0.4)`, animation: 'breathe 1.4s steps(2) infinite' }} />
-      <div style={{ position: 'absolute', left: 0, top: 130, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+      <div ref={column} className="loss-col" style={{ position: 'absolute', left: 0, top: fit.top, scale: fit.k === 1 ? undefined : fit.k, transformOrigin: '50% 0', width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
         <div className="f-press" style={{ fontSize: 80, color: 'var(--hp)', textShadow: '#101126 8px 8px 0', animation: 'slam 450ms steps(6) both' }}>DEFEAT</div>
         <div className="f-body" style={{ fontSize: 22, color: 'var(--soft)', animation: 'fadeIn 300ms 400ms both' }}>
           {foe.name} drowned you out on floor {foe.floor}.
@@ -185,7 +196,7 @@ export function Loss() {
           {run.demo ? 'Practice run (demo mode): not ranked.' : user ? `Posted to the leaderboard as ${user.username}.` : 'Playing as guest. Sign in on the title to post scores.'}
         </div>
         <div style={{ marginTop: 18, animation: 'riseIn 300ms 1800ms steps(4) both' }}>
-          <YellowButton onClick={again}>TRY AGAIN</YellowButton>
+          <YellowButton onClick={() => { if (!startingRun) void again(); }}>{startingRun ? 'PREPARING…' : 'TRY AGAIN'}</YellowButton>
         </div>
       </div>
     </div>
@@ -230,14 +241,14 @@ function XStamp({ size, t, at }: { size: number; t: number; at: number }) {
   );
 }
 
-function Portrait({ sprite, spriteFilter, size, boss, t, dropAt, stampAt, dim }: { sprite: string; spriteFilter?: string; size: number; boss?: boolean; t: number; dropAt: number; stampAt: number; dim?: boolean }) {
+function Portrait({ sprite, spriteFilter, size, boss, t, dropAt, stampAt, dim, thumb }: { sprite: string; spriteFilter?: string; size: number; boss?: boolean; t: number; dropAt: number; stampAt: number; dim?: boolean; thumb?: boolean }) {
   if (t < dropAt) return <div style={{ width: size, height: size }} />;
   const drop = stepK(k01(t, dropAt, dropAt + 250), 4);
   const stamped = t >= stampAt;
   return (
     <div style={{ position: 'relative', width: size, height: size, transform: `translateY(${(1 - drop) * -60}px)` }}>
       <Octagon size={size} ring={boss ? '#FF4FA3' : '#3A3F70'} fill={boss ? '#4A1D38' : '#1E2140'}>
-        <div className="sprite" style={{ left: 0, top: 0, width: size - 12, height: size - 12, backgroundImage: `url(${sprite})`, filter: `${spriteFilter ?? ''} ${stamped || dim ? 'grayscale(1) brightness(0.55)' : ''}`.trim() || undefined }} />
+        <div className="sprite" style={{ left: 0, top: 0, width: size - 12, height: size - 12, backgroundImage: `url(${art(sprite, thumb ? 'thumb' : 'full')})`, filter: `${spriteFilter ?? ''} ${stamped || dim ? 'grayscale(1) brightness(0.55)' : ''}`.trim() || undefined }} />
       </Octagon>
       <XStamp size={size} t={t} at={stampAt} />
     </div>
@@ -283,7 +294,7 @@ export function ActClear() {
   const hop = stepK(k01(t, 3800, 4100), 3);
 
   return (
-    <div className="fill" style={{ background: '#101126', overflow: 'hidden', transform: shake }}>
+    <div className="fill screen-clip" style={{ background: '#101126', transform: shake }}>
       <Bg src={foes[2].bg} style={{ filter: `${foes[2].bgFilter ?? ''} brightness(0.3) saturate(0.5)` }} />
       <div className="fill" style={{ background: 'radial-gradient(ellipse 55% 55% at 42% 45%, rgba(255,210,63,0.16), rgba(16,17,38,0.92) 80%)' }} />
       {t > 400 && <Confetti n={24} />}
@@ -337,16 +348,17 @@ export function ActClear() {
         </div>
         {/* Riff's pin */}
         <div style={{ position: 'absolute', left: -46, top: 28 + (5 - actIdx - hop) * 92 + 22, width: 36, height: 36, overflow: 'hidden', background: '#2A2F55', border: '3px solid var(--sun)' }}>
-          <div className="sprite" style={{ left: -48, top: 0, width: 130, height: 130, backgroundImage: `url(${instrumentOf(run).sprite})`, backgroundPosition: '50% 0' }} />
+          <div className="sprite" style={{ left: -48, top: 0, width: 130, height: 130, backgroundImage: `url(${art(instrumentOf(run).sprite)})`, backgroundPosition: '50% 0' }} />
         </div>
       </div>
 
       {/* Call to action */}
-      <div style={{ position: 'absolute', left: 120, top: 790, width: 900, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, opacity: ready ? 1 : 0, transform: `translateY(${ready ? 0 : 20}px)` }}>
+      <div className="ui-b ui-soft" style={{ position: 'absolute', left: 120, top: 790, width: 900, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, opacity: ready ? 1 : 0, transform: `translateY(${ready ? 0 : 20}px)` }}>
         <YellowButton onClick={proceed}>CLIMB TO ACT {actIdx + 2} ▸</YellowButton>
-        <span className="f-label" style={{ fontSize: 11, color: 'var(--muted)' }}>{next ? `${next.name.toUpperCase()} · UNSEALED` : ''}{canUpgrade ? ' · SPEND TIPS: CLICK RIFF, TOP LEFT' : ''} · CHECKPOINT SAVED</span>
+        <span className="f-label" style={{ fontSize: 11, color: 'var(--muted)' }}>{next ? `${next.name.toUpperCase()} · UNSEALED` : ''}<span className="desk-only">{canUpgrade ? ' · SPEND TIPS: CLICK RIFF, TOP LEFT' : ''}</span> · CHECKPOINT SAVED</span>
       </div>
-      <Hud center={`ACT ${actIdx + 1} CLEARED`} pulse={ready && canUpgrade ? 'face' : undefined} />
+      {/* Phones: the taller HUD would crowd the headline; the rewards panel already shows tips and HP. */}
+      <div className="desk-only"><Hud center={`ACT ${actIdx + 1} CLEARED`} pulse={ready && canUpgrade ? 'face' : undefined} /></div>
     </div>
   );
 }
@@ -389,7 +401,7 @@ export function FinalVictory() {
   const sing = t >= SING;
 
   return (
-    <div className="fill" style={{ background: '#101126', overflow: 'hidden' }}>
+    <div className="fill screen-clip" style={{ background: '#101126' }}>
       <Bg src="/assets/bg/summit.png" style={{ filter: `brightness(${sing ? 0.75 : 0.2}) saturate(${sing ? 1 : 0.3})`, transition: 'filter 500ms steps(5)' }} />
       {sing && <Stars />}
       {sing && <div style={{ position: 'absolute', left: 520, top: 0, width: 400, height: 900, background: 'linear-gradient(180deg, rgba(255,230,150,0.35), rgba(255,230,150,0))', clipPath: 'polygon(35% 0, 65% 0, 100% 100%, 0 100%)', animation: 'fadeIn 600ms steps(6) both' }} />}
@@ -412,7 +424,7 @@ export function FinalVictory() {
               <span className="f-label" style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>ACT {a.n}</span>
               {ENEMIES.slice(ai * 3, ai * 3 + 3).map((e, j) => {
                 const i = ai * 3 + j;
-                return <Portrait key={e.id} sprite={e.sprite} spriteFilter={e.spriteFilter} size={e.boss ? 150 : 118} boss={e.boss} t={t} dropAt={ROLL + i * 40} stampAt={ROLL + 250 + i * STAMP_GAP} />;
+                return <Portrait key={e.id} thumb sprite={e.sprite} spriteFilter={e.spriteFilter} size={e.boss ? 150 : 118} boss={e.boss} t={t} dropAt={ROLL + i * 40} stampAt={ROLL + 250 + i * STAMP_GAP} />;
               })}
             </div>
           ))}
@@ -440,7 +452,7 @@ export function FinalVictory() {
               {rank ? `#${rank} ON THE BOARD` : user ? 'SCORE POSTED' : 'SIGN IN TO RANK'}
             </div>
           )}
-          <div style={{ position: 'absolute', left: 0, top: 790, width: 1440, display: 'flex', justifyContent: 'center', gap: 18, zIndex: 6, opacity: t > 7000 ? 1 : 0 }}>
+          <div className="ui-b ui-soft" style={{ position: 'absolute', left: 0, bottom: 'calc(48px - var(--rail-b))', width: 1440, display: 'flex', justifyContent: 'center', gap: 18, zIndex: 6, opacity: t > 7000 ? 1 : 0 }}>
             <YellowButton onClick={again}>START NEW ADVENTURE</YellowButton>
             <YellowButton small onClick={() => useGame.getState().go('leaderboard')} style={{ background: '#2A2F55', color: '#fff', boxShadow: '#101126 6px 6px 0' }}>LEADERBOARD</YellowButton>
           </div>

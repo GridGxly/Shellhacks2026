@@ -6,6 +6,7 @@
 //    own readWrite user can't do this step, so run it with an admin connection string if needed:
 //      MONGODB_ADMIN_URI=mongodb+srv://… node --env-file=.env.local scripts/atlas-setup.mjs
 import { MongoClient } from 'mongodb';
+import indexes from '../lib/mongo-indexes.json' with { type: 'json' };
 
 const uri = process.env.MONGODB_ADMIN_URI || process.env.MONGODB_URI;
 if (!uri) throw new Error('Set MONGODB_URI (or MONGODB_ADMIN_URI) first.');
@@ -39,7 +40,7 @@ const validators = {
   trainingDaily: {
     bsonType: 'object', required: ['_id', 'userId', 'day', 'state', 'createdAt', 'updatedAt', 'expiresAt'],
     properties: {
-      _id: { bsonType: 'string' }, userId: { bsonType: 'string' }, day: { bsonType: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' }, createdAt: { bsonType: 'date' }, updatedAt: { bsonType: 'date' }, expiresAt: { bsonType: 'date' },
+      _id: { bsonType: 'string' }, userId: { bsonType: 'string' }, day: { bsonType: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' }, createdAt: { bsonType: 'date' }, completedAt: { bsonType: 'date' }, updatedAt: { bsonType: 'date' }, expiresAt: { bsonType: 'date' },
       state: { bsonType: 'object', required: ['day', 'resetsAt', 'serverNow', 'revision', 'plan', 'status', 'nextIndex', 'receipts', 'claimed', 'pendingBuff', 'weaknesses'], properties: {
         day: { bsonType: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' }, resetsAt: count, serverNow: count, revision: count, plan, status: { enum: ['ready', 'active', 'paused', 'complete'] }, nextIndex: { ...num, minimum: 0, maximum: 4 }, claimed: { bsonType: 'bool' }, pendingBuff: { bsonType: 'bool' }, weaknesses: summary,
         activeAttempt: { bsonType: 'object', required: ['id', 'exerciseId', 'startAt'], properties: { id: { bsonType: 'string', maxLength: 80 }, exerciseId: { bsonType: 'string', maxLength: 80 }, startAt: count } }, finalFeedback: feedback,
@@ -72,6 +73,34 @@ const validators = {
       endedBy: { enum: ['loss', 'victory'] },
       weekKey: { bsonType: 'string', pattern: '^\\d{4}-W\\d{2}$' },
       at: { bsonType: 'date' },
+    },
+  },
+  // Tavern shows: short-lived (TTL), one document per room code.
+  tavernRooms: {
+    bsonType: 'object', required: ['_id', 'phase', 'host', 'createdAt', 'expiresAt'],
+    properties: {
+      _id: { bsonType: 'string', pattern: '^[A-HJ-NP-Z2-9]{4}$' },
+      nonce: { bsonType: 'string', pattern: '^[a-f0-9]{32}$' },
+      mode: { enum: ['duet', 'pvp'] },
+      phase: { enum: ['waiting', 'ready', 'countdown', 'results', 'done', 'gone'] },
+      host: { bsonType: 'object', required: ['name', 'instrument', 'part', 'tokenHash', 'seenAt'], properties: { instrument: { enum: INSTRUMENTS }, part: { enum: ['A', 'B'] }, tokenHash: { bsonType: 'string', pattern: '^[a-f0-9]{64}$' }, userId: { bsonType: ['string', 'null'] } } },
+      guest: { bsonType: ['object', 'null'] },
+      pass: { bsonType: 'bool' },
+      createdAt: { bsonType: 'date' },
+      expiresAt: { bsonType: 'date' },
+    },
+  },
+  // One recorded take per player per show, kept apart from the room so polls stay small.
+  tavernTakes: {
+    bsonType: 'object', required: ['_id', 'room', 'nonce', 'part', 'audio', 'mime', 'expiresAt'],
+    properties: {
+      _id: { bsonType: 'string' },
+      room: { bsonType: 'string', pattern: '^[A-HJ-NP-Z2-9]{4}$' },
+      nonce: { bsonType: 'string' },
+      part: { enum: ['A', 'B'] },
+      audio: { bsonType: 'binData' },
+      mime: { enum: ['audio/webm', 'audio/webm;codecs=opus', 'audio/mp4', 'audio/mp4;codecs=mp4a.40.2'] },
+      expiresAt: { bsonType: 'date' },
     },
   },
   fights: {
@@ -115,10 +144,7 @@ for (const [name, schema] of Object.entries(validators)) {
     } else throw e;
   }
 }
-await Promise.all([
-  db.collection('trainingDaily').createIndex({ userId: 1, day: 1 }, { unique: true }),
-  db.collection('trainingDaily').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-  db.collection('performanceEvents').createIndex({ userId: 1, source: 1, attemptId: 1 }, { unique: true }),
-  db.collection('rewardClaims').createIndex({ userId: 1, runId: 1 }, { unique: true }),
-]);
+// 3. Indexes: the same manifest the app applies on first connect (lib/db.ts).
+for (const ix of indexes) await db.collection(ix.collection).createIndex(ix.keys, ix.options);
+console.log(`indexes: ${indexes.length} ensured`);
 await client.close();

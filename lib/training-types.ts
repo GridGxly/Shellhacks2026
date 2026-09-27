@@ -43,6 +43,25 @@ export interface TrainingReceipt {
   feedback: TrainingFeedback;
   completedAt: number;
 }
+/**
+ * One stop in the end-of-set review: a single missed note, the twin who
+ * explains it, and the beat to pause on. Text is server-generated; the client
+ * never supplies speech (see voiceTicket).
+ */
+export interface ReviewStop {
+  exerciseId: string;
+  exerciseIndex: number;
+  noteIndex: number;
+  startBeat: number;
+  speaker: 'castor' | 'pollux';
+  reason: 'pitch' | 'timing' | 'silent';
+  line: string;
+  voiceToken?: string;
+}
+export interface ReviewSummary {
+  stops: ReviewStop[];
+  perExercise: { exerciseId: string; exerciseIndex: number; role: TrainingExercise['role']; hits: number; total: number }[];
+}
 export type PerformanceSource = 'adventure' | 'tavern' | 'training';
 export interface WeaknessBucket { attempts: number; hits: number }
 export interface WeaknessSummary {
@@ -73,4 +92,30 @@ export interface PerformanceInput {
   exercise: Exercise;
   notes: NoteResult[];
   simulated: boolean;
+}
+
+/** Accuracy for one mode over the recent window (non-simulated takes only). */
+export interface SourceStats { attempts: number; hits: number; notes: number }
+/**
+ * The mentor's player file (signed-in players; guests keep weaknesses in memory).
+ * Assembled from practiceProfiles, performanceEvents, runs and trainingDaily.
+ */
+export interface MentorProfile {
+  username: string;
+  weaknesses: WeaknessSummary; // long-term, every mode
+  recent: { days: number; bySource: Record<PerformanceSource, SourceStats> };
+  climbs: {
+    total: number;
+    victories: number;
+    deepest: number;
+    best: { score: number; floor: number } | null;
+    favoriteInstrument: InstrumentId | null;
+    recent: { floor: number; accuracy: number; instrument: InstrumentId; endedBy: 'loss' | 'victory'; at: number }[];
+  };
+  training: {
+    daysCompleted: number; // within the history window
+    streak: number; // consecutive completed UTC days, ending today or yesterday
+    today: { status: TrainingState['status']; claimed: boolean; exercisesDone: number } | null;
+  };
+  generatedAt: number;
 }

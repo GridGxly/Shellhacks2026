@@ -1,6 +1,7 @@
+import { guarded, voiceBudget } from '@/lib/server/api-guard';
 import { pickTaunt, type TauntFacts, type TauntMoment } from '@/lib/taunts';
 import { ENEMIES, type VoiceKey } from '@/lib/content';
-import { bad, handled, int, mutation, object, readJson } from '@/lib/server/http';
+import { bad, int, mutation, object, readJson } from '@/lib/server/http';
 import { clientIp, limit } from '@/lib/server/ratelimit';
 
 const VOICES: Record<VoiceKey, string> = {
@@ -29,7 +30,7 @@ function factsFrom(v: unknown): TauntFacts | null {
 }
 
 export async function POST(request: Request) {
-  return handled(async () => {
+  return guarded(request, async () => {
     const guard = mutation(request); if (guard) return guard;
     const b = await readJson(request, 4096); if (b instanceof Response) return b;
     const facts = factsFrom(b.facts);
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
     const text = taunt.text.slice(0, 200);
     const headers = { 'X-Taunt-Id': taunt.id, 'X-Taunt-Text': encodeURIComponent(text), 'Cache-Control': 'no-store' };
     const fallback = () => new Response(null, { status: 200, headers });
+    const budget = await voiceBudget(request); if (budget) return budget;
     const key = process.env.ELEVENLABS_API_KEY;
     if (!key) return fallback();
     const controller = new AbortController();
