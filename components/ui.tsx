@@ -20,6 +20,11 @@ export function Bg({ src, style, dim = 0, blur = 0 }: { src: string; style?: CSS
   );
 }
 
+/** Art plus whatever stands on it, scaled together to cover the window (see .scene). */
+export function Scene({ children, shift, style }: { children: ReactNode; shift?: string; style?: CSSProperties }) {
+  return <div className="scene" style={{ ...(shift ? { ['--scene-shift' as string]: shift } : null), ...style }}>{children}</div>;
+}
+
 export function Sprite({ src, x, y, size, style, className }: { src: string; x: number; y: number; size: number; style?: CSSProperties; className?: string }) {
   return (
     <div
@@ -156,15 +161,24 @@ export function Stars() {
   );
 }
 
-export function Octagon({ size, children, ring = '#3A3F70', fill = '#1E2140', style }: { size: number; children: ReactNode; ring?: string; fill?: string; style?: CSSProperties }) {
+export function Octagon({ size, children, ring = '#3A3F70', fill = '#1E2140', style, className }: { size: number; children: ReactNode; ring?: string; fill?: string; style?: CSSProperties; className?: string }) {
   const c = size * 0.25;
   const i = size - 12;
   const ci = i * 0.25;
   return (
-    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0, background: '#101126', clipPath: `polygon(${c}px 0, ${size - c}px 0, ${size}px ${c}px, ${size}px ${size - c}px, ${size - c}px ${size}px, ${c}px ${size}px, 0 ${size - c}px, 0 ${c}px)`, ...style }}>
+    <div className={className} style={{ position: 'relative', width: size, height: size, flexShrink: 0, background: '#101126', clipPath: `polygon(${c}px 0, ${size - c}px 0, ${size}px ${c}px, ${size}px ${size - c}px, ${size - c}px ${size}px, ${c}px ${size}px, 0 ${size - c}px, 0 ${c}px)`, ...style }}>
       <div style={{ position: 'absolute', left: 6, top: 6, width: i, height: i, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, background: fill, boxShadow: `${ring} 0 0 0 4px inset`, clipPath: `polygon(${ci}px 0, ${i - ci}px 0, ${i}px ${ci}px, ${i}px ${i - ci}px, ${i - ci}px ${i}px, ${ci}px ${i}px, 0 ${i - ci}px, 0 ${ci}px)` }}>
         {children}
       </div>
     </div>
+  );
+}
+
+/** Pixel padlock. */
+export function Padlock({ size, color = '#E6E8F7', style }: { size: number; color?: string; style?: CSSProperties }) {
+  return (
+    <svg style={style} width={size} height={size * 1.16} viewBox="0 0 6 7" shapeRendering="crispEdges" aria-hidden="true">
+      <path d="M1 0h4v1H1zM0 1h1v2H0zM5 1h1v2H5zM0 3h6v4H0z" fill={color} /><rect x="2" y="4" width="2" height="2" fill="#3A3F70" />
+    </svg>
   );
 }

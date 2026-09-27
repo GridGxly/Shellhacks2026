@@ -139,6 +139,11 @@ export async function trainingRequest(request: Request, action: Action) {
         return trainingVoice(feedback, body.speaker);
       }
       if (action === 'feedback') {
+        const oneshot = guestFacts(body);
+        if (oneshot && !body.planId) {
+          const feedback = await createTrainingFeedback(oneshot.exercise, oneshot.notes, oneshot.final);
+          return json({ feedback, voiceToken: voiceTicket(feedback) });
+        }
         if (!user) {
           const facts = guestFacts(body); if (!facts) throw new Problem('Invalid practice feedback facts.');
           const feedback = await createTrainingFeedback(facts.exercise, facts.notes, facts.final); return json({ feedback, voiceToken: voiceTicket(feedback) });

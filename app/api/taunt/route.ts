@@ -34,10 +34,11 @@ export async function POST(request: Request) {
     const guard = mutation(request); if (guard) return guard;
     const b = await readJson(request, 4096); if (b instanceof Response) return b;
     const facts = factsFrom(b.facts);
-    if (!ENEMIES.some((e) => e.voice === b.enemy) || !int(b.heat, 0, 3) || !['miss', 'enemyTurn', 'hit'].includes(b.moment as string) || !facts || !Array.isArray(b.used) || b.used.length > 50 || b.used.some((s) => typeof s !== 'string' || s.length > 16)) return bad('Bad taunt.');
+    const foe = ENEMIES.find((e) => e.id === b.enemyId && e.voice === b.enemy);
+    if (!foe || !int(b.heat, 0, 3) || !['miss', 'enemyTurn', 'hit'].includes(b.moment as string) || !facts || !Array.isArray(b.used) || b.used.length > 50 || b.used.some((s) => typeof s !== 'string' || s.length > 16)) return bad('Bad taunt.');
     const local = await limit(`taunt:${clientIp(request)}`, 30, 600_000); if (local) return local;
     const global = await limit('taunt:global', 120, 60_000); if (global) return global;
-    const taunt = pickTaunt(b.enemy as VoiceKey, b.heat, b.moment as TauntMoment, facts, b.used as string[]);
+    const taunt = pickTaunt(foe.voice, foe.id, b.heat, b.moment as TauntMoment, facts, b.used as string[]);
     if (!taunt) return new Response(null, { status: 204 });
     const text = taunt.text.slice(0, 200);
     const headers = { 'X-Taunt-Id': taunt.id, 'X-Taunt-Text': encodeURIComponent(text), 'Cache-Control': 'no-store' };
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     try {
-      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICES[b.enemy as VoiceKey]}/stream?output_format=mp3_44100_64`, {
+      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICES[foe.voice]}/stream?output_format=mp3_44100_64`, {
         method: 'POST', signal: controller.signal,
         headers: { 'xi-api-key': key, 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, model_id: 'eleven_flash_v2_5', voice_settings: { stability: 0.3, similarity_boost: 0.8, style: 0.7 } }),

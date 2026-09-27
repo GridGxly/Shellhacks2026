@@ -1,11 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useGame, type Screen } from '@/lib/store';
+import { useGame } from '@/lib/store';
 import { ac, applySettings, playMusic, preload, sfx } from '@/lib/audio';
 import { ENEMIES } from '@/lib/content';
 import { mic } from '@/lib/mic';
 import { applyViewport, enterFullscreen, measureViewport, touchDevice } from '@/lib/viewport';
-import { art } from '@/lib/art';
 import Title from './screens/Title';
 import Tavern from './screens/Tavern';
 import Training from './screens/Training';
@@ -27,9 +26,6 @@ export default function Game() {
   const overlay = useGame((s) => s.overlay);
   const transition = useGame((s) => s.transition);
   const toast = useGame((s) => s.toast);
-  // The ambient backdrop beside the frame on wide phones continues the current scene.
-  const scene = useGame((s) => sceneBackground(s.screen, s.combat?.enemyIdx, s.run.floor));
-  useEffect(() => { document.documentElement.style.setProperty('--scene-background', `url(${art(scene)})`); }, [scene]);
 
   useEffect(() => {
     // visualViewport tracks the area left after mobile browser bars show or hide.
@@ -166,7 +162,6 @@ export default function Game() {
 
             {toast && <Toast text={toast} />}
             {transition === 'wipe' && <Wipe />}
-            {transition === 'iris' && <Iris />}
           </>
         )}
       </div>
@@ -175,22 +170,12 @@ export default function Game() {
   );
 }
 
-function sceneBackground(screen: Screen, enemyIdx: number | undefined, floor: number) {
-  if (screen === 'combat' && enemyIdx !== undefined) return ENEMIES[enemyIdx].bg;
-  if (screen === 'victory' || screen === 'actclear') return ENEMIES[Math.max(0, floor - 1)].bg;
-  if (screen === 'loss') return ENEMIES[Math.min(ENEMIES.length - 1, floor)].bg;
-  if (screen === 'map') return '/assets/bg/map.png';
-  if (screen === 'instrument') return '/assets/bg/showroom.png';
-  if (screen === 'tavern' || screen === 'training') return '/assets/bg/tavern.png';
-  return '/assets/bg/summit.png';
-}
-
 /** Portrait phones: the 1440×900 stage would be a thin strip, so ask for landscape. */
 function RotateHint() {
   return (
     <div className="rotate-hint" style={{ position: 'fixed', inset: 0, zIndex: 400, placeItems: 'center', background: '#07070f', padding: 32 }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28, textAlign: 'center' }}>
-        <svg width="96" height="96" viewBox="0 0 16 16" shapeRendering="crispEdges" style={{ animation: 'rotatePhone 1.8s steps(6) infinite alternate' }}>
+        <svg width="96" height="96" viewBox="0 0 16 16" shapeRendering="crispEdges" style={{ animation: 'rotatePhone 1.2s steps(6) both' }}>
           <rect x="4" y="1" width="8" height="14" fill="#FFD23F" /><rect x="5" y="2" width="6" height="11" fill="#1B1D3A" />
           <rect x="7" y="13" width="2" height="1" fill="#101126" /><rect x="6" y="5" width="4" height="4" fill="#FF4FA3" />
         </svg>
@@ -208,9 +193,9 @@ function BootGate({ onStart }: { onStart: () => void }) {
         {/* Server-rendered, so phones pick the light logo by media query rather than art(). */}
         <picture>
           <source media="(pointer: coarse) and (max-width: 500px), (pointer: coarse) and (max-height: 500px)" srcSet="/assets/m/logo.webp" type="image/webp" />
-          <img src="/assets/logo.png" alt="Slay the Choir" width={520} style={{ display: 'block', animation: 'fadeIn 800ms both' }} />
+          <img src="/assets/d/logo.webp" alt="Slay the Choir" width={520} style={{ display: 'block', animation: 'fadeIn 800ms both' }} />
         </picture>
-        <div className="f-press boot-start" style={{ fontSize: 16, color: 'var(--sun)', animation: 'blink 1.1s steps(1) infinite' }}>
+        <div className="f-press boot-start" style={{ fontSize: 16, color: 'var(--sun)' }}>
           <span className="kbd-only">PRESS ANY KEY</span>
           <span className="touch-only">TAP TO START</span>
         </div>
@@ -244,15 +229,6 @@ function Wipe() {
           }}
         />
       ))}
-    </div>
-  );
-}
-
-function Iris() {
-  return (
-    <div className="fill bleed" style={{ zIndex: 100, pointerEvents: 'none' }}>
-      <div className="fill" style={{ background: '#07070f', animation: 'irisOpenClose 1100ms steps(14) both' }} />
-      <style>{`@keyframes irisOpenClose { 0% { clip-path: circle(0% at 50% 50%); } 45%, 55% { clip-path: circle(80% at 50% 50%); } 100% { clip-path: circle(0% at 50% 50%); } }`}</style>
     </div>
   );
 }

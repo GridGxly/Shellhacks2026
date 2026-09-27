@@ -61,8 +61,9 @@ export function measureViewport(width: number, height: number, left = 0, top = 0
   return {
     scale,
     ui: handheld ? Math.min(UI_MAX, Math.max(1, UI_FLOOR / scale)) : 1,
-    bleedX: handheld ? Math.max(0, (width / scale - STAGE_W) / 2) : 0,
-    bleedY: handheld ? Math.max(0, (height / scale - STAGE_H) / 2) : 0,
+    // Every screen fills the window: the space past the 1440×900 frame is bleed.
+    bleedX: Math.max(0, (width / scale - STAGE_W) / 2),
+    bleedY: Math.max(0, (height / scale - STAGE_H) / 2),
     handheld,
     portrait: window.matchMedia('(orientation: portrait)').matches,
     safe: safeInsets(),
@@ -77,15 +78,9 @@ export function applyViewport(next: Viewport) {
   root.style.setProperty('--ui', String(next.ui));
   root.style.setProperty('--bleed-x', `${next.bleedX}px`);
   root.style.setProperty('--bleed-y', `${next.bleedY}px`);
+  // Scene layers scale by this so the art and whatever stands on it cover the glass together.
+  root.style.setProperty('--cover', String(Math.max(1 + (2 * next.bleedX) / STAGE_W, 1 + (2 * next.bleedY) / STAGE_H)));
   root.toggleAttribute('data-handheld', next.handheld);
-  // Turning a phone from portrait to landscape reveals the stage with a short
-  // stepped wake instead of the browser's half-resized frames.
-  if (current.portrait && !next.portrait && next.handheld) {
-    root.removeAttribute('data-waking');
-    void root.offsetWidth;
-    root.setAttribute('data-waking', '');
-    window.setTimeout(() => root.removeAttribute('data-waking'), 700);
-  }
   current = next;
   listeners.forEach((l) => l());
 }

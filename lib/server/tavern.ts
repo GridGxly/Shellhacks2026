@@ -1,5 +1,5 @@
 import { guarded } from '@/lib/server/api-guard';
-import { createHash, randomBytes, randomInt } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 // Binary: takes are stored as binary in tavernTakes.
 import { Binary, type ClientSession, type Db } from 'mongodb';
 import {

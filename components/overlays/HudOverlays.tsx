@@ -4,9 +4,9 @@ import { duck, saveSettings, settings, sfx, type AudioSettings } from '@/lib/aud
 import { STATS, XP_PER_LEVEL, type StatId } from '@/lib/config';
 import { ACTS, ENEMIES } from '@/lib/content';
 import { mic } from '@/lib/mic';
-import { canAfford, instrumentOf, level, stat, useGame } from '@/lib/store';
+import { canAfford, instrumentOf, level, stat, upgradeLock, useGame } from '@/lib/store';
 import { enterFullscreen, useFullscreenOffer, useStageFit } from '@/lib/viewport';
-import { Sprite, YellowButton } from '../ui';
+import { Padlock, Sprite, YellowButton } from '../ui';
 import { art } from '@/lib/art';
 
 /** M5: dim fades in, panel pops from the HUD button it came from. */
@@ -55,6 +55,7 @@ function CloseButton() {
 
 export function StatsOverlay() {
   const run = useGame((s) => s.run);
+  const lock = useGame(upgradeLock);
   const inst = instrumentOf(run);
   const [flash, setFlash] = useState<{ id: StatId; key: number } | null>(null);
   const [deny, setDeny] = useState<StatId | null>(null);
@@ -84,7 +85,7 @@ export function StatsOverlay() {
             <span className="f-press" style={{ fontSize: 26, color: '#fff' }}>RIFF</span>
             <span className="f-body" style={{ fontSize: 17, color: 'var(--muted)' }}>the {inst.name}</span>
           </div>
-          <Sprite key={flash?.key} src={inst.sprite} x={40} y={130} size={320} style={{ animation: flash ? 'hitFlash 300ms steps(2), bob 900ms steps(2) infinite' : 'breathe 1.2s steps(2) infinite' }} />
+          <Sprite key={flash?.key} src={inst.sprite} x={40} y={130} size={320} style={{ animation: flash ? 'hitFlash 300ms steps(2)' : undefined }} />
           <div style={{ position: 'absolute', left: 28, right: 28, bottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span className="f-press" style={{ fontSize: 14, color: 'var(--sun)' }}>LEVEL {lv}</span>
@@ -108,10 +109,14 @@ export function StatsOverlay() {
               <CloseButton />
             </div>
           </div>
-          <div className="f-body" style={{ fontSize: 16, color: 'var(--muted)' }}>Tips come from every win. Upgrades last the whole climb.</div>
+          <div className="f-body" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 16, color: lock ? 'var(--sun)' : 'var(--muted)' }}>
+            {lock && <Padlock size={14} color="var(--sun)" />}
+            {lock === 'fight' ? 'Upgrades are locked mid-fight. Spend tips on the map between fights.' : lock === 'first' ? 'Win your first fight to unlock upgrades.' : 'Tips come from every win. Upgrades last the whole climb.'}
+          </div>
           {STATS.map((d, i) => {
             const v = stat(run, d.id);
             const { maxed, affordable, cost } = canAfford(run, d.id);
+            const open = affordable && !lock;
             const pips = Math.round((d.max - d.base) / d.step);
             const hot = flash?.id === d.id;
             return (
@@ -135,17 +140,19 @@ export function StatsOverlay() {
                 <span key={v} className="f-press" style={{ fontSize: 18, color: '#fff', animation: hot ? 'slam 300ms steps(4)' : undefined }}>{d.format(v)}</span>
                 <button
                   disabled={maxed}
+                  aria-disabled={Boolean(lock) || !affordable}
                   onMouseEnter={() => sfx('hover')}
                   onClick={() => buy(d.id)}
                   className="f-press hoverable pressable"
                   style={{
-                    padding: '10px 12px', fontSize: 12, border: '3px solid #101126',
-                    background: maxed ? '#2A2F55' : affordable ? 'var(--meadow)' : '#3A3F70',
-                    color: maxed ? 'var(--muted)' : affordable ? '#101126' : '#9AA0C8',
-                    boxShadow: affordable ? '#1F6B34 -3px -3px 0 inset' : undefined,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 12px', fontSize: 12, border: '3px solid #101126',
+                    background: maxed ? '#2A2F55' : open ? 'var(--meadow)' : '#2A2F55',
+                    color: maxed ? 'var(--muted)' : open ? '#101126' : '#9AA0C8',
+                    boxShadow: open ? '#1F6B34 -3px -3px 0 inset' : undefined,
                   }}
                 >
-                  {maxed ? 'MAXED' : `+ ${cost} TIPS`}
+                  {!maxed && !open && <Padlock size={11} color="#9AA0C8" />}
+                  {maxed ? 'MAXED' : lock ? 'LOCKED' : open ? `+ ${cost} TIPS` : `${cost} TIPS`}
                 </button>
               </div>
             );
@@ -289,7 +296,7 @@ export function MapPeek() {
                     );
                   })}
                 </div>
-                {ai === act && <span className="f-press" style={{ fontSize: 10, color: '#C23A7E', animation: 'blink 1s steps(1) infinite' }}>◀ YOU</span>}
+                {ai === act && <span className="f-press" style={{ fontSize: 10, color: '#C23A7E' }}>◀ YOU</span>}
               </div>
             ))}
           </div>
