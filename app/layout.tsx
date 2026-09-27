@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { Noto_Music, Pixelify_Sans, Press_Start_2P, Silkscreen } from "next/font/google";
 import "./globals.css";
 
@@ -31,7 +32,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${pressStart.variable} ${pixelify.variable} ${silkscreen.variable} ${notoMusic.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
