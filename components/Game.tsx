@@ -1,11 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useGame, type Screen } from '@/lib/store';
+import { useGame } from '@/lib/store';
 import { ac, applySettings, playMusic, preload, sfx } from '@/lib/audio';
 import { ENEMIES } from '@/lib/content';
 import { mic } from '@/lib/mic';
 import { applyViewport, enterFullscreen, measureViewport, touchDevice } from '@/lib/viewport';
-import { art } from '@/lib/art';
 import Title from './screens/Title';
 import Tavern from './screens/Tavern';
 import Training from './screens/Training';
@@ -27,9 +26,6 @@ export default function Game() {
   const overlay = useGame((s) => s.overlay);
   const transition = useGame((s) => s.transition);
   const toast = useGame((s) => s.toast);
-  // The ambient backdrop beside the frame on wide phones continues the current scene.
-  const scene = useGame((s) => sceneBackground(s.screen, s.combat?.enemyIdx, s.run.floor));
-  useEffect(() => { document.documentElement.style.setProperty('--scene-background', `url(${art(scene)})`); }, [scene]);
 
   useEffect(() => {
     // visualViewport tracks the area left after mobile browser bars show or hide.
@@ -172,16 +168,6 @@ export default function Game() {
       <RotateHint />
     </div>
   );
-}
-
-function sceneBackground(screen: Screen, enemyIdx: number | undefined, floor: number) {
-  if (screen === 'combat' && enemyIdx !== undefined) return ENEMIES[enemyIdx].bg;
-  if (screen === 'victory' || screen === 'actclear') return ENEMIES[Math.max(0, floor - 1)].bg;
-  if (screen === 'loss') return ENEMIES[Math.min(ENEMIES.length - 1, floor)].bg;
-  if (screen === 'map') return '/assets/bg/map.png';
-  if (screen === 'instrument') return '/assets/bg/showroom.png';
-  if (screen === 'tavern' || screen === 'training') return '/assets/bg/tavern.png';
-  return '/assets/bg/summit.png';
 }
 
 /** Portrait phones: the 1440×900 stage would be a thin strip, so ask for landscape. */

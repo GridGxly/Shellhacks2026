@@ -101,7 +101,7 @@ export function Victory() {
   });
 
   return (
-    <div className="fill screen-clip" style={{ background: '#101126' }}>
+    <div className="fill" style={{ background: '#101126' }}>
       <Bg src={beaten.bg} style={{ filter: `${beaten.bgFilter ?? ''} brightness(0.45) saturate(0.8)` }} />
       <div className="fill" style={{ background: 'radial-gradient(ellipse 50% 60% at 50% 40%, rgba(255,210,63,0.18), rgba(16,17,38,0.85) 80%)' }} />
       <Confetti />
@@ -169,7 +169,7 @@ export function Loss() {
   };
 
   return (
-    <div className="fill screen-clip" style={{ background: '#0B0B18' }}>
+    <div className="fill" style={{ background: '#0B0B18' }}>
       <Bg src={foe.bg} style={{ filter: `${foe.bgFilter ?? ''} grayscale(1) brightness(0.25)` }} />
       <div className="fill" style={{ background: 'radial-gradient(ellipse 60% 60% at 50% 45%, rgba(232,67,79,0.18), rgba(11,11,24,0.95) 80%)' }} />
       <Sprite src={foe.sprite} x={1000} y={300} size={foe.size} style={{ opacity: 0.35, filter: `${foe.spriteFilter ?? ''} brightness(0.4)`, animation: 'breathe 1.4s steps(2) infinite' }} />
@@ -294,7 +294,7 @@ export function ActClear() {
   const hop = stepK(k01(t, 3800, 4100), 3);
 
   return (
-    <div className="fill screen-clip" style={{ background: '#101126', transform: shake }}>
+    <div className="fill" style={{ background: '#101126', transform: shake }}>
       <Bg src={foes[2].bg} style={{ filter: `${foes[2].bgFilter ?? ''} brightness(0.3) saturate(0.5)` }} />
       <div className="fill" style={{ background: 'radial-gradient(ellipse 55% 55% at 42% 45%, rgba(255,210,63,0.16), rgba(16,17,38,0.92) 80%)' }} />
       {t > 400 && <Confetti n={24} />}
@@ -401,7 +401,7 @@ export function FinalVictory() {
   const sing = t >= SING;
 
   return (
-    <div className="fill screen-clip" style={{ background: '#101126' }}>
+    <div className="fill" style={{ background: '#101126' }}>
       <Bg src="/assets/bg/summit.png" style={{ filter: `brightness(${sing ? 0.75 : 0.2}) saturate(${sing ? 1 : 0.3})`, transition: 'filter 500ms steps(5)' }} />
       {sing && <Stars />}
       {sing && <div style={{ position: 'absolute', left: 520, top: 0, width: 400, height: 900, background: 'linear-gradient(180deg, rgba(255,230,150,0.35), rgba(255,230,150,0))', clipPath: 'polygon(35% 0, 65% 0, 100% 100%, 0 100%)', animation: 'fadeIn 600ms steps(6) both' }} />}

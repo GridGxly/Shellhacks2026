@@ -6,10 +6,15 @@
   --bleed-x: 0px; /* stage px from the art frame to the screen edge */
   --bleed-y: 0px;
   --safe-l: 0px; --safe-r: 0px; --safe-t: 0px; --safe-b: 0px; /* notch + home indicator, in stage px */
-  --rail-l: 0px; --rail-r: 0px; --rail-t: 0px; --rail-b: 0px; /* how far edge controls move outward */
+  /* How far edge controls move outward: to the safe edge of the window, on every device. */
+  --rail-l: calc(var(--bleed-x) - var(--safe-l));
+  --rail-r: calc(var(--bleed-x) - var(--safe-r));
+  --rail-t: calc(var(--bleed-y) - var(--safe-t));
+  --rail-b: calc(var(--bleed-y) - var(--safe-b));
+  --cover: 1; /* scene scale that covers the window */
   --tap: 44px; /* minimum rendered touch target */
   --ui-soft: 1; /* half-strength --ui for things that live inside the composition */
-  --hud-bottom: 63px; /* bottom edge of the scaled HUD, in stage px */
+  --hud-bottom: calc(63px * var(--ui) - var(--bleed-y)); /* bottom edge of the HUD, in stage px */
 
   --ink: #1b1f3b;
   --night: #101126;
@@ -40,11 +45,15 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 img { image-rendering: pixelated; -webkit-user-drag: none; }
 
 .viewport { position: fixed; inset: 0; display: grid; place-items: center; overflow: hidden; }
-.stage { position: absolute; left: 50%; top: 50%; width: 1440px; height: 900px; overflow: hidden; background: var(--night); transform-origin: center; }
+.stage { position: absolute; left: 50%; top: 50%; width: 1440px; height: 900px; background: var(--night); transform-origin: center; }
+/* Art and everything standing on it: scaled as one piece to cover the window (like object-fit: cover),
+   so characters stay on their ground at any window shape. --scene-shift nudges a scene vertically. */
+.scene { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 50% 50%; transform: translateY(var(--scene-shift, 0px)) scale(var(--cover)); }
 .fill { position: absolute; inset: 0; }
 /* A full-screen layer (dims, flashes, transitions): the frame on desktop, the whole glass on handhelds. */
 .bleed { position: absolute; inset: calc(-1 * var(--bleed-y)) calc(-1 * var(--bleed-x)); }
-.bg { position: absolute; background-size: cover; background-position: 50%; image-rendering: pixelated; }
+.bg { position: absolute; background-size: cover; background-position: 50%; image-rendering: pixelated; transform: scale(var(--cover)); transform-origin: 800px 450px; }
+.scene .bg { transform: none; } /* the scene already covers */
 .sprite { position: absolute; background-size: contain; background-repeat: no-repeat; background-position: 50% 100%; image-rendering: pixelated; }
 
 .f-press { font-family: var(--press); }
@@ -124,19 +133,9 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
   --safe-r: calc(env(safe-area-inset-right, 0px) / var(--stage-scale));
   --safe-t: calc(env(safe-area-inset-top, 0px) / var(--stage-scale));
   --safe-b: calc(env(safe-area-inset-bottom, 0px) / var(--stage-scale));
-  /* Negative when the frame itself sits under the notch: controls move inward. */
-  --rail-l: calc(var(--bleed-x) - var(--safe-l));
-  --rail-r: calc(var(--bleed-x) - var(--safe-r));
-  --rail-t: calc(var(--bleed-y) - var(--safe-t));
-  --rail-b: calc(var(--bleed-y) - var(--safe-b));
   --ui-soft: calc(1 + (var(--ui) - 1) * 0.5);
-  --hud-bottom: calc(63px * var(--ui) - var(--bleed-y));
   --banner-gap: 8px; /* turn banners tuck under the taller HUD, clear of enemy tags */
 }
-/* Screens clip to the frame on desktop. Handheld rails live beside the frame, so
-   there the stage and screens stop clipping and the viewport clips at the glass. */
-.screen-clip { overflow: hidden; }
-:root[data-handheld] :is(.stage, .screen-clip) { overflow: visible; }
 :root[data-handheld] .stage { --tap: calc(44px / var(--stage-scale)); }
 /* Control clusters: the same design, scaled from the corner they are anchored to. */
 :root[data-handheld] :is(.ui-tl, .ui-tr, .ui-bl, .ui-br, .ui-t, .ui-b, .ui-l, .ui-r) { scale: var(--ui); --tap: calc(44px / var(--stage-scale) / var(--ui)); }
@@ -276,7 +275,6 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 .account-mobile button { font-size:12px!important; }
 .mobile-lobby-back,.mobile-lobby-error { display:none; }
 @media (max-width:1024px), (hover:none) and (pointer:coarse) {
-  .viewport { background-image:linear-gradient(#10112644,#10112666),var(--scene-background); background-size:cover; background-position:center; }
   /* Phone tavern lobby: one landscape screen, no scrolling. Back, title and mode
      share the top row; the two show boards sit side by side; performer, mic and
      demo sit under them. The microphone state is always in view. */

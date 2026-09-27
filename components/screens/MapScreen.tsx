@@ -68,7 +68,7 @@ export default function MapScreen() {
   const nodeCenter = { x: 720, y: NODE_Y[inAct] };
 
   return (
-    <div className="fill screen-clip" style={{ background: '#101126' }}>
+    <div className="fill" style={{ background: '#101126' }}>
       <div
         className="fill"
         style={{

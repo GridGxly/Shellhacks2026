@@ -20,6 +20,11 @@ export function Bg({ src, style, dim = 0, blur = 0 }: { src: string; style?: CSS
   );
 }
 
+/** Art plus whatever stands on it, scaled together to cover the window (see .scene). */
+export function Scene({ children, shift, style }: { children: ReactNode; shift?: string; style?: CSSProperties }) {
+  return <div className="scene" style={{ ...(shift ? { ['--scene-shift' as string]: shift } : null), ...style }}>{children}</div>;
+}
+
 export function Sprite({ src, x, y, size, style, className }: { src: string; x: number; y: number; size: number; style?: CSSProperties; className?: string }) {
   return (
     <div
