@@ -747,7 +747,7 @@ function PixelBurst({ x, y, delay = 300 }: { x: number; y: number; delay?: numbe
 function KoOverlay() {
   return (
     <div className="fill bleed" style={{ zIndex: 45, pointerEvents: 'none' }}>
-      <div className="fill" style={{ background: 'rgba(232,67,79,0.35)', animation: 'fadeIn 500ms 100ms steps(4) both' }} />
+      <div className="bleed" style={{ background: 'rgba(232,67,79,0.35)', animation: 'fadeIn 500ms 100ms steps(4) both' }} />
       <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 'calc(60px + var(--bleed-y))', background: '#101126', animation: 'dropIn 300ms 700ms steps(4) both' }} />
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 'calc(60px + var(--bleed-y))', background: '#101126', animation: 'riseIn 300ms 700ms steps(4) both' }} />
       <div className="f-press" style={{ position: 'absolute', left: 0, right: 0, top: 'calc(330px + var(--bleed-y))', textAlign: 'center', fontSize: 180, lineHeight: '190px', color: 'var(--sun)', textShadow: '#101126 10px 10px 0, #E8434F 16px 18px 0', animation: 'slam 300ms 700ms steps(4) both' }}>

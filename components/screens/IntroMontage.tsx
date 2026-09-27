@@ -84,7 +84,7 @@ function Beat({ at, dur, bg, dim = 0.62, hit, heavy, children }: { at: number; d
       <div className="intro-cam">
         <div className="intro-shake" data-hit={hit === undefined ? undefined : heavy ? 'heavy' : ''} style={v({ '--hit': ms(hit ?? 0) })}>
           <div className="intro-sprite" style={{ left: -80, top: 0, width: 1600, height: 900, backgroundImage: `url(${art(`/assets/bg/${bg}.png`)})`, backgroundSize: 'cover', backgroundPosition: '50%', filter: `brightness(${dim})` }} />
-          <div className="fill" style={{ background: 'linear-gradient(180deg, rgba(16,17,38,.25), transparent 45%, rgba(16,17,38,.85))' }} />
+          <div className="bleed" style={{ background: 'linear-gradient(180deg, rgba(16,17,38,.25), transparent 45%, rgba(16,17,38,.85))' }} />
           {children}
         </div>
       </div>

@@ -20,7 +20,7 @@ export function MenuShell({ title, children, onBack }: { title: string; children
       {/* Pre-dimmed, pre-blurred copy (scripts/optimize-art.mjs): no live blur filter to re-run each frame. */}
       <Bg src="/assets/bg/t/summit-dim.webp" style={{ imageRendering: 'auto' }} />
       <div style={{ position: 'absolute', left: 420, top: -100, width: 600, height: 900, backgroundImage: 'radial-gradient(ellipse 50% 60% at 50% 15%, rgba(255,246,224,0.12) 0%, rgba(255,246,224,0) 70%)' }} />
-      <div className="fill" style={{ backgroundImage: 'radial-gradient(ellipse 70% 70% at 50% 45%, rgba(16,17,38,0) 30%, rgba(16,17,38,0.9) 100%)' }} />
+      <div className="bleed" style={{ backgroundImage: 'radial-gradient(ellipse 70% 70% at 50% 45%, rgba(16,17,38,0) 30%, rgba(16,17,38,0.9) 100%)' }} />
       <div style={{ opacity: 0.3 }}><FloatingNotes count={8} /></div>
       <div className="menu-head ui-t ui-soft" style={{ position: 'absolute', left: 0, top: 84, width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
         <div className="f-press" style={{ fontSize: 36, lineHeight: '40px', color: 'var(--parchment)', textShadow: '#101126 4px 4px 0, rgba(255,210,63,0.35) 0 0 18px', animation: 'dropIn 300ms steps(5) both' }}>{title}</div>

@@ -60,7 +60,7 @@ export default function ChooseInstrument() {
   return (
     <div className="fill" style={{ background: '#140d0a' }}>
       <Bg src="/assets/bg/showroom.png" style={{ filter: 'brightness(0.55)' }} />
-      <div className="fill" style={{ background: 'linear-gradient(180deg, rgba(16,17,38,0.4), rgba(16,17,38,0.1) 40%, rgba(16,17,38,0.85))' }} />
+      <div className="bleed" style={{ background: 'linear-gradient(180deg, rgba(16,17,38,0.4), rgba(16,17,38,0.1) 40%, rgba(16,17,38,0.85))' }} />
       {/* Spotlight cone */}
       <div style={{ position: 'absolute', left: 520, top: -40, width: 400, height: 720, background: 'linear-gradient(180deg, rgba(255,230,150,0.35), rgba(255,230,150,0.05))', clipPath: 'polygon(40% 0, 60% 0, 100% 100%, 0 100%)', animation: 'glow 3s steps(4) infinite' }} />
       <div style={{ position: 'absolute', left: 560, top: 600, width: 320, height: 40, borderRadius: '50%', background: 'rgba(255,230,150,0.25)' }} />

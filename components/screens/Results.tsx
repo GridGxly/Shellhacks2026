@@ -103,7 +103,7 @@ export function Victory() {
   return (
     <div className="fill" style={{ background: '#101126' }}>
       <Bg src={beaten.bg} style={{ filter: `${beaten.bgFilter ?? ''} brightness(0.45) saturate(0.8)` }} />
-      <div className="fill" style={{ background: 'radial-gradient(ellipse 50% 60% at 50% 40%, rgba(255,210,63,0.18), rgba(16,17,38,0.85) 80%)' }} />
+      <div className="bleed" style={{ background: 'radial-gradient(ellipse 50% 60% at 50% 40%, rgba(255,210,63,0.18), rgba(16,17,38,0.85) 80%)' }} />
       <Confetti />
       {/* 10 Victory: no Riff here; the beaten foe fades on the right */}
       <Sprite src={beaten.sprite} x={1010} y={420} size={260} style={{ filter: `${beaten.spriteFilter ?? ''} grayscale(1) brightness(0.5)`, opacity: 0.55, transform: 'rotate(8deg)', animation: 'dissolve 800ms 500ms steps(8) forwards' }} />
@@ -171,7 +171,7 @@ export function Loss() {
   return (
     <div className="fill" style={{ background: '#0B0B18' }}>
       <Bg src={foe.bg} style={{ filter: `${foe.bgFilter ?? ''} grayscale(1) brightness(0.25)` }} />
-      <div className="fill" style={{ background: 'radial-gradient(ellipse 60% 60% at 50% 45%, rgba(232,67,79,0.18), rgba(11,11,24,0.95) 80%)' }} />
+      <div className="bleed" style={{ background: 'radial-gradient(ellipse 60% 60% at 50% 45%, rgba(232,67,79,0.18), rgba(11,11,24,0.95) 80%)' }} />
       <Sprite src={foe.sprite} x={1000} y={300} size={foe.size} style={{ opacity: 0.35, filter: `${foe.spriteFilter ?? ''} brightness(0.4)`, animation: 'breathe 1.4s steps(2) infinite' }} />
       <div ref={column} className="loss-col" style={{ position: 'absolute', left: 0, top: fit.top, scale: fit.k === 1 ? undefined : fit.k, transformOrigin: '50% 0', width: 1440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
         <div className="f-press" style={{ fontSize: 80, color: 'var(--hp)', textShadow: '#101126 8px 8px 0', animation: 'slam 450ms steps(6) both' }}>DEFEAT</div>
@@ -296,7 +296,7 @@ export function ActClear() {
   return (
     <div className="fill" style={{ background: '#101126', transform: shake }}>
       <Bg src={foes[2].bg} style={{ filter: `${foes[2].bgFilter ?? ''} brightness(0.3) saturate(0.5)` }} />
-      <div className="fill" style={{ background: 'radial-gradient(ellipse 55% 55% at 42% 45%, rgba(255,210,63,0.16), rgba(16,17,38,0.92) 80%)' }} />
+      <div className="bleed" style={{ background: 'radial-gradient(ellipse 55% 55% at 42% 45%, rgba(255,210,63,0.16), rgba(16,17,38,0.92) 80%)' }} />
       {t > 400 && <Confetti n={24} />}
 
       {/* Title block */}
@@ -407,7 +407,7 @@ export function FinalVictory() {
       {sing && <div style={{ position: 'absolute', left: 520, top: 0, width: 400, height: 900, background: 'linear-gradient(180deg, rgba(255,230,150,0.35), rgba(255,230,150,0))', clipPath: 'polygon(35% 0, 65% 0, 100% 100%, 0 100%)', animation: 'fadeIn 600ms steps(6) both' }} />}
       {sing && <FloatingNotes count={16} />}
       {sing && <Confetti n={48} />}
-      {sing && t < SING + 120 && <div className="fill" style={{ background: '#FFF6E0', zIndex: 30 }} />}
+      {sing && t < SING + 120 && <div className="bleed" style={{ background: '#FFF6E0', zIndex: 30 }} />}
 
       {/* Beat 1: silence */}
       {opening && (
