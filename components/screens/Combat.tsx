@@ -142,7 +142,7 @@ export default function Combat() {
     muteMusic(false);
     if (useGame.getState().bossDemo) return useGame.getState().endBossDemo();
     useGame.getState().loseRun();
-    useGame.getState().go('loss', 'iris');
+    useGame.getState().go('loss');
   };
 
   // ---------- win ----------
@@ -158,7 +158,7 @@ export default function Combat() {
     const final = useGame.getState().run.floor + 1 >= ENEMIES.length;
     useGame.getState().winFight();
     mapFx.reveal = true;
-    useGame.getState().go(final ? 'final' : enemy.boss ? 'actclear' : 'victory', final || enemy.boss ? 'iris' : 'wipe');
+    useGame.getState().go(final ? 'final' : enemy.boss ? 'actclear' : 'victory');
   };
 
   // ---------- 09a: Riff attacks ----------

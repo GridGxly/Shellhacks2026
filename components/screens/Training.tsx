@@ -212,7 +212,7 @@ export default function Training() {
         if (op !== operation.current) return;
         apply(next); setPhase(action === 'pause' ? 'paused' : action === 'end' ? 'choose' : next.status === 'complete' ? 'complete' : 'ready');
       }
-      if (home && op === operation.current) useGame.getState().go('title', 'iris');
+      if (home && op === operation.current) useGame.getState().go('title');
     } catch (err) { if (op === operation.current) failure(err); }
     finally { if (op === operation.current) setBusy(false); }
   };

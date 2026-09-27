@@ -78,14 +78,6 @@ export function applyViewport(next: Viewport) {
   root.style.setProperty('--bleed-x', `${next.bleedX}px`);
   root.style.setProperty('--bleed-y', `${next.bleedY}px`);
   root.toggleAttribute('data-handheld', next.handheld);
-  // Turning a phone from portrait to landscape reveals the stage with a short
-  // stepped wake instead of the browser's half-resized frames.
-  if (current.portrait && !next.portrait && next.handheld) {
-    root.removeAttribute('data-waking');
-    void root.offsetWidth;
-    root.setAttribute('data-waking', '');
-    window.setTimeout(() => root.removeAttribute('data-waking'), 700);
-  }
   current = next;
   listeners.forEach((l) => l());
 }

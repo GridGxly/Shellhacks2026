@@ -87,7 +87,6 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 @keyframes unfold { from { transform: scale(0.2, 0.3); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
 @keyframes wipeIn { from { transform: translateX(-110%); } to { transform: translateX(0); } }
 @keyframes wipeOut { from { transform: translateX(0); } to { transform: translateX(110%); } }
-@keyframes irisClose { from { clip-path: circle(120% at 50% 50%); } to { clip-path: circle(0% at 50% 50%); } }
 @keyframes confetti { from { transform: translateY(-40px) rotate(0); } to { transform: translateY(980px) rotate(540deg); } }
 @keyframes dissolve { 0% { opacity: 1; filter: none; } 60% { opacity: 0.6; filter: brightness(2) blur(1px); } 100% { opacity: 0; transform: translateY(-40px) scale(1.1); filter: brightness(3) blur(6px); } }
 @keyframes pixelDrift { from { transform: translate(0, 0); opacity: 1; } to { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
@@ -157,14 +156,11 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 :root[data-handheld] .desk-only { display: none !important; }
 :root:not([data-handheld]) .hand-only { display: none !important; }
 
-/* The stage is landscape: phones held upright get a rotate card, and turning
-   the phone irises the stage back open instead of showing half-resized frames. */
-.rotate-hint { display: grid; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 200ms steps(4), visibility 0s 200ms; }
-@media (orientation: portrait) and (pointer: coarse) { .rotate-hint { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity 240ms steps(4); } }
+/* The stage is landscape: phones held upright get a rotate card. It is not
+   rendered at all otherwise, so its animation never runs in the background. */
+.rotate-hint { display: none; }
+@media (orientation: portrait) and (pointer: coarse) { .rotate-hint { display: grid; } }
 @keyframes rotatePhone { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
-@keyframes stageWake { from { clip-path: circle(0% at 50% 50%); } to { clip-path: circle(160% at 50% 50%); } }
-:root[data-waking] :is(.stage, .mobile-surface) { animation: stageWake 460ms steps(8) backwards; }
-@media (prefers-reduced-motion: reduce) { :root[data-waking] :is(.stage, .mobile-surface) { animation: fadeIn 200ms steps(3) backwards; } }
 
 /* Handheld type: copy the player must read in play is set larger inside its box,
    before the stage scale. The sheet-music panel is also fit-scaled to the glass

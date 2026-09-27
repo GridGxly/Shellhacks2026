@@ -166,7 +166,6 @@ export default function Game() {
 
             {toast && <Toast text={toast} />}
             {transition === 'wipe' && <Wipe />}
-            {transition === 'iris' && <Iris />}
           </>
         )}
       </div>
@@ -244,15 +243,6 @@ function Wipe() {
           }}
         />
       ))}
-    </div>
-  );
-}
-
-function Iris() {
-  return (
-    <div className="fill bleed" style={{ zIndex: 100, pointerEvents: 'none' }}>
-      <div className="fill" style={{ background: '#07070f', animation: 'irisOpenClose 1100ms steps(14) both' }} />
-      <style>{`@keyframes irisOpenClose { 0% { clip-path: circle(0% at 50% 50%); } 45%, 55% { clip-path: circle(80% at 50% 50%); } 100% { clip-path: circle(0% at 50% 50%); } }`}</style>
     </div>
   );
 }

@@ -53,7 +53,7 @@ export default function Tavern() {
   const stopCrowd = useRef<(() => void) | null>(null);
   const returnHome = useCallback(() => {
     stopCrowd.current?.(); lifetime.current?.abort(); recording.current?.cancel(); mic.endRecording(); mic.stop();
-    muteMusic(false); useGame.getState().go('title', 'iris');
+    muteMusic(false); useGame.getState().go('title');
   }, []);
   const disconnect = useCallback(() => {
     stopCrowd.current?.(); lifetime.current?.abort(); recording.current?.cancel(); mic.endRecording(); mic.stop();

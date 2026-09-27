@@ -12,7 +12,7 @@ export type Screen =
   | 'title' | 'howto' | 'mic' | 'lab' | 'bossdemo' | 'credits' | 'instrument' | 'map' | 'combat'
   | 'victory' | 'actclear' | 'loss' | 'final' | 'leaderboard' | 'profile' | 'tavern' | 'training';
 export type Overlay = null | 'stats' | 'pause' | 'mappeek' | 'signin' | 'overwrite';
-export type Transition = null | 'wipe' | 'iris';
+export type Transition = null | 'wipe';
 
 export interface Card {
   type: CardType;
@@ -299,8 +299,8 @@ export const useGame = create<GameState>((set, get) => ({
     if (screen !== 'profile') set({ viewProfile: null });
     if (!transition) return set({ screen, overlay: null });
     set({ transition });
-    window.setTimeout(() => set({ screen, overlay: null }), transition === 'iris' ? 520 : 380);
-    window.setTimeout(() => set({ transition: null }), transition === 'iris' ? 1100 : 800);
+    window.setTimeout(() => set({ screen, overlay: null }), 380);
+    window.setTimeout(() => set({ transition: null }), 800);
   },
   setOverlay: (overlay) => set({ overlay }),
   setDemo: (demoMode) => set({ demoMode }),
@@ -374,16 +374,16 @@ export const useGame = create<GameState>((set, get) => ({
       combat: newCombat(enemyIdx),
       lossBy: null,
     });
-    get().go('combat', 'iris');
+    get().go('combat');
   },
   endBossDemo: () => {
     const backup = get().bossDemo;
-    get().go('title', 'iris');
-    // Restore once the iris has covered the fight (screen swaps at 520 ms), so
+    get().go('title');
+    // Restore once the wipe has covered the fight (screen swaps at 380 ms), so
     // Combat never re-renders against the real run's HP/stats.
     window.setTimeout(() => {
       if (backup) set({ run: backup.run, saved: backup.saved, combat: null, bossDemo: null });
-    }, 600);
+    }, 420);
   },
 
   buy: (id) => {
